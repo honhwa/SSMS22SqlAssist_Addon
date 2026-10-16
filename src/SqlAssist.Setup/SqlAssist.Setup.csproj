@@ -1,18 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- SqlAssistSetup.exe: one file that carries the .vsix and installs it into SSMS 22.
+  <!-- SqlAssistSetup.exe: a setup window that carries the .vsix and installs, updates or removes it in SSMS 22.
        .NET Framework 4.8 ships with Windows 10/11, so the exe runs without installing a runtime. -->
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net48</TargetFramework>
     <AssemblyName>SqlAssistSetup</AssemblyName>
     <RootNamespace>SqlAssist.Setup</RootNamespace>
     <LangVersion>latest</LangVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Generated from assets\icon.png by make-icons.ps1. -->
+    <ApplicationIcon>app.ico</ApplicationIcon>
     <VsixPath>..\SqlAssist.Vsix\bin\$(Configuration)\net48\SqlAssist.vsix</VsixPath>
   </PropertyGroup>
 
   <ItemGroup>
     <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <!-- The logo in the window header. -->
+    <EmbeddedResource Include="..\SqlAssist.Vsix\Resources\icon.png" LogicalName="icon.png" />
   </ItemGroup>
 
   <ItemGroup>

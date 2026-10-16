@@ -4,6 +4,8 @@ $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $version = ([xml](Get-Content (Join-Path $root "Directory.Build.props"))).Project.PropertyGroup.Version
 
+& (Join-Path $root "make-icons.ps1")
+
 dotnet test (Join-Path $root "tests\SqlAssist.Core.Tests") --nologo -v quiet
 if ($LASTEXITCODE -ne 0) { throw "Tests failed." }
 

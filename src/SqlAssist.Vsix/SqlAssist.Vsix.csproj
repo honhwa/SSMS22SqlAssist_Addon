@@ -42,6 +42,10 @@
       <ResourceName>Menus.ctmenu</ResourceName>
     </VSCTCompile>
     <None Update="source.extension.vsixmanifest" SubType="Designer" />
+    <!-- Generated from assets\icon.png by make-icons.ps1. -->
+    <Content Include="Resources\icon.png">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
   </ItemGroup>
 
   <Import Project="$(NuGetPackageRoot)microsoft.vssdk.buildtools\18.5.40034\tools\vssdk\Microsoft.VsSDK.targets"
