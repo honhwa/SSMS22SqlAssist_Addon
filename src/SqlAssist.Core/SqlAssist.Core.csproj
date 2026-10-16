@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Editor-free logic. The VSIX compiles these sources directly (one DLL to ship);
+       this project exists so the tests can reference it without any VS assemblies. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>SqlAssist.Core</RootNamespace>
+  </PropertyGroup>
+</Project>

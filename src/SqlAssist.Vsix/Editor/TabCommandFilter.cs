@@ -1,0 +1,202 @@
+using System;
+using System.ComponentModel.Composition;
+using System.Runtime.InteropServices;
+using System.Threading;
+using Microsoft.VisualStudio;
+using Microsoft.VisualStudio.Editor;
+using Microsoft.VisualStudio.Language.Intellisense.AsyncCompletion;
+using Microsoft.VisualStudio.Language.Intellisense.AsyncCompletion.Data;
+using Microsoft.VisualStudio.OLE.Interop;
+using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Text;
+using Microsoft.VisualStudio.Text.Editor;
+using Microsoft.VisualStudio.Utilities;
+using SqlAssist.Connection;
+using SqlAssist.Core.Completion;
+using SqlAssist.Core.Sql;
+using SqlAssist.Schema;
+using SqlAssist.Snippets;
+
+namespace SqlAssist.Editor
+{
+    [Export(typeof(IWpfTextViewCreationListener))]
+    [Name("SqlAssist command filter")]
+    [ContentType(SqlContentType.Name)]
+    [TextViewRole(PredefinedTextViewRoles.Editable)]
+    internal sealed class TabCommandFilterProvider : IWpfTextViewCreationListener
+    {
+        [Import] internal IVsEditorAdaptersFactoryService Adapters { get; set; }
+        [Import] internal IAsyncCompletionBroker Broker { get; set; }
+
+        public void TextViewCreated(IWpfTextView textView)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var adapter = Adapters.GetViewAdapter(textView);
+            if (adapter == null) return;
+            var filter = new TabCommandFilter(textView, Broker);
+            if (ErrorHandler.Succeeded(adapter.AddCommandFilter(filter, out var next)))
+            {
+                filter.Next = next;
+                Log.Info($"SqlAssist {SqlAssistPackage.Version} attached to a SQL editor");
+            }
+        }
+    }
+
+    /// <summary>SSMS routes keys through the IOleCommandTarget chain (WPF key processors never see them),
+    /// so this sits at the front of each SQL editor's chain. Tab is decided in this order:
+    /// snippet shortcut → commit the open completion list → expand SELECT * → plain Tab.</summary>
+    internal sealed class TabCommandFilter : IOleCommandTarget
+    {
+        private static readonly TimeSpan StarSchemaWait = TimeSpan.FromSeconds(5);
+
+        private readonly IWpfTextView _view;
+        private readonly IAsyncCompletionBroker _broker;
+
+        public TabCommandFilter(IWpfTextView view, IAsyncCompletionBroker broker)
+        {
+            _view = view;
+            _broker = broker;
+        }
+
+        public IOleCommandTarget Next { get; set; }
+
+        public int QueryStatus(ref Guid pguidCmdGroup, uint cCmds, OLECMD[] prgCmds, IntPtr pCmdText)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (cCmds == 1 && RefreshCommand.Matches(pguidCmdGroup, prgCmds[0].cmdID))
+            {
+                // Keep Ctrl+Shift+R alive even with SSMS's own IntelliSense switched off.
+                prgCmds[0].cmdf = (uint)(OLECMDF.OLECMDF_SUPPORTED | OLECMDF.OLECMDF_ENABLED);
+                return VSConstants.S_OK;
+            }
+            return Next.QueryStatus(ref pguidCmdGroup, cCmds, prgCmds, pCmdText);
+        }
+
+        public int Exec(ref Guid pguidCmdGroup, uint nCmdID, uint nCmdexecopt, IntPtr pvaIn, IntPtr pvaOut)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            try
+            {
+                if (RefreshCommand.Matches(pguidCmdGroup, nCmdID))
+                {
+                    SchemaCache.Instance.Clear();
+                    Next.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
+                    return VSConstants.S_OK;
+                }
+
+                if (pguidCmdGroup == VSConstants.VSStd2K)
+                {
+                    switch ((VSConstants.VSStd2KCmdID)nCmdID)
+                    {
+                        case VSConstants.VSStd2KCmdID.TAB:
+                            if (HandleTab()) return VSConstants.S_OK;
+                            break;
+
+                        case VSConstants.VSStd2KCmdID.COMPLETEWORD:
+                        case VSConstants.VSStd2KCmdID.SHOWMEMBERLIST:
+                        case VSConstants.VSStd2KCmdID.AUTOCOMPLETE:
+                            // Ctrl+Space: open our list, and keep SSMS's from opening on top of it.
+                            Trigger(CompletionTriggerReason.Invoke, '\0');
+                            return VSConstants.S_OK;
+
+                        case VSConstants.VSStd2KCmdID.TYPECHAR:
+                            return TypeChar(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Command filter", ex);
+            }
+            return Next.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
+        }
+
+        private int TypeChar(ref Guid group, uint id, uint opt, IntPtr pvaIn, IntPtr pvaOut)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            char ch = (char)(ushort)Marshal.GetObjectForNativeVariant(pvaIn);
+            // Nothing commits on a typed character (see SqlCommitManager), so a list still open when the word ends
+            // is closed here instead of following the caret into the next word.
+            if (!SqlIdentifier.IsWordChar(ch) && ch != '[')
+                _broker.GetSession(_view)?.Dismiss();
+
+            int hr = Next.Exec(ref group, id, opt, pvaIn, pvaOut);
+
+            // The editor's own completion handler normally does both of these; repeating them is harmless and
+            // covers an SSMS build where it is not in the chain.
+            var session = _broker.GetSession(_view);
+            if (session != null && !session.IsDismissed)
+            {
+                var caret = _view.Caret.Position.BufferPosition;
+                session.OpenOrUpdate(new CompletionTrigger(CompletionTriggerReason.Insertion, caret.Snapshot, ch), caret, CancellationToken.None);
+            }
+            else if (char.IsLetter(ch) || ch == '_' || ch == '.' || ch == ' ')
+            {
+                Trigger(CompletionTriggerReason.Insertion, ch);
+            }
+            return hr;
+        }
+
+        private bool HandleTab()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (!_view.Selection.IsEmpty || _view.Selection.Mode == TextSelectionMode.Box) return false;
+            var caret = _view.Caret.Position.BufferPosition;
+            var window = TextWindow.Around(caret.Snapshot, caret.Position);
+
+            // 1. Snippet shortcut — checked first so "ssf" expands even while the list is open on it.
+            if (SqlContextAnalyzer.TryGetSnippetWord(window.Text, window.Caret, out var word, out int start) &&
+                SnippetProvider.Current.TryGet(word, out var snippet))
+            {
+                _broker.GetSession(_view)?.Dismiss();
+                SnippetInserter.Insert(_view, _broker, new SnapshotSpan(caret.Snapshot, window.Offset + start, word.Length), snippet);
+                return true;
+            }
+
+            // 2. An open list with a selection: let the editor commit it.
+            var session = _broker.GetSession(_view);
+            if (session != null && !session.IsDismissed)
+            {
+                if (session.GetComputedItems(CancellationToken.None)?.SelectedItem != null) return false;
+                session.Dismiss();
+            }
+
+            // 3. SELECT *| → column list.
+            return ExpandStar(caret, window);
+        }
+
+        private bool ExpandStar(SnapshotPoint caret, TextWindow window)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var star = SqlContextAnalyzer.FindStar(window.Text, window.Caret);
+            if (star == null) return false;
+
+            var target = ActiveConnection.TryGet();
+            if (target == null)
+            {
+                Log.Info("SELECT * expansion skipped: no connected query window");
+                return false;
+            }
+            var schema = ThreadHelper.JoinableTaskFactory.Run(() => SchemaCache.Instance.GetAsync(target, StarSchemaWait, CancellationToken.None));
+            string columns = StarExpander.Expand(star, schema);
+            if (columns == null)
+            {
+                SchemaCache.Instance.RefreshIfOlderThanThrottle(target);
+                Log.Info("SELECT * expansion skipped: table not found in schema of " + target);
+                return false;
+            }
+
+            var span = new SnapshotSpan(caret.Snapshot, window.Offset + star.ReplaceStart, star.ReplaceEnd - star.ReplaceStart);
+            var after = caret.Snapshot.TextBuffer.Replace(span, columns);
+            _view.Caret.MoveTo(new SnapshotPoint(after, span.Start.Position + columns.Length));
+            return true;
+        }
+
+        private void Trigger(CompletionTriggerReason reason, char ch)
+        {
+            var caret = _view.Caret.Position.BufferPosition;
+            var trigger = new CompletionTrigger(reason, caret.Snapshot, ch);
+            _broker.TriggerCompletion(_view, trigger, caret, CancellationToken.None)?.OpenOrUpdate(trigger, caret, CancellationToken.None);
+        }
+    }
+}

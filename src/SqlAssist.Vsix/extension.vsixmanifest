@@ -1,0 +1,23 @@
+<PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011">
+  <Metadata>
+    <Identity Id="SqlAssist.9cc4aed8-f2ad-4120-ba6f-222b08aa04a0" Version="1.1.0" Language="en-US" Publisher="SqlAssist" />
+    <DisplayName>SqlAssist</DisplayName>
+    <Description xml:space="preserve">IntelliSense and snippets for the SSMS 22 query editor: fuzzy table/column completion with automatic aliases, foreign-key JOIN suggestions, SELECT * expansion on Tab, and Tab-triggered snippets (ssf → SELECT * FROM).</Description>
+    <Tags>SSMS, SQL Server, IntelliSense, Snippets</Tags>
+  </Metadata>
+  <Installation>
+    <InstallationTarget Id="Microsoft.VisualStudio.Ssms" Version="[22.0,23.0)">
+      <ProductArchitecture>amd64</ProductArchitecture>
+    </InstallationTarget>
+  </Installation>
+  <Dependencies>
+    <Dependency Id="Microsoft.Framework.NDP" DisplayName="Microsoft .NET Framework" Version="[4.8,)" />
+  </Dependencies>
+  <Prerequisites>
+    <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" DisplayName="Visual Studio core editor" Version="[18.0,19.0)" />
+  </Prerequisites>
+  <Assets>
+    <Asset Type="Microsoft.VisualStudio.VsPackage" Path="SqlAssist.pkgdef" />
+    <Asset Type="Microsoft.VisualStudio.MefComponent" Path="SqlAssist.dll" />
+  </Assets>
+</PackageManifest>

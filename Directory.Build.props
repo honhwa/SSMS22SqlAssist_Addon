@@ -1,0 +1,8 @@
+<Project>
+  <!-- The one place the version lives. It flows into every assembly, the .vsix manifest
+       (see StampVsixVersion in SqlAssist.Vsix.csproj) and the setup exe's file name.
+       Bump it for every release so "is the update installed?" has an answer. -->
+  <PropertyGroup>
+    <Version>1.1.0</Version>
+  </PropertyGroup>
+</Project>

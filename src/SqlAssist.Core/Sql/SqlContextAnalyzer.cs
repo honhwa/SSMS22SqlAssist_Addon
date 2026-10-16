@@ -1,0 +1,465 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace SqlAssist.Core.Sql
+{
+    /// <summary>A table (or view, function, derived table) named in a FROM / JOIN / UPDATE / INTO.</summary>
+    public sealed class TableRef
+    {
+        public string Schema { get; set; }
+        public string Name { get; set; }
+        public string Alias { get; set; }
+        public bool IsDerived { get; set; }
+        public bool IsFunction { get; set; }
+        /// <summary>Paren group the reference lives in (-1 = top level) and the UNION segment within it.</summary>
+        public int Group { get; set; }
+        public int Segment { get; set; }
+
+        /// <summary>What the rest of the query calls this table: the alias, or the name as written.</summary>
+        public string RefName => Alias ?? Name;
+        public bool HasColumns => !IsDerived && !IsFunction;
+
+        public bool Answers(string qualifier) =>
+            string.Equals(Alias, qualifier, StringComparison.OrdinalIgnoreCase) ||
+            (Alias == null && string.Equals(Name, qualifier, StringComparison.OrdinalIgnoreCase));
+
+        public override string ToString() => (Schema != null ? Schema + "." : "") + Name + (Alias != null ? " " + Alias : "");
+    }
+
+    public enum CaretContextKind
+    {
+        /// <summary>A table name is expected: after FROM, JOIN, UPDATE, INTO, or a comma in a FROM list.</summary>
+        TableName,
+        /// <summary>After "x." — x is an alias/table (columns follow) or, in table position, a schema.</summary>
+        Qualified,
+        /// <summary>Anywhere else: columns, keywords and snippets.</summary>
+        General
+    }
+
+    public sealed class CaretContext
+    {
+        public CaretContextKind Kind { get; internal set; }
+        public bool AllowAlias { get; internal set; }
+        public bool IsJoin { get; internal set; }
+        public string Qualifier { get; internal set; }
+        /// <summary>For "dbo.Customers.|" the schema in front of the qualifier.</summary>
+        public string QualifierSchema { get; internal set; }
+        /// <summary>The qualifier sits where a table name goes, so it names a schema ("FROM dbo.|").</summary>
+        public bool QualifierIsSchema { get; internal set; }
+        public bool InStringOrComment { get; internal set; }
+        /// <summary>Right after a table name (or AS) in FROM/JOIN, where the user is typing an alias:
+        /// a list here would turn "FROM Customers c⏎" into a committed suggestion.</summary>
+        public bool IsAliasPosition { get; internal set; }
+        /// <summary>The identifier around the caret, replaced on commit (includes a leading '[').</summary>
+        public int WordStart { get; internal set; }
+        public int WordEnd { get; internal set; }
+        public string TypedText { get; internal set; }
+        /// <summary>Tables visible at the caret: its own query block plus enclosing ones.</summary>
+        public IReadOnlyList<TableRef> TablesInScope { get; internal set; }
+        /// <summary>Tables of the caret's own query block only (what a new JOIN can join to).</summary>
+        public IReadOnlyList<TableRef> SiblingTables { get; internal set; }
+        public IReadOnlyCollection<string> AliasesInStatement { get; internal set; }
+    }
+
+    public sealed class StarContext
+    {
+        public int ReplaceStart { get; internal set; }
+        public int ReplaceEnd { get; internal set; }
+        public string Qualifier { get; internal set; }
+        public IReadOnlyList<TableRef> Tables { get; internal set; }
+    }
+
+    public static class SqlContextAnalyzer
+    {
+        private static readonly HashSet<string> SetOperators = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "UNION", "EXCEPT", "INTERSECT" };
+        private static readonly HashSet<string> ClauseWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { "SELECT", "FROM", "WHERE", "ON", "BY", "SET", "HAVING", "VALUES", "JOIN", "APPLY", "INTO", "UPDATE" };
+
+        public static CaretContext Analyze(string text, int caret)
+        {
+            var tokens = SqlTokenizer.Tokenize(text);
+            int wordStart = caret, wordEnd = caret;
+            while (wordStart > 0 && SqlIdentifier.IsWordChar(text[wordStart - 1])) wordStart--;
+            if (wordStart > 0 && text[wordStart - 1] == '[') wordStart--;
+            while (wordEnd < text.Length && SqlIdentifier.IsWordChar(text[wordEnd])) wordEnd++;
+
+            var stmt = Statement.Build(text, tokens, caret, wordStart, wordEnd);
+            var ctx = new CaretContext
+            {
+                WordStart = wordStart,
+                WordEnd = wordEnd,
+                TypedText = text.Substring(wordStart, caret - wordStart).TrimStart('['),
+                InStringOrComment = SqlTokenizer.IsInStringOrComment(tokens, caret),
+                Kind = CaretContextKind.General,
+                AliasesInStatement = new HashSet<string>(stmt.Tables.Where(t => t.Alias != null).Select(t => t.Alias), StringComparer.OrdinalIgnoreCase),
+            };
+            ctx.TablesInScope = stmt.TablesVisibleFrom(stmt.CaretGroup, stmt.CaretSegment);
+            ctx.SiblingTables = stmt.Tables.Where(t => t.Group == stmt.CaretGroup && t.Segment == stmt.CaretSegment && t.HasColumns).ToList();
+
+            var sig = stmt.Sig;
+            int p = stmt.LastIndexBefore(wordStart);
+            if (p < 0) return ctx;
+
+            if (sig[p].IsSymbol('.') && sig[p].End == wordStart)
+            {
+                ctx.Kind = CaretContextKind.Qualified;
+                int q = p - 1;
+                if (q >= 0 && sig[q].IsName && sig[q].End == sig[p].Start)
+                {
+                    ctx.Qualifier = sig[q].Value;
+                    int chainStart = q;
+                    if (q >= 2 && sig[q - 1].IsSymbol('.') && sig[q - 2].IsName)
+                    {
+                        ctx.QualifierSchema = sig[q - 2].Value;
+                        chainStart = q - 2;
+                    }
+                    var before = TableKeywordAt(stmt, chainStart - 1);
+                    ctx.QualifierIsSchema = before.HasValue && ctx.QualifierSchema == null;
+                    if (before.HasValue)
+                    {
+                        ctx.AllowAlias = before.Value.allowAlias;
+                        ctx.IsJoin = before.Value.isJoin;
+                    }
+                }
+                return ctx;
+            }
+
+            var table = TableKeywordAt(stmt, p);
+            if (table.HasValue)
+            {
+                ctx.Kind = CaretContextKind.TableName;
+                ctx.AllowAlias = table.Value.allowAlias;
+                ctx.IsJoin = table.Value.isJoin;
+            }
+            ctx.IsAliasPosition = stmt.AliasSlots.Contains(p) || (sig[p].IsWord("AS") && p > 0 && stmt.AliasSlots.Contains(p - 1));
+            return ctx;
+        }
+
+        /// <summary>Finds a "*" just before the caret that stands for a select list ("SELECT *", ", *", "c.*").</summary>
+        public static StarContext FindStar(string text, int caret)
+        {
+            if (caret <= 0 || caret > text.Length || text[caret - 1] != '*') return null;
+            var tokens = SqlTokenizer.Tokenize(text);
+            if (SqlTokenizer.IsInStringOrComment(tokens, caret)) return null;
+            var stmt = Statement.Build(text, tokens, caret, caret, caret);
+            var sig = stmt.Sig;
+            int s = stmt.LastIndexBefore(caret);
+            if (s < 0 || !sig[s].IsSymbol('*') || sig[s].End != caret) return null;
+
+            int group = stmt.GroupOf[s], segment = stmt.SegmentOf[s];
+            var scope = stmt.Tables.Where(t => t.Group == group && t.Segment == segment && t.HasColumns).ToList();
+            var result = new StarContext { ReplaceStart = sig[s].Start, ReplaceEnd = caret };
+
+            if (s >= 2 && sig[s - 1].IsSymbol('.') && sig[s - 2].IsName && sig[s - 2].End == sig[s - 1].Start)
+            {
+                string q = sig[s - 2].Value;
+                var match = scope.FirstOrDefault(t => t.Answers(q))
+                    ?? stmt.TablesVisibleFrom(group, segment).FirstOrDefault(t => t.HasColumns && t.Answers(q));
+                if (match == null) return null;
+                result.Qualifier = q;
+                result.ReplaceStart = sig[s - 2].Start;
+                result.Tables = new[] { match };
+                return result;
+            }
+
+            if (s == 0 || !StartsSelectItem(stmt, s - 1)) return null;
+            if (scope.Count == 0) return null;
+            result.Tables = scope;
+            return result;
+        }
+
+        /// <summary>The identifier ending at the caret, when it could be a snippet shortcut.</summary>
+        public static bool TryGetSnippetWord(string text, int caret, out string word, out int start)
+        {
+            word = null;
+            start = caret;
+            if (caret < text.Length && SqlIdentifier.IsWordChar(text[caret])) return false;
+            while (start > 0 && SqlIdentifier.IsWordChar(text[start - 1])) start--;
+            if (start == caret) return false;
+            if (start > 0 && (text[start - 1] == '.' || text[start - 1] == '[')) return false;
+            if (SqlTokenizer.IsInStringOrComment(SqlTokenizer.Tokenize(text), caret)) return false;
+            word = text.Substring(start, caret - start);
+            return true;
+        }
+
+        // Is token k the thing right before a select-list item? (SELECT, DISTINCT, TOP n, or a comma in a select list)
+        private static bool StartsSelectItem(Statement stmt, int k)
+        {
+            var sig = stmt.Sig;
+            var t = sig[k];
+            if (t.IsWord("SELECT") || t.IsWord("DISTINCT") || t.IsWord("ALL") || t.IsWord("PERCENT") || t.IsWord("TIES")) return true;
+            if (t.Kind == TokenKind.Number && k > 0 && sig[k - 1].IsWord("TOP")) return true;
+            if (t.IsSymbol(')'))
+            {
+                int open = stmt.MatchingOpen(k);
+                return open > 0 && sig[open - 1].IsWord("TOP");
+            }
+            if (t.IsSymbol(',')) return string.Equals(stmt.ClauseOf(k), "SELECT", StringComparison.OrdinalIgnoreCase);
+            return false;
+        }
+
+        // Is token k a keyword (or FROM-list comma) after which a table name goes?
+        private static (bool allowAlias, bool isJoin)? TableKeywordAt(Statement stmt, int k)
+        {
+            if (k < 0) return null;
+            var sig = stmt.Sig;
+            var t = sig[k];
+            if (t.IsWord("JOIN")) return (true, true);
+            if (t.IsWord("APPLY")) return (true, false);
+            if (t.IsWord("FROM")) return (!(k > 0 && sig[k - 1].IsWord("DELETE")), false);
+            if (t.IsWord("UPDATE") || t.IsWord("INTO")) return (false, false);
+            if (t.IsWord("TABLE") && k > 0 && sig[k - 1].IsWord("TRUNCATE")) return (false, false);
+            if (t.IsSymbol(','))
+            {
+                int clause = stmt.ClauseIndexOf(k);
+                if (clause >= 0 && sig[clause].IsWord("FROM"))
+                    return (!(clause > 0 && sig[clause - 1].IsWord("DELETE")), false);
+            }
+            return null;
+        }
+
+        private sealed class Statement
+        {
+            public List<SqlToken> Sig;
+            public int[] GroupOf;
+            public int[] SegmentOf;
+            public Dictionary<int, int> ParentGroup = new Dictionary<int, int>();
+            public List<TableRef> Tables = new List<TableRef>();
+            /// <summary>Indexes of the last token of table names that could still take an alias.</summary>
+            public HashSet<int> AliasSlots = new HashSet<int>();
+            public int CaretGroup = -1;
+            public int CaretSegment;
+
+            public static Statement Build(string text, List<SqlToken> tokens, int caret, int wordStart, int wordEnd)
+            {
+                var (start, end) = Bounds(text, tokens, caret);
+                var st = new Statement { Sig = new List<SqlToken>() };
+                foreach (var t in tokens)
+                {
+                    if (t.Start < start || t.Start >= end) continue;
+                    if (t.Kind == TokenKind.Comment || t.IsSymbol(';') || IsBatchSeparator(text, t)) continue;
+                    if (wordEnd > wordStart && t.Start < wordEnd && t.End > wordStart) continue; // the word being typed
+                    st.Sig.Add(t);
+                }
+                st.ComputeGroups(wordStart);
+                st.ParseTables();
+                return st;
+            }
+
+            private static (int start, int end) Bounds(string text, List<SqlToken> tokens, int caret)
+            {
+                int start = 0, end = text.Length;
+                void Boundary(int b, int tokenStart)
+                {
+                    if (b <= caret) start = Math.Max(start, b);
+                    else end = Math.Min(end, tokenStart);
+                }
+                int prevEnd = 0;
+                for (int k = 0; k <= tokens.Count; k++)
+                {
+                    // A blank line between two tokens separates statements (the usual way SSMS scripts are laid out).
+                    int gapEnd = k < tokens.Count ? tokens[k].Start : text.Length;
+                    int newlines = 0, lastNewline = -1;
+                    for (int i = prevEnd; i < gapEnd; i++)
+                        if (text[i] == '\n') { newlines++; lastNewline = i; }
+                    if (newlines >= 2) Boundary(lastNewline + 1, lastNewline + 1);
+                    if (k == tokens.Count) break;
+
+                    var t = tokens[k];
+                    if (t.IsSymbol(';') || IsBatchSeparator(text, t)) Boundary(t.End, t.Start);
+                    prevEnd = t.End;
+                }
+                return (start, Math.Max(start, end));
+            }
+
+            private static bool IsBatchSeparator(string text, SqlToken t)
+            {
+                if (!t.IsWord("GO")) return false;
+                for (int i = t.Start - 1; i >= 0 && text[i] != '\n'; i--)
+                    if (!char.IsWhiteSpace(text[i])) return false;
+                return true;
+            }
+
+            private void ComputeGroups(int caretPos)
+            {
+                GroupOf = new int[Sig.Count];
+                SegmentOf = new int[Sig.Count];
+                var segments = new Dictionary<int, int> { [-1] = 0 };
+                var stack = new Stack<int>();
+                stack.Push(-1);
+                bool caretSet = false;
+                for (int k = 0; k < Sig.Count; k++)
+                {
+                    if (!caretSet && Sig[k].Start >= caretPos)
+                    {
+                        CaretGroup = stack.Peek();
+                        CaretSegment = segments[CaretGroup];
+                        caretSet = true;
+                    }
+                    var t = Sig[k];
+                    int g = stack.Peek();
+                    if (t.IsSymbol(')') && stack.Count > 1) { stack.Pop(); g = stack.Peek(); }
+                    if (t.Kind == TokenKind.Word && SetOperators.Contains(t.Text)) segments[g] = segments[g] + 1;
+                    GroupOf[k] = g;
+                    SegmentOf[k] = segments[g];
+                    if (t.IsSymbol('('))
+                    {
+                        ParentGroup[k] = g;
+                        segments[k] = 0;
+                        stack.Push(k);
+                    }
+                }
+                if (!caretSet)
+                {
+                    CaretGroup = stack.Peek();
+                    CaretSegment = segments[CaretGroup];
+                }
+            }
+
+            private void ParseTables()
+            {
+                for (int k = 0; k < Sig.Count; k++)
+                {
+                    var t = Sig[k];
+                    if (t.IsWord("FROM"))
+                    {
+                        bool alias = !(k > 0 && Sig[k - 1].IsWord("DELETE"));
+                        int j = ParseRef(k + 1, k, alias, true);
+                        while (j < Sig.Count && Sig[j].IsSymbol(',') && GroupOf[j] == GroupOf[k])
+                            j = ParseRef(j + 1, k, alias, true);
+                    }
+                    else if (t.IsWord("JOIN") || t.IsWord("APPLY")) ParseRef(k + 1, k, true, true);
+                    else if (t.IsWord("UPDATE") || t.IsWord("INTO")) ParseRef(k + 1, k, false, false);
+                }
+            }
+
+            // Parses one table reference starting at k; returns the index just past it.
+            private int ParseRef(int k, int keyword, bool allowAlias, bool allowFunction)
+            {
+                if (k >= Sig.Count) return k;
+                var r = new TableRef { Group = GroupOf[keyword], Segment = SegmentOf[keyword] };
+                int j = k;
+                if (Sig[j].IsSymbol('('))
+                {
+                    r.IsDerived = true;
+                    j = MatchingClose(j) + 1;
+                }
+                else
+                {
+                    if (!Sig[j].IsName || (Sig[j].Kind == TokenKind.Word && SqlKeywords.IsReserved(Sig[j].Text))) return k;
+                    var parts = new List<string>();
+                    while (j < Sig.Count && Sig[j].IsName)
+                    {
+                        parts.Add(Sig[j].Value);
+                        j++;
+                        if (j < Sig.Count && Sig[j].IsSymbol('.'))
+                        {
+                            j++;
+                            while (j < Sig.Count && Sig[j].IsSymbol('.')) { parts.Add(null); j++; } // a..b
+                            // "FROM dbo.| WHERE": the dot is still waiting for its name; WHERE is not it.
+                            if (j >= Sig.Count || Sig[j].Start != Sig[j - 1].End ||
+                                (Sig[j].Kind == TokenKind.Word && SqlKeywords.IsReserved(Sig[j].Text)))
+                            {
+                                parts.Add(null);
+                                break;
+                            }
+                            continue;
+                        }
+                        break;
+                    }
+                    r.Name = parts[parts.Count - 1];
+                    if (parts.Count >= 2) r.Schema = parts[parts.Count - 2];
+                    if (allowFunction && j < Sig.Count && Sig[j].IsSymbol('('))
+                    {
+                        r.IsFunction = true;
+                        j = MatchingClose(j) + 1;
+                    }
+                    if (r.Name == null) return j;
+                }
+
+                if (allowAlias || r.IsDerived) AliasSlots.Add(j - 1);
+                if (j < Sig.Count && (allowAlias || r.IsDerived))
+                {
+                    if (Sig[j].IsWord("AS") && j + 1 < Sig.Count && Sig[j + 1].IsName)
+                    {
+                        r.Alias = Sig[j + 1].Value;
+                        j += 2;
+                    }
+                    else if ((Sig[j].Kind == TokenKind.Word && SqlKeywords.CanBeAlias(Sig[j].Text)) || Sig[j].Kind == TokenKind.QuotedIdentifier)
+                    {
+                        r.Alias = Sig[j].Value;
+                        j++;
+                    }
+                }
+                if (j + 1 < Sig.Count && Sig[j].IsWord("WITH") && Sig[j + 1].IsSymbol('('))
+                    j = MatchingClose(j + 1) + 1; // table hints
+                Tables.Add(r);
+                return j;
+            }
+
+            public int MatchingClose(int open)
+            {
+                int depth = 0;
+                for (int k = open; k < Sig.Count; k++)
+                {
+                    if (Sig[k].IsSymbol('(')) depth++;
+                    else if (Sig[k].IsSymbol(')') && --depth == 0) return k;
+                }
+                return Sig.Count - 1;
+            }
+
+            public int MatchingOpen(int close)
+            {
+                int depth = 0;
+                for (int k = close; k >= 0; k--)
+                {
+                    if (Sig[k].IsSymbol(')')) depth++;
+                    else if (Sig[k].IsSymbol('(') && --depth == 0) return k;
+                }
+                return -1;
+            }
+
+            public int LastIndexBefore(int pos)
+            {
+                int last = -1;
+                for (int k = 0; k < Sig.Count && Sig[k].End <= pos; k++) last = k;
+                return last;
+            }
+
+            /// <summary>Index of the clause keyword governing token k, walking back at the same paren depth.</summary>
+            public int ClauseIndexOf(int k)
+            {
+                int depth = 0;
+                for (int i = k - 1; i >= 0; i--)
+                {
+                    var t = Sig[i];
+                    if (t.IsSymbol(')')) depth++;
+                    else if (t.IsSymbol('(')) { if (depth == 0) return -1; depth--; }
+                    else if (depth == 0 && t.Kind == TokenKind.Word && ClauseWords.Contains(t.Text)) return i;
+                }
+                return -1;
+            }
+
+            public string ClauseOf(int k)
+            {
+                int i = ClauseIndexOf(k);
+                return i < 0 ? null : Sig[i].Text;
+            }
+
+            public List<TableRef> TablesVisibleFrom(int group, int segment)
+            {
+                var result = new List<TableRef>();
+                int g = group, seg = segment;
+                while (true)
+                {
+                    result.AddRange(Tables.Where(t => t.Group == g && t.Segment == seg));
+                    if (g == -1 || !ParentGroup.TryGetValue(g, out int parent)) break;
+                    seg = SegmentOf[g];
+                    g = parent;
+                }
+                return result;
+            }
+        }
+    }
+}

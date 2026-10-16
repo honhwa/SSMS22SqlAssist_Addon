@@ -1,0 +1,69 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>SqlAssist</RootNamespace>
+    <AssemblyName>SqlAssist</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <UseWPF>true</UseWPF>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+
+    <GeneratePkgDefFile>true</GeneratePkgDefFile>
+    <UseCodebase>true</UseCodebase>
+    <CreateVsixContainer>true</CreateVsixContainer>
+    <DeployExtension>false</DeployExtension>
+    <IncludeAssemblyInVSIXContainer>true</IncludeAssemblyInVSIXContainer>
+    <IncludeDebugSymbolsInVSIXContainer>false</IncludeDebugSymbolsInVSIXContainer>
+    <IncludeDebugSymbolsInLocalVSIXDeployment>false</IncludeDebugSymbolsInLocalVSIXDeployment>
+    <IncludeCopyLocalReferencesInVSIXContainer>false</IncludeCopyLocalReferencesInVSIXContainer>
+    <CopyBuildOutputToOutputDirectory>true</CopyBuildOutputToOutputDirectory>
+    <TemplateOutputDirectory>$(MSBuildProjectDirectory)\obj\</TemplateOutputDirectory>
+    <TargetVsixContainer>$(MSBuildProjectDirectory)\bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).vsix</TargetVsixContainer>
+    <CreatePkgDefAssemblyToProcess>$(MSBuildProjectDirectory)\bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll</CreatePkgDefAssemblyToProcess>
+
+    <!-- F5 debugging: start SSMS itself (SSMS 22 has no experimental instance). -->
+    <SsmsIdeDir>C:\Program Files\Microsoft SQL Server Management Studio 22\Release\Common7\IDE</SsmsIdeDir>
+    <StartAction>Program</StartAction>
+    <StartProgram>$(SsmsIdeDir)\Ssms.exe</StartProgram>
+    <StartArguments>/log</StartArguments>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The editor-free logic, compiled in so the extension ships as one DLL. -->
+    <Compile Include="..\SqlAssist.Core\**\*.cs" Exclude="..\SqlAssist.Core\obj\**;..\SqlAssist.Core\bin\**" Link="Core\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.14.40265" />
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="18.5.40034" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <VSCTCompile Include="SqlAssistPackage.vsct">
+      <ResourceName>Menus.ctmenu</ResourceName>
+    </VSCTCompile>
+    <None Update="source.extension.vsixmanifest" SubType="Designer" />
+  </ItemGroup>
+
+  <Import Project="$(NuGetPackageRoot)microsoft.vssdk.buildtools\18.5.40034\tools\vssdk\Microsoft.VsSDK.targets"
+          Condition="'$(NuGetPackageRoot)' != '' And Exists('$(NuGetPackageRoot)microsoft.vssdk.buildtools\18.5.40034\tools\vssdk\Microsoft.VsSDK.targets')" />
+
+  <!-- The manifest's Version is a placeholder; the real one comes from Directory.Build.props. -->
+  <Target Name="StampVsixVersion" AfterTargets="MergeVsixManifestFile" BeforeTargets="DetokenizeVsixManifestFile"
+          Condition="Exists('$(IntermediateMergedVsixManifest)')">
+    <PropertyGroup>
+      <_VsixNs>&lt;Namespace Prefix="v" Uri="http://schemas.microsoft.com/developer/vsx-schema/2011" /&gt;</_VsixNs>
+      <_VsixVersionXPath>/v:PackageManifest/v:Metadata/v:Identity/@Version</_VsixVersionXPath>
+    </PropertyGroup>
+    <XmlPoke XmlInputPath="$(IntermediateMergedVsixManifest)" Namespaces="$(_VsixNs)" Query="$(_VsixVersionXPath)" Value="$(Version)" />
+    <XmlPeek XmlInputPath="$(IntermediateMergedVsixManifest)" Namespaces="$(_VsixNs)" Query="$(_VsixVersionXPath)">
+      <Output TaskParameter="Result" PropertyName="_StampedVersion" />
+    </XmlPeek>
+    <Error Condition="'$(_StampedVersion)' != '$(Version)'" Text="StampVsixVersion: manifest says '$(_StampedVersion)', build is '$(Version)'." />
+    <Message Importance="high" Text="SqlAssist .vsix version $(_StampedVersion)" />
+  </Target>
+
+  <Target Name="EnsurePkgDef" AfterTargets="Build" DependsOnTargets="GeneratePkgDef">
+    <Copy SourceFiles="$(IntermediateOutputPath)$(TargetName).pkgdef" DestinationFolder="$(OutputPath)" Condition="Exists('$(IntermediateOutputPath)$(TargetName).pkgdef')" />
+  </Target>
+  <Target Name="EnsureVsixContainer" AfterTargets="Build" DependsOnTargets="CreateVsixContainer" Condition="'$(CreateVsixContainer)' == 'true'" />
+</Project>

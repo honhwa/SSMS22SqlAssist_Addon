@@ -1,0 +1,50 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rm64/
+# (no *.vsix pattern: it would match the SqlAssist.Vsix folder on case-insensitive FS;
+#  built .vsix files land in bin/ which is already ignored)
+
+# Installer / release output (built by build-setup.ps1)
+dist/
+
+# Generated scratch images
+output/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# NuGet
+packages/
+*.nupkg
+*.snupkg
+project.lock.json
+
+# Test results
+[Tt]est[Rr]esult*/
+*.trx
+coverage*/
+*.coverage
+*.coveragexml
+
+# Rider / VS Code
+.idea/
+.vscode/
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Logs / temp
+*.log
+*.tmp
