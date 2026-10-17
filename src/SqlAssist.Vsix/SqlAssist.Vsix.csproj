@@ -46,6 +46,11 @@
     <Content Include="Resources\icon.png">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
+    <!-- Toolbar logo: the manifest goes next to SqlAssist.dll in the extension folder, the PNGs inside the DLL. -->
+    <Content Include="SqlAssist.imagemanifest">
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Resource Include="Resources\toolbar16.png;Resources\toolbar24.png;Resources\toolbar32.png;Resources\toolbar48.png" />
   </ItemGroup>
 
   <Import Project="$(NuGetPackageRoot)microsoft.vssdk.buildtools\18.5.40034\tools\vssdk\Microsoft.VsSDK.targets"

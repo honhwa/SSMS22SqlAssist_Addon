@@ -100,6 +100,39 @@ namespace SqlAssist.Core.Tests
         [InlineData("SELECT *| FROM Unknown")]
         public void NotASelectStar(string sql) => Assert.Null(Expand(sql));
 
+        private static string ExpandLines(string sql)
+        {
+            int caret = sql.IndexOf('|');
+            string text = sql.Remove(caret, 1);
+            var star = SqlContextAnalyzer.FindStar(text, caret);
+            int lineStart = text.LastIndexOf('\n', star.ReplaceStart - 1) + 1;
+            return StarExpander.Expand(star, TestSchema.Build(), text.Substring(lineStart, star.ReplaceStart - lineStart), "\n");
+        }
+
+        [Fact]
+        public void LeadingCommaLayout_CommasOneColumnLeftOfNames() =>
+            Assert.Equal(
+                "c.CustomerID\n" +
+                "      ,c.Name\n" +
+                "      ,c.Email",
+                ExpandLines("SELECT *| FROM Customers c"));
+
+        [Fact]
+        public void LeadingCommaLayout_FollowsIndentedLine() =>
+            Assert.Equal(
+                "CustomerID\n" +
+                "\t      ,Name\n" +
+                "\t      ,Email",
+                ExpandLines("SELECT 1\n\tSELECT *| FROM Customers"));
+
+        [Fact]
+        public void LeadingCommaLayout_QualifiedStarReplacesFromQualifier() =>
+            Assert.Equal(
+                "o.OrderID\n" +
+                "      ,o.CustomerID\n" +
+                "      ,o.OrderDate",
+                ExpandLines("SELECT o.*| FROM Orders o"));
+
         [Fact]
         public void StarInSubqueryUsesSubqueryTables() =>
             Assert.Equal("OrderID, CustomerID, OrderDate",

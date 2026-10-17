@@ -15,6 +15,8 @@ namespace SqlAssist.Core.Sql
         /// <summary>Paren group the reference lives in (-1 = top level) and the UNION segment within it.</summary>
         public int Group { get; set; }
         public int Segment { get; set; }
+        /// <summary>Token index of the FROM/JOIN/... that introduced it, within the statement (order of appearance).</summary>
+        public int KeywordIndex { get; set; }
 
         /// <summary>What the rest of the query calls this table: the alias, or the name as written.</summary>
         public string RefName => Alias ?? Name;
@@ -33,6 +35,8 @@ namespace SqlAssist.Core.Sql
         TableName,
         /// <summary>After "x." — x is an alias/table (columns follow) or, in table position, a schema.</summary>
         Qualified,
+        /// <summary>After "JOIN t x ON " (or "AND" inside that ON): the join predicate is expected.</summary>
+        JoinCondition,
         /// <summary>Anywhere else: columns, keywords and snippets.</summary>
         General
     }
@@ -60,6 +64,12 @@ namespace SqlAssist.Core.Sql
         /// <summary>Tables of the caret's own query block only (what a new JOIN can join to).</summary>
         public IReadOnlyList<TableRef> SiblingTables { get; internal set; }
         public IReadOnlyCollection<string> AliasesInStatement { get; internal set; }
+        /// <summary>For <see cref="CaretContextKind.JoinCondition"/>: the table this ON belongs to.</summary>
+        public TableRef JoinTarget { get; internal set; }
+        /// <summary>For <see cref="CaretContextKind.JoinCondition"/>: the tables named before it, which the ON can reference.</summary>
+        public IReadOnlyList<TableRef> JoinPartners { get; internal set; }
+        /// <summary>For <see cref="CaretContextKind.JoinCondition"/>: the ON clause typed so far, to skip predicates already there.</summary>
+        public string JoinConditionSoFar { get; internal set; }
     }
 
     public sealed class StarContext
@@ -125,6 +135,8 @@ namespace SqlAssist.Core.Sql
                 return ctx;
             }
 
+            if (TryJoinCondition(stmt, p, ctx)) return ctx;
+
             var table = TableKeywordAt(stmt, p);
             if (table.HasValue)
             {
@@ -180,6 +192,30 @@ namespace SqlAssist.Core.Sql
             if (start > 0 && (text[start - 1] == '.' || text[start - 1] == '[')) return false;
             if (SqlTokenizer.IsInStringOrComment(SqlTokenizer.Tokenize(text), caret)) return false;
             word = text.Substring(start, caret - start);
+            return true;
+        }
+
+        // "JOIN t x ON |" or "... ON a = b AND |": find the joined table and the tables it can be joined to.
+        private static bool TryJoinCondition(Statement stmt, int p, CaretContext ctx)
+        {
+            var sig = stmt.Sig;
+            int on;
+            if (sig[p].IsWord("ON")) on = p;
+            else if (sig[p].IsWord("AND") && (on = stmt.ClauseIndexOf(p)) >= 0 && sig[on].IsWord("ON")) { }
+            else return false;
+
+            var target = stmt.Tables
+                .Where(t => t.KeywordIndex < on && t.Group == stmt.GroupOf[on] && sig[t.KeywordIndex].IsWord("JOIN"))
+                .OrderByDescending(t => t.KeywordIndex)
+                .FirstOrDefault();
+            if (target == null || !target.HasColumns) return false;
+
+            ctx.Kind = CaretContextKind.JoinCondition;
+            ctx.JoinTarget = target;
+            ctx.JoinPartners = stmt.Tables
+                .Where(t => t != target && t.HasColumns && t.Group == target.Group && t.Segment == target.Segment && t.KeywordIndex < target.KeywordIndex)
+                .ToList();
+            ctx.JoinConditionSoFar = string.Join(" ", sig.Skip(on + 1).Take(p - on).Select(t => t.Text));
             return true;
         }
 
@@ -338,7 +374,7 @@ namespace SqlAssist.Core.Sql
             private int ParseRef(int k, int keyword, bool allowAlias, bool allowFunction)
             {
                 if (k >= Sig.Count) return k;
-                var r = new TableRef { Group = GroupOf[keyword], Segment = SegmentOf[keyword] };
+                var r = new TableRef { Group = GroupOf[keyword], Segment = SegmentOf[keyword], KeywordIndex = keyword };
                 int j = k;
                 if (Sig[j].IsSymbol('('))
                 {

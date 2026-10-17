@@ -1,12 +1,13 @@
 # SqlAssist — IntelliSense + Snippets สำหรับ SSMS 22
 
-add-on ขนาดเล็กสำหรับ SQL Server Management Studio 22 ทำแค่ 5 อย่างที่ใช้จริงจาก dbForge SQL Complete
+add-on ขนาดเล็กสำหรับ SQL Server Management Studio 22 ทำแค่ 5 อย่างที่ใช้จริงจาก dbForge SQL Complete และมีหน้าต่างค้นหา object แบบ dbForge Search (ดู [ค้นหา object](#ค้นหา-object))
 
 | ฟีเจอร์ | ใช้ยังไง |
 |---|---|
 | ขยาย `*` เป็นรายชื่อคอลัมน์ | `SELECT *` แล้วกด **Tab** จะได้ `c.CustomerID, c.Name, ...` (หรือ `c.*` + Tab เพื่อขยายเฉพาะตาราง `c`) |
 | alias อัตโนมัติ | เลือกตารางหลัง `FROM`/`JOIN` จะได้ `Customers c`, `OrderDetails od` และถ้าซ้ำจะได้ `c2` |
 | JOIN ตาม Foreign Key | พิมพ์ `JOIN ` แล้วรายการจะเริ่มด้วย `Orders o ON o.CustomerID = c.CustomerID` |
+| เงื่อนไข ON อัตโนมัติ | พิมพ์ `JOIN Work_InitialApproval wia ON ` แล้วจะได้ `wr.ReqId = wia.ReqId` เรียงจาก Foreign Key ก่อน แล้วตามด้วยคอลัมน์ที่ชื่อตรงกัน (คอลัมน์ `...Id` ขึ้นก่อน) ใช้หลัง `AND` ได้ด้วย |
 | ค้นชื่อไม่ต้องตรงตัว | `custid` → `CustomerID`, `od` → `OrderDetails` |
 | Snippets | `ssf` + **Tab** → `SELECT * FROM ` แล้วรายชื่อตารางจะเด้งขึ้นมาให้เลือกต่อ |
 
@@ -52,6 +53,24 @@ add-on ขนาดเล็กสำหรับ SQL Server Management Studio 2
 schema จะถูกโหลดครั้งแรกที่ใช้งานในแต่ละ database แล้ว cache ไว้ 10 นาที
 ถ้าใน query มีชื่อตารางที่ cache ยังไม่รู้จัก (เช่นเพิ่งสร้าง) ระบบจะโหลดใหม่เองโดยห่างกันอย่างน้อย 30 วินาที
 
+## ค้นหา object
+
+เปิดจาก **Tools › SqlAssist: Search Objects...** หรือปุ่ม **SqlAssist** (โลโก้ SqlAssist) บน toolbar **SqlAssist** (ถ้าไม่เห็น toolbar ให้คลิกขวาที่แถบ toolbar แล้วติ๊ก SqlAssist หรือไปที่ View › Toolbars) หน้าต่างจะ dock เป็นแท็บข้าง Output และลากไปวางที่อื่นได้
+
+- **ค้นขณะพิมพ์:** พิมพ์อย่างน้อย 2 ตัวอักษรแล้วผลจะขึ้นเอง (กด Enter เพื่อค้นทันที หรือกด ↓ เพื่อไปที่ตารางผลลัพธ์)
+- **ค้นจากอะไร:** ชื่อ object และข้อความใน definition ของ view / procedure / function / trigger ส่วนชื่อตารางและคอลัมน์จะค้นจากชื่ออย่างเดียว
+- **ชนิด object (dropdown "All object types"):** ติ๊กเลือก Schema, Table, View, Procedure, Function, Trigger, Column
+- **ตัวเลือกการค้น (ปุ่ม ⚙):** Match case, Match whole word และ Use wildcards (`*` = อักษรกี่ตัวก็ได้ในบรรทัดเดียวกัน, `?` = อักษร 1 ตัว) ถ้าไม่ติ๊กอะไรเลยจะค้นแบบ "มีคำนี้อยู่" และไม่สนตัวพิมพ์เล็กใหญ่
+- **Database (dropdown):** ค่าเริ่มต้นคือ database ปัจจุบัน เลือกได้หลายตัวหรือเลือก **All databases** (ไม่รวม system database) ระบบจะโหลดทีละ database และแสดงผลทันทีที่เจอ ส่วน database ที่ offline หรือไม่มีสิทธิ์จะถูกข้ามและบันทึกไว้ใน log
+- **Server (dropdown):** ค่าเริ่มต้นคือ "Active query window" (ใช้ server ของหน้าต่าง query ที่ active อยู่) หรือเลือก server อื่นที่เคยต่อในรอบนี้ก็ได้ ถ้าหน้าต่าง query ที่ active เปลี่ยนไปต่อ server อื่น ระบบจะกลับไปใช้ server ของหน้าต่างนั้นเอง
+- **กระโดดไปที่ object:** ดับเบิลคลิกหรือกด **Enter** ที่ผลลัพธ์ แล้ว Object Explorer จะกาง tree ไปที่ object นั้นและเลือกไว้ให้ (ถ้า Object Explorer ยังไม่ได้ต่อ server นั้น ระบบจะต่อให้เอง) ส่วน **Ctrl+Enter** จะเปิด query window ใหม่ที่มี `USE [db]` ตามด้วย definition และเลือกคำที่เจอไว้ คลิกขวาที่ผลลัพธ์จะมีเมนู Locate in Object Explorer, Open in new query window และ Copy name (Ctrl+C)
+- **ผลลัพธ์:** ตารางคอลัมน์ Name, Schema, Type, Parent, Database, Matched in คลิกที่หัวคอลัมน์เพื่อเรียงได้ แสดงสูงสุด 5,000 รายการ
+- **Preview:** แสดง definition และ highlight คำที่เจอ ถ้าเป็นตารางจะแสดง `CREATE TABLE` แบบย่อ (คอลัมน์, type, NULL/NOT NULL, primary key) ส่วนคอลัมน์จะแสดงของตาราง/view ที่คอลัมน์นั้นอยู่
+
+ข้อมูลที่ใช้ค้นจะถูกโหลดมาเก็บไว้ใน memory ทีละ database แล้ว cache ไว้ 10 นาที (เกิน 10 นาทีจะโหลดใหม่เบื้องหลัง) ถ้าต้องการโหลดใหม่ทันทีให้กดปุ่ม **Refresh** ในหน้าต่าง หรือกด Ctrl+Shift+R / **Tools › SqlAssist: Refresh Schema Cache**
+
+ตัวเลือกชนิด object และตัวเลือกการค้นจะถูกจำไว้ใน `%APPDATA%\SqlAssist\search.json` แต่ database ที่เลือกจะไม่ถูกจำ เพราะขึ้นกับ server ที่เชื่อมต่ออยู่
+
 ## แก้ไข Snippets
 
 ไปที่ **Tools › SqlAssist: Edit Snippets...** ไฟล์ที่เปิดขึ้นมาคือ `%APPDATA%\SqlAssist\snippets.xml` บันทึกแล้วใช้ได้ทันทีโดยไม่ต้องเปิด SSMS ใหม่
@@ -74,6 +93,8 @@ schema จะถูกโหลดครั้งแรกที่ใช้ง�
 - database ที่ใช้มาจาก connection ของหน้าต่าง query (`AdvancedOptions["DATABASE"]` ของ SSMS) ถ้าเปลี่ยนด้วย `USE` แล้วรายการยังไม่เปลี่ยนตาม ให้เลือก database จาก dropdown แทน
 - แบ่ง statement ด้วย `;`, `GO` หรือบรรทัดว่าง ถ้าเขียนหลาย query ติดกันโดยไม่มีตัวคั่น ตารางของ query อื่นอาจโผล่มาในรายการด้วย
 - ไม่รู้จักคอลัมน์ของ CTE, derived table และ table-valued function
+- Search: ยังไม่ค้นข้อมูลในตาราง (data search), index, constraint และ user-defined type และ preview หรือ script ของตารางเป็น `CREATE TABLE` แบบย่อ ไม่ใช่ script เต็มแบบของ SSMS ส่วน definition ที่เปิดใน query window เป็นข้อความ `CREATE` ตามที่ SQL Server เก็บไว้ ถ้าจะแก้ต้องเปลี่ยนเป็น `ALTER` เอง
+- Search: ถ้าไม่มีหน้าต่าง query ที่ active อยู่ จะใช้ connection ล่าสุดที่เคยเห็น
 
 ## เมื่อมีปัญหา
 
@@ -83,8 +104,8 @@ schema จะถูกโหลดครั้งแรกที่ใช้ง�
 ## สำหรับนักพัฒนา
 
 ```
-src/SqlAssist.Core     logic ล้วน (netstandard2.0) ไม่พึ่ง VS: tokenizer, context, fuzzy, alias, JOIN, *, snippets
-src/SqlAssist.Vsix     ส่วนที่เชื่อมกับ SSMS (net48): completion source, item/commit manager, Tab filter, schema cache
+src/SqlAssist.Core     logic ล้วน (netstandard2.0) ไม่พึ่ง VS: tokenizer, context, fuzzy, alias, JOIN, *, snippets, search matcher, CREATE TABLE preview
+src/SqlAssist.Vsix     ส่วนที่เชื่อมกับ SSMS (net48): completion source, item/commit manager, Tab filter, schema cache, Search tool window + index cache
 tests/                 xUnit ของ Core
 ```
 

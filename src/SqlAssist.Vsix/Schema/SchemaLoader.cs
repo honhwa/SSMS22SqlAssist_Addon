@@ -61,7 +61,7 @@ ORDER BY fk.object_id, fkc.constraint_column_id;";
                             curSchema = schema; curName = name; curType = reader.GetString(2);
                             columns.Clear();
                         }
-                        columns.Add(new DbColumn(reader.GetString(3), FormatType(reader.GetString(4), reader.GetInt16(5), reader.GetByte(6), reader.GetByte(7))));
+                        columns.Add(new DbColumn(reader.GetString(3), SqlTypeFormatter.Format(reader.GetString(4), reader.GetInt16(5), reader.GetByte(6), reader.GetByte(7))));
                     }
                     FlushObject();
 
@@ -91,21 +91,6 @@ ORDER BY fk.object_id, fkc.constraint_column_id;";
                 }
             }
             return new SchemaModel(objects, fks);
-        }
-
-        private static string FormatType(string type, short maxLength, byte precision, byte scale)
-        {
-            switch (type)
-            {
-                case "varchar": case "char": case "varbinary": case "binary":
-                    return type + "(" + (maxLength == -1 ? "max" : maxLength.ToString()) + ")";
-                case "nvarchar": case "nchar":
-                    return type + "(" + (maxLength == -1 ? "max" : (maxLength / 2).ToString()) + ")";
-                case "decimal": case "numeric":
-                    return type + "(" + precision + "," + scale + ")";
-                default:
-                    return type;
-            }
         }
     }
 }

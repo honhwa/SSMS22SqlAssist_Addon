@@ -71,7 +71,7 @@ namespace SqlAssist.Editor
                             char ch = trigger.Character;
                             bool starts =
                                 (ch == '.' && ctx.Kind == CaretContextKind.Qualified) ||
-                                (ch == ' ' && ctx.Kind == CaretContextKind.TableName) ||
+                                (ch == ' ' && (ctx.Kind == CaretContextKind.TableName || ctx.Kind == CaretContextKind.JoinCondition)) ||
                                 ((char.IsLetter(ch) || ch == '_' || ch == '#' || ch == '[') && ctx.TypedText.Length > 0);
                             if (!starts) return CompletionStartData.DoesNotParticipateInCompletion;
                             break;
@@ -113,6 +113,10 @@ namespace SqlAssist.Editor
                 {
                     case CaretContextKind.TableName: AddTableItems(items, ctx, schema); break;
                     case CaretContextKind.Qualified: AddQualifiedItems(items, ctx, schema); break;
+                    case CaretContextKind.JoinCondition:
+                        AddJoinConditionItems(items, ctx, schema);
+                        AddGeneralItems(items, ctx, schema); // anything else the user wants to type after ON
+                        break;
                     default: AddGeneralItems(items, ctx, schema); break;
                 }
                 return new CompletionContext(items.ToImmutableArray());
@@ -128,6 +132,21 @@ namespace SqlAssist.Editor
             Task.FromResult<object>(item.Properties.TryGetProperty(ItemProps.Description, out string d) ? d : null);
 
         // Sort-text prefixes order the groups when nothing (or a tie) decides between them.
+        // "JOIN t x ON |": the predicates, ahead of the column list (group "0").
+        private void AddJoinConditionItems(List<CompletionItem> items, CaretContext ctx, SchemaModel schema)
+        {
+            int order = 0;
+            foreach (var c in JoinConditionSuggester.Suggest(schema, ctx.JoinTarget, ctx.JoinPartners, ctx.JoinConditionSoFar))
+            {
+                string description = c.ForeignKeyName != null ? "Foreign key " + c.ForeignKeyName : "Columns with the same name";
+                // The sort key keeps the suggester's order (foreign keys, then id-like names) instead of alphabetical.
+                var item = new CompletionItem(c.Text, this, Icons.Join, ImmutableArray<CompletionFilter>.Empty,
+                    c.ForeignKeyName != null ? "FK" : "", c.Text, "0" + order++.ToString("D4"), c.Text, ImmutableArray<ImageElement>.Empty);
+                item.Properties.AddProperty(ItemProps.Description, description);
+                items.Add(item);
+            }
+        }
+
         private void AddTableItems(List<CompletionItem> items, CaretContext ctx, SchemaModel schema)
         {
             if (ctx.IsJoin)

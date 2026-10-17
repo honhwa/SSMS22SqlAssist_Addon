@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The SqlAssist toolbar logo as an image moniker. SSMS reads every *.imagemanifest in the extension folder and
+     picks the PNG closest to the display scale, so the button stays sharp at 150% and 200%.
+     Guid and ID must match guidSqlAssistImages / bmpLogo in SqlAssistPackage.vsct.
+     The PNGs are WPF resources in SqlAssist.dll, generated from assets\toolbar.png by make-icons.ps1. -->
+<ImageManifest xmlns="http://schemas.microsoft.com/VisualStudio/ImageManifestSchema/2014">
+  <Symbols>
+    <String Name="Resources" Value="/SqlAssist;component/Resources" />
+    <Guid Name="SqlAssistImages" Value="{b3f1c6e2-5a47-4d8e-9c21-7e4a0d9f3b58}" />
+    <ID Name="Logo" Value="1" />
+  </Symbols>
+  <Images>
+    <Image Guid="$(SqlAssistImages)" ID="$(Logo)">
+      <Source Uri="$(Resources)/toolbar16.png">
+        <Size Value="16" />
+      </Source>
+      <Source Uri="$(Resources)/toolbar24.png">
+        <Size Value="24" />
+      </Source>
+      <Source Uri="$(Resources)/toolbar32.png">
+        <Size Value="32" />
+      </Source>
+      <Source Uri="$(Resources)/toolbar48.png">
+        <Size Value="48" />
+      </Source>
+    </Image>
+  </Images>
+  <ImageLists />
+</ImageManifest>

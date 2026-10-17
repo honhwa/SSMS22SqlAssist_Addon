@@ -87,21 +87,35 @@ namespace SqlAssist.Setup
 
         public static bool DbForgeInstalled(string ide) => Directory.Exists(Path.Combine(ide, @"Extensions\Devart"));
 
-        /// <summary>Installs (or updates over) the embedded .vsix. Null on success, otherwise the error text.</summary>
-        public static string Install(string ide)
+        /// <summary>One step of an install or uninstall, for the window to show while it runs.</summary>
+        public struct Step
         {
+            public Step(int number, int total, string text) { Number = number; Total = total; Text = text; }
+            public int Number { get; }
+            public int Total { get; }
+            public string Text { get; }
+        }
+
+        /// <summary>Installs (or updates over) the embedded .vsix. Null on success, otherwise the error text.</summary>
+        public static string Install(string ide, IProgress<Step> progress = null)
+        {
+            const int total = 4;
             string vsix = Path.Combine(Path.GetTempPath(), "SqlAssist-" + Guid.NewGuid().ToString("N") + ".vsix");
             try
             {
+                progress?.Report(new Step(1, total, "เตรียมไฟล์ add-on"));
                 using (var res = typeof(SetupEngine).Assembly.GetManifestResourceStream("SqlAssist.vsix"))
                 using (var file = File.Create(vsix))
                     res.CopyTo(file);
 
                 // Removing the old copy first makes updates and same-version reinstalls work,
                 // instead of VSIXInstaller refusing with "already installed".
+                progress?.Report(new Step(2, total, "ถอนเวอร์ชันเดิมออก (ถ้ามี)"));
                 RunInstaller(ide, "/quiet /uninstall:" + VsixId);
+                progress?.Report(new Step(3, total, "ติดตั้ง SqlAssist " + SetupVersion + " ลงใน SSMS"));
                 int code = RunInstaller(ide, "/quiet \"" + vsix + "\"");
                 if (code != 0) return InstallerError(code);
+                progress?.Report(new Step(4, total, "ล้าง cache ของ SSMS"));
                 ClearComponentCache();
                 return null;
             }
@@ -111,10 +125,13 @@ namespace SqlAssist.Setup
             }
         }
 
-        public static string Uninstall(string ide)
+        public static string Uninstall(string ide, IProgress<Step> progress = null)
         {
+            const int total = 2;
+            progress?.Report(new Step(1, total, "ถอน SqlAssist ออกจาก SSMS"));
             int code = RunInstaller(ide, "/quiet /uninstall:" + VsixId);
             if (code != 0) return InstallerError(code);
+            progress?.Report(new Step(2, total, "ล้าง cache ของ SSMS"));
             ClearComponentCache();
             return null;
         }
@@ -134,12 +151,17 @@ namespace SqlAssist.Setup
         }
 
         // SSMS caches its MEF parts; without clearing, a new or removed extension may not be noticed.
+        // It also caches every extension's .imagemanifest in ImageLibrary.cache, so a changed toolbar icon
+        // would keep showing the old image until that file is rebuilt.
         private static void ClearComponentCache()
         {
             string root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Microsoft\SSMS");
             if (!Directory.Exists(root)) return;
             foreach (var dir in Directory.GetDirectories(root, "22.0_*"))
             {
+                string images = Path.Combine(dir, @"ImageLibrary\ImageLibrary.cache");
+                if (File.Exists(images)) TryDelete(() => File.Delete(images));
+
                 string cache = Path.Combine(dir, "ComponentModelCache");
                 if (!Directory.Exists(cache)) continue;
                 foreach (var f in Directory.GetFiles(cache)) TryDelete(() => File.Delete(f));

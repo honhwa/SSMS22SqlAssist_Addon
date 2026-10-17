@@ -30,7 +30,9 @@ namespace SqlAssist.Setup
         private readonly Panel _ssmsWarning = new Panel { Dock = DockStyle.Fill, BackColor = WarningBack, Padding = new Padding(10, 8, 10, 8), AutoSize = true, Visible = false };
         // No width limit: the lines are broken explicitly in RefreshState.
         private readonly Label _ssmsWarningText = new Label { AutoSize = true, ForeColor = WarningText };
-        private readonly ProgressBar _progress = new ProgressBar { Dock = DockStyle.Fill, Style = ProgressBarStyle.Marquee, Height = 6, Visible = false };
+        private readonly ProgressBar _progress = new ProgressBar { Dock = DockStyle.Fill, Style = ProgressBarStyle.Continuous, Height = 6, Visible = false };
+        private readonly System.Diagnostics.Stopwatch _elapsed = new System.Diagnostics.Stopwatch();
+        private SetupEngine.Step _step;
         private readonly Label _message = new Label { AutoSize = true, MaximumSize = new Size(490, 0), Margin = new Padding(3, 6, 3, 3) };
         private readonly Button _action = new Button { AutoSize = true, MinimumSize = new Size(130, 32), Padding = new Padding(8, 0, 8, 0) };
         private readonly Button _close = new Button { Text = "ปิด", AutoSize = true, MinimumSize = new Size(90, 32) };
@@ -191,6 +193,7 @@ namespace SqlAssist.Setup
         private void RefreshState()
         {
             if (_done) return;
+            if (_busy) ShowStep();
             int ssms = SetupEngine.RunningSsmsCount();
             _ssmsWarning.Visible = ssms > 0 && !_busy;
             _ssmsWarningText.Text =
@@ -217,22 +220,33 @@ namespace SqlAssist.Setup
                 return;
 
             _busy = true;
+            _step = new SetupEngine.Step(0, 1, uninstall ? "กำลังเริ่มถอนการติดตั้ง" : "กำลังเริ่มติดตั้ง");
+            _progress.Value = 0;
             _progress.Visible = true;
             _message.ForeColor = Color.Black;
-            _message.Text = uninstall ? "กำลังถอนการติดตั้ง..." : "กำลังติดตั้ง... (ประมาณ 10–30 วินาที)";
             _close.Enabled = false;
+            _elapsed.Restart();
             RefreshState();
+
+            // Created on the UI thread, so each report lands back here; the 1-second timer keeps the clock moving
+            // during the long VSIXInstaller steps.
+            var progress = new Progress<SetupEngine.Step>(step =>
+            {
+                _step = step;
+                ShowStep();
+            });
 
             string error;
             try
             {
-                error = await Task.Run(() => uninstall ? SetupEngine.Uninstall(_ide) : SetupEngine.Install(_ide));
+                error = await Task.Run(() => uninstall ? SetupEngine.Uninstall(_ide, progress) : SetupEngine.Install(_ide, progress));
             }
             catch (Exception ex)
             {
                 error = ex.Message;
             }
 
+            _elapsed.Stop();
             _busy = false;
             _progress.Visible = false;
             _close.Enabled = true;
@@ -264,11 +278,23 @@ namespace SqlAssist.Setup
                 _installedValue.Text = SetupEngine.SetupVersion;
                 SetStatus("ติดตั้งแล้ว", Success);
                 _message.Text =
-                    $"ติดตั้ง SqlAssist {SetupEngine.SetupVersion} เรียบร้อยแล้ว\n\n" +
+                    $"ติดตั้ง SqlAssist {SetupEngine.SetupVersion} เรียบร้อยแล้ว (ใช้เวลา {(int)_elapsed.Elapsed.TotalSeconds} วินาที)\n\n" +
                     "• เปิด SSMS แล้วตรวจสอบได้ที่ Tools › SqlAssist: About\n" +
                     "• ปิด IntelliSense ของ SSMS: Tools › Options › Text Editor › Transact-SQL › IntelliSense" +
                     (SetupEngine.DbForgeInstalled(_ide) ? "\n• พบ dbForge SQL Complete ควรถอนหรือปิดก่อน เพราะแย่งปุ่ม Tab กัน" : "");
             }
+        }
+
+        /// <summary>"ขั้นตอน 3/4: ติดตั้ง SqlAssist 1.2.6 ลงใน SSMS..." with the time so far, and the bar at the step
+        /// reached. Steps 2 and 3 run SSMS's VSIXInstaller and take most of the time.</summary>
+        private void ShowStep()
+        {
+            int total = Math.Max(_step.Total, 1);
+            _progress.Maximum = total;
+            // The bar shows steps started, so it is never empty once work has begun.
+            _progress.Value = Math.Min(Math.Max(_step.Number, 0), total);
+            string prefix = _step.Number > 0 ? $"ขั้นตอน {_step.Number}/{total}: " : "";
+            _message.Text = $"{prefix}{_step.Text}...\nใช้เวลาไปแล้ว {(int)_elapsed.Elapsed.TotalSeconds} วินาที (ทั้งหมดประมาณ 10–30 วินาที)";
         }
 
         private void SetStatus(string text, Color color)

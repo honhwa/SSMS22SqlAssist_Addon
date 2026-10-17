@@ -80,6 +80,7 @@ namespace SqlAssist.Editor
                 if (RefreshCommand.Matches(pguidCmdGroup, nCmdID))
                 {
                     SchemaCache.Instance.Clear();
+                    Search.SearchIndexCache.Instance.Clear();
                     Next.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
                     return VSConstants.S_OK;
                 }
@@ -178,7 +179,15 @@ namespace SqlAssist.Editor
                 return false;
             }
             var schema = ThreadHelper.JoinableTaskFactory.Run(() => SchemaCache.Instance.GetAsync(target, StarSchemaWait, CancellationToken.None));
-            string columns = StarExpander.Expand(star, schema);
+            var span = new SnapshotSpan(caret.Snapshot, window.Offset + star.ReplaceStart, star.ReplaceEnd - star.ReplaceStart);
+
+            // One column per line with leading commas, aligned under the first column.
+            var line = span.Start.GetContainingLine();
+            string linePrefix = caret.Snapshot.GetText(line.Start, span.Start - line.Start);
+            string newLine = line.GetLineBreakText();
+            if (string.IsNullOrEmpty(newLine)) newLine = _view.Options.GetOptionValue(DefaultOptions.NewLineCharacterOptionId);
+
+            string columns = StarExpander.Expand(star, schema, linePrefix, newLine);
             if (columns == null)
             {
                 SchemaCache.Instance.RefreshIfOlderThanThrottle(target);
@@ -186,7 +195,6 @@ namespace SqlAssist.Editor
                 return false;
             }
 
-            var span = new SnapshotSpan(caret.Snapshot, window.Offset + star.ReplaceStart, star.ReplaceEnd - star.ReplaceStart);
             var after = caret.Snapshot.TextBuffer.Replace(span, columns);
             _view.Caret.MoveTo(new SnapshotPoint(after, span.Start.Position + columns.Length));
             return true;

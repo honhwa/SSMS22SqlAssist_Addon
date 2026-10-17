@@ -2,16 +2,32 @@
 <CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <Extern href="stdidcmd.h" />
   <Extern href="vsshlids.h" />
+  <Include href="KnownImageIds.vsct" />
 
   <Commands package="guidSqlAssistPackage">
+    <!-- The "SqlAssist" toolbar (View > Toolbars, or Tools > Customize > Toolbars). -->
+    <Menus>
+      <Menu guid="guidSqlAssistCmdSet" id="SqlAssistToolbar" type="Toolbar">
+        <CommandFlag>DefaultDocked</CommandFlag>
+        <Strings>
+          <ButtonText>SqlAssist</ButtonText>
+          <CommandName>SqlAssist</CommandName>
+        </Strings>
+      </Menu>
+    </Menus>
     <Groups>
       <Group guid="guidSqlAssistCmdSet" id="ToolsGroup" priority="0x0600">
         <Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_TOOLS" />
+      </Group>
+      <Group guid="guidSqlAssistCmdSet" id="ToolbarGroup" priority="0x0000">
+        <Parent guid="guidSqlAssistCmdSet" id="SqlAssistToolbar" />
       </Group>
     </Groups>
     <Buttons>
       <Button guid="guidSqlAssistCmdSet" id="cmdRefreshSchema" priority="0x0100" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="ToolsGroup" />
+        <Icon guid="ImageCatalogGuid" id="Refresh" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
         <Strings>
           <ButtonText>SqlAssist: Refresh Schema Cache</ButtonText>
         </Strings>
@@ -34,17 +50,57 @@
           <ButtonText>SqlAssist: About...</ButtonText>
         </Strings>
       </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdSearch" priority="0x0099" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="ToolsGroup" />
+        <Icon guid="ImageCatalogGuid" id="Search" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <!-- Icon and text on the toolbar; the menu shows the text either way. -->
+        <CommandFlag>IconAndText</CommandFlag>
+        <Strings>
+          <ButtonText>SqlAssist: Search Objects...</ButtonText>
+          <ToolTipText>Search database objects (SqlAssist)</ToolTipText>
+        </Strings>
+      </Button>
+      <!-- The toolbar's own Search button: the SqlAssist logo and a short label. A command has one ButtonText,
+           so it is a second command with the same handler rather than a placement of cmdSearch. -->
+      <Button guid="guidSqlAssistCmdSet" id="cmdSearchToolbar" priority="0x0100" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="ToolbarGroup" />
+        <!-- An image moniker from SqlAssist.imagemanifest (16/24/32/48 px), not a <Bitmaps> strip: a single
+             16x16 bitmap is stretched and blurred on high-DPI displays. -->
+        <Icon guid="guidSqlAssistImages" id="bmpLogo" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>IconAndText</CommandFlag>
+        <Strings>
+          <ButtonText>SqlAssist</ButtonText>
+          <ToolTipText>SqlAssist: Search Objects</ToolTipText>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
+
+  <!-- Refresh Schema Cache also sits on the toolbar, after the Search button. -->
+  <CommandPlacements>
+    <CommandPlacement guid="guidSqlAssistCmdSet" id="cmdRefreshSchema" priority="0x0200">
+      <Parent guid="guidSqlAssistCmdSet" id="ToolbarGroup" />
+    </CommandPlacement>
+  </CommandPlacements>
 
   <Symbols>
     <GuidSymbol name="guidSqlAssistPackage" value="{9cc4aed8-f2ad-4120-ba6f-222b08aa04a0}" />
     <GuidSymbol name="guidSqlAssistCmdSet" value="{545a3b92-0849-4527-8c0a-effa65b4e0c1}">
       <IDSymbol name="ToolsGroup" value="0x1020" />
+      <IDSymbol name="ToolbarGroup" value="0x1021" />
+      <IDSymbol name="SqlAssistToolbar" value="0x1030" />
       <IDSymbol name="cmdRefreshSchema" value="0x0100" />
       <IDSymbol name="cmdEditSnippets" value="0x0101" />
       <IDSymbol name="cmdOpenLog" value="0x0102" />
       <IDSymbol name="cmdAbout" value="0x0103" />
+      <IDSymbol name="cmdSearch" value="0x0104" />
+      <IDSymbol name="cmdSearchToolbar" value="0x0105" />
+    </GuidSymbol>
+    <GuidSymbol name="guidSqlAssistImages" value="{b3f1c6e2-5a47-4d8e-9c21-7e4a0d9f3b58}">
+      <!-- Same Guid and ID as in SqlAssist.imagemanifest. -->
+      <IDSymbol name="bmpLogo" value="1" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

@@ -1,12 +1,15 @@
-# Generates the icons the build needs from assets\icon.png:
+# Generates the build icons from assets\icon.png and assets\toolbar.png:
 #   src\SqlAssist.Vsix\Resources\icon.png  128x128, the extension's icon in SSMS
+#   src\SqlAssist.Vsix\Resources\toolbar{16,24,32,48}.png  from assets\toolbar.png, the toolbar button
 #   src\SqlAssist.Setup\app.ico            16..256, the setup exe's icon
-# Run by build-setup.ps1; replace assets\icon.png and rebuild to change the icon.
+# Run by build-setup.ps1; replace the appropriate source asset and rebuild.
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Drawing
 $root = $PSScriptRoot
 $source = Join-Path $root "assets\icon.png"
 if (-not (Test-Path $source)) { throw "Missing $source" }
+$toolbarSource = Join-Path $root "assets\toolbar.png"
+if (-not (Test-Path $toolbarSource)) { throw "Missing $toolbarSource" }
 
 function Get-ResizedPng([System.Drawing.Image]$image, [int]$size) {
     $bmp = New-Object System.Drawing.Bitmap $size, $size, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
@@ -29,6 +32,20 @@ try {
     $resources = Join-Path $root "src\SqlAssist.Vsix\Resources"
     New-Item -ItemType Directory -Force $resources | Out-Null
     [System.IO.File]::WriteAllBytes((Join-Path $resources "icon.png"), (Get-ResizedPng $image 128))
+    # Toolbar button image, one PNG per size listed in SqlAssist.imagemanifest. SSMS picks the size that matches
+    # the display scale (16 at 100%, 24 at 150%, 32 at 200%, 48 at 300%) instead of stretching a single 16x16.
+    # Use a simplified, tightly framed source designed for small toolbar sizes.
+    $toolbarImage = [System.Drawing.Image]::FromFile($toolbarSource)
+    try {
+        foreach ($size in 16, 24, 32, 48) {
+            [System.IO.File]::WriteAllBytes((Join-Path $resources "toolbar$size.png"), (Get-ResizedPng $toolbarImage $size))
+        }
+        $old = Join-Path $resources "toolbar.png"
+        if (Test-Path $old) { Remove-Item $old }
+    }
+    finally {
+        $toolbarImage.Dispose()
+    }
 
     # .ico with PNG-compressed entries (supported since Windows Vista)
     $sizes = 16, 24, 32, 48, 64, 128, 256
@@ -52,4 +69,4 @@ try {
 finally {
     $image.Dispose()
 }
-Write-Host "Icons generated from assets\icon.png"
+Write-Host "Icons generated from assets\icon.png and assets\toolbar.png"
