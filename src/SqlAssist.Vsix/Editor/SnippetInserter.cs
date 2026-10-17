@@ -6,6 +6,7 @@ using Microsoft.VisualStudio.Language.Intellisense.AsyncCompletion.Data;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
+using SqlAssist.Connection;
 using SqlAssist.Core.Snippets;
 
 namespace SqlAssist.Editor
@@ -21,10 +22,19 @@ namespace SqlAssist.Editor
             string newLine = line.GetLineBreakText();
             if (string.IsNullOrEmpty(newLine)) newLine = view.Options.GetOptionValue(DefaultOptions.NewLineCharacterOptionId);
 
-            var (text, caretOffset) = SnippetStore.Render(snippet, indent, newLine);
+            var (text, caretOffset) = SnippetStore.Render(snippet, indent, newLine, CurrentLiterals());
             var after = shortcut.Snapshot.TextBuffer.Replace(shortcut, text);
             view.Caret.MoveTo(new SnapshotPoint(after, shortcut.Start.Position + caretOffset));
             OpenListIfTablePosition(view, broker);
+        }
+
+        // $DATE$, $USER$, $DB$, $SERVER$ … as of now, in the query window being typed in.
+        private static System.Collections.Generic.Dictionary<string, string> CurrentLiterals()
+        {
+            ConnectionTarget target = null;
+            try { if (ThreadHelper.CheckAccess()) target = ActiveConnection.TryGet(); }
+            catch (Exception ex) { Log.Error("Snippet literals", ex); }
+            return SnippetLiterals.Current(target?.Server, target?.Database, DateTime.Now, Environment.UserName);
         }
 
         /// <summary>After "ssf" → "SELECT * FROM |" the next thing typed is a table, so show the tables now.

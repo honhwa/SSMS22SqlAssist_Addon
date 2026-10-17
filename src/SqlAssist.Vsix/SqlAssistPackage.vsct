@@ -14,10 +14,21 @@
           <CommandName>SqlAssist</CommandName>
         </Strings>
       </Menu>
+      <!-- Tools > SqlAssist >  — every SqlAssist command in one submenu instead of five Tools items. -->
+      <Menu guid="guidSqlAssistCmdSet" id="SqlAssistMenu" priority="0x0100" type="Menu">
+        <Parent guid="guidSqlAssistCmdSet" id="ToolsGroup" />
+        <Strings>
+          <ButtonText>SqlAssist</ButtonText>
+          <CommandName>SqlAssist</CommandName>
+        </Strings>
+      </Menu>
     </Menus>
     <Groups>
       <Group guid="guidSqlAssistCmdSet" id="ToolsGroup" priority="0x0600">
         <Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_TOOLS" />
+      </Group>
+      <Group guid="guidSqlAssistCmdSet" id="SubmenuGroup" priority="0x0100">
+        <Parent guid="guidSqlAssistCmdSet" id="SqlAssistMenu" />
       </Group>
       <Group guid="guidSqlAssistCmdSet" id="ToolbarGroup" priority="0x0000">
         <Parent guid="guidSqlAssistCmdSet" id="SqlAssistToolbar" />
@@ -25,39 +36,39 @@
     </Groups>
     <Buttons>
       <Button guid="guidSqlAssistCmdSet" id="cmdRefreshSchema" priority="0x0100" type="Button">
-        <Parent guid="guidSqlAssistCmdSet" id="ToolsGroup" />
+        <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
         <Icon guid="ImageCatalogGuid" id="Refresh" />
         <CommandFlag>IconIsMoniker</CommandFlag>
         <Strings>
-          <ButtonText>SqlAssist: Refresh Schema Cache</ButtonText>
+          <ButtonText>Refresh Schema Cache</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdEditSnippets" priority="0x0101" type="Button">
-        <Parent guid="guidSqlAssistCmdSet" id="ToolsGroup" />
+        <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
         <Strings>
-          <ButtonText>SqlAssist: Edit Snippets...</ButtonText>
+          <ButtonText>Edit Snippets...</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdOpenLog" priority="0x0102" type="Button">
-        <Parent guid="guidSqlAssistCmdSet" id="ToolsGroup" />
+        <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
         <Strings>
-          <ButtonText>SqlAssist: Open Log</ButtonText>
+          <ButtonText>Open Log</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdAbout" priority="0x0103" type="Button">
-        <Parent guid="guidSqlAssistCmdSet" id="ToolsGroup" />
+        <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
         <Strings>
-          <ButtonText>SqlAssist: About...</ButtonText>
+          <ButtonText>About...</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdSearch" priority="0x0099" type="Button">
-        <Parent guid="guidSqlAssistCmdSet" id="ToolsGroup" />
+        <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
         <Icon guid="ImageCatalogGuid" id="Search" />
         <CommandFlag>IconIsMoniker</CommandFlag>
         <!-- Icon and text on the toolbar; the menu shows the text either way. -->
         <CommandFlag>IconAndText</CommandFlag>
         <Strings>
-          <ButtonText>SqlAssist: Search Objects...</ButtonText>
+          <ButtonText>Search Objects...</ButtonText>
           <ToolTipText>Search database objects (SqlAssist)</ToolTipText>
         </Strings>
       </Button>
@@ -91,6 +102,8 @@
       <IDSymbol name="ToolsGroup" value="0x1020" />
       <IDSymbol name="ToolbarGroup" value="0x1021" />
       <IDSymbol name="SqlAssistToolbar" value="0x1030" />
+      <IDSymbol name="SqlAssistMenu" value="0x1031" />
+      <IDSymbol name="SubmenuGroup" value="0x1022" />
       <IDSymbol name="cmdRefreshSchema" value="0x0100" />
       <IDSymbol name="cmdEditSnippets" value="0x0101" />
       <IDSymbol name="cmdOpenLog" value="0x0102" />

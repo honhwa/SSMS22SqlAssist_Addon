@@ -4,7 +4,7 @@ using Microsoft.VisualStudio.Shell;
 
 namespace SqlAssist.Search
 {
-    /// <summary>The dockable "SqlAssist Search" window (Tools > SqlAssist: Search Objects...).</summary>
+    /// <summary>The dockable "SqlAssist Search" window (Tools > SqlAssist > Search Objects...).</summary>
     [Guid("4f6b2a8e-3c1d-4e7a-9b25-8d0c6f1e2a73")]
     public sealed class SearchToolWindow : ToolWindowPane
     {

@@ -50,15 +50,67 @@ namespace SqlAssist.Core.Snippets
         }
 
         /// <summary>The text to insert and the caret offset within it. Lines after the first get the
-        /// indentation of the line the shortcut was typed on, so multi-line snippets stay aligned.</summary>
-        public static (string text, int caretOffset) Render(Snippet snippet, string indent, string newLine)
+        /// indentation of the line the shortcut was typed on, so multi-line snippets stay aligned.
+        /// Literals ($date$, $user$, $db$ … see <see cref="SnippetLiterals"/>) are replaced from
+        /// <paramref name="literals"/>; the caret goes to $end$ (or $CARET$), else to the end.</summary>
+        public static (string text, int caretOffset) Render(Snippet snippet, string indent, string newLine,
+            IReadOnlyDictionary<string, string> literals = null)
         {
             var lines = snippet.Body.Replace("\r\n", "\n").Split('\n');
-            string text = string.Join(newLine + indent, lines);
-            int caret = text.IndexOf(EndMarker, StringComparison.Ordinal);
-            if (caret < 0) return (text, text.Length);
-            return (text.Remove(caret, EndMarker.Length), caret);
+            string text = SnippetLiterals.Replace(string.Join(newLine + indent, lines), literals);
+            var caret = System.Text.RegularExpressions.Regex.Match(text, SnippetLiterals.CaretPattern,
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!caret.Success) return (text, text.Length);
+            return (text.Remove(caret.Index, caret.Length), caret.Index);
         }
+
+        /// <summary>Writes snippets back in the format <see cref="Parse"/> reads, keeping the help comment at the top.</summary>
+        public static string ToXml(IEnumerable<Snippet> snippets)
+        {
+            var root = new XElement("snippets",
+                snippets.Select(s => new XElement("snippet",
+                    new XAttribute("key", s.Key),
+                    string.IsNullOrEmpty(s.Description) ? null : new XAttribute("description", s.Description),
+                    // Multi-line bodies start on their own line so the file stays readable; Parse trims it back.
+                    s.Body.IndexOf('\n') >= 0 ? "\n" + s.Body.Replace("\r\n", "\n") + "\n  " : s.Body)));
+            var doc = new XDocument(new XDeclaration("1.0", "utf-8", null), new XComment(FileHelp), root);
+            using (var writer = new Utf8StringWriter())
+            {
+                doc.Save(writer);
+                return writer.ToString();
+            }
+        }
+
+        /// <summary>Problems that would make a set of snippets unusable: missing or duplicate shortcuts, shortcuts
+        /// that are not one word (Tab only looks at the word before the caret), empty text.</summary>
+        public static IReadOnlyList<string> Validate(IEnumerable<Snippet> snippets)
+        {
+            var errors = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var s in snippets)
+            {
+                string key = s.Key ?? "";
+                if (key.Length == 0) { errors.Add("มี snippet ที่ยังไม่ได้ใส่ Shortcut"); continue; }
+                if (!key.All(c => char.IsLetterOrDigit(c) || c == '_'))
+                    errors.Add($"Shortcut \"{key}\" ใช้ได้เฉพาะตัวอักษร ตัวเลข และ _ (ห้ามมีช่องว่าง)");
+                if (!seen.Add(key)) errors.Add($"Shortcut \"{key}\" ซ้ำกัน");
+                if (string.IsNullOrWhiteSpace(s.Body)) errors.Add($"Snippet \"{key}\" ยังไม่มีข้อความ (Text)");
+            }
+            return errors;
+        }
+
+        private sealed class Utf8StringWriter : System.IO.StringWriter
+        {
+            public override System.Text.Encoding Encoding => System.Text.Encoding.UTF8;
+        }
+
+        private const string FileHelp = @"
+  SqlAssist snippets: type the key, then press Tab.
+  $end$ (or $CARET$) marks where the caret lands after expansion.
+  Literals replaced on expansion: $DATE$ $TIME$ $USER$ $DB$ $SERVER$.
+  Multi-line snippets can be written on their own lines; common indentation is removed.
+  Edit with Tools > SqlAssist > Edit Snippets..., or by hand; saved changes apply on the next Tab.
+";
 
         // Lets a snippet be written on its own lines inside the element without gaining blank lines.
         private static string TrimBlankEdgeLines(string body)
@@ -75,44 +127,44 @@ namespace SqlAssist.Core.Snippets
 @"<?xml version=""1.0"" encoding=""utf-8""?>
 <!--
   SqlAssist snippets: type the key, then press Tab.
-  $end$ marks where the caret lands after expansion.
+  $CARET$ marks where the caret lands after expansion. Also: $DATE$ $TIME$ $USER$ $DB$ $SERVER$.
   Multi-line snippets can be written on their own lines; common indentation is removed.
   Saved changes take effect on the next Tab - no restart needed.
 -->
 <snippets>
-  <snippet key=""ssf"" description=""SELECT * FROM"">SELECT * FROM $end$</snippet>
-  <snippet key=""st100"" description=""SELECT TOP 100 * FROM"">SELECT TOP 100 * FROM $end$</snippet>
-  <snippet key=""scf"" description=""SELECT COUNT(*) FROM"">SELECT COUNT(*) FROM $end$</snippet>
-  <snippet key=""sel"" description=""SELECT ... FROM"">SELECT $end$
+  <snippet key=""ssf"" description=""SELECT * FROM"">SELECT * FROM $CARET$</snippet>
+  <snippet key=""st100"" description=""SELECT TOP 100 * FROM"">SELECT TOP 100 * FROM $CARET$</snippet>
+  <snippet key=""scf"" description=""SELECT COUNT(*) FROM"">SELECT COUNT(*) FROM $CARET$</snippet>
+  <snippet key=""sel"" description=""SELECT ... FROM"">SELECT $CARET$
 FROM </snippet>
-  <snippet key=""ii"" description=""INSERT INTO"">INSERT INTO $end$ ()
+  <snippet key=""ii"" description=""INSERT INTO"">INSERT INTO $CARET$ ()
 VALUES ()</snippet>
-  <snippet key=""upd"" description=""UPDATE ... SET ... WHERE"">UPDATE $end$
+  <snippet key=""upd"" description=""UPDATE ... SET ... WHERE"">UPDATE $CARET$
 SET
 WHERE </snippet>
-  <snippet key=""del"" description=""DELETE FROM ... WHERE"">DELETE FROM $end$
+  <snippet key=""del"" description=""DELETE FROM ... WHERE"">DELETE FROM $CARET$
 WHERE </snippet>
-  <snippet key=""ij"" description=""INNER JOIN"">INNER JOIN $end$</snippet>
-  <snippet key=""lj"" description=""LEFT JOIN"">LEFT JOIN $end$</snippet>
-  <snippet key=""wh"" description=""WHERE"">WHERE $end$</snippet>
-  <snippet key=""ob"" description=""ORDER BY"">ORDER BY $end$</snippet>
-  <snippet key=""gb"" description=""GROUP BY"">GROUP BY $end$</snippet>
+  <snippet key=""ij"" description=""INNER JOIN"">INNER JOIN $CARET$</snippet>
+  <snippet key=""lj"" description=""LEFT JOIN"">LEFT JOIN $CARET$</snippet>
+  <snippet key=""wh"" description=""WHERE"">WHERE $CARET$</snippet>
+  <snippet key=""ob"" description=""ORDER BY"">ORDER BY $CARET$</snippet>
+  <snippet key=""gb"" description=""GROUP BY"">GROUP BY $CARET$</snippet>
   <snippet key=""bt"" description=""BEGIN TRAN / ROLLBACK"">
     BEGIN TRAN;
 
-    $end$
+    $CARET$
 
     ROLLBACK TRAN;
     -- COMMIT TRAN;
   </snippet>
   <snippet key=""cte"" description=""WITH cte AS (...)"">
     WITH cte AS (
-        $end$
+        $CARET$
     )
     SELECT * FROM cte;
   </snippet>
   <snippet key=""ifex"" description=""IF EXISTS (SELECT 1 ...)"">
-    IF EXISTS (SELECT 1 FROM $end$)
+    IF EXISTS (SELECT 1 FROM $CARET$)
     BEGIN
 
     END

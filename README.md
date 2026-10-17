@@ -28,8 +28,8 @@ add-on ขนาดเล็กสำหรับ SQL Server Management Studio 2
 
 ### ตรวจสอบเวอร์ชัน
 - ตัวติดตั้งจะแสดงเวอร์ชันที่ติดตั้งอยู่เทียบกับเวอร์ชันในตัวติดตั้ง และบอกว่ามีเวอร์ชันใหม่กว่าหรือเป็นล่าสุดแล้ว
-- ใน SSMS: **Tools › SqlAssist: About...**
-- ใน log (Tools › SqlAssist: Open Log) ทุกครั้งที่เปิดหน้า query จะมีบรรทัด `SqlAssist x.y.z attached`
+- ใน SSMS: **Tools › SqlAssist › About...**
+- ใน log (Tools › SqlAssist › Open Log) ทุกครั้งที่เปิดหน้า query จะมีบรรทัด `SqlAssist x.y.z attached`
 - ก่อนออกเวอร์ชันใหม่ ให้แก้เลขเวอร์ชันที่ `Directory.Build.props` ที่เดียว แล้วรัน `.\build-setup.ps1`
 
 - ไฟล์ exe ไฟล์เดียวมี add-on อยู่ข้างในแล้ว จะก๊อปไปเครื่องอื่นที่มี SSMS 22 ก็ใช้ได้เลย ไม่ต้องลงโปรแกรมเพิ่ม
@@ -50,14 +50,14 @@ add-on ขนาดเล็กสำหรับ SQL Server Management Studio 2
 | Enter | เลือกรายการแนะนำ ถ้าพิมพ์คำครบแล้ว (เช่น `from`) จะเลือกแล้วขึ้นบรรทัดใหม่ให้ด้วย |
 | Space, `,`, `(` ฯลฯ | ปิดรายการแนะนำโดย **ไม่** เลือกอะไร |
 | Ctrl+Space | เปิดรายการแนะนำเอง |
-| Ctrl+Shift+R | โหลด schema ใหม่ (หรือใช้ Tools › SqlAssist: Refresh Schema Cache) |
+| Ctrl+Shift+R | โหลด schema ใหม่ (หรือใช้ Tools › SqlAssist › Refresh Schema Cache) |
 
 schema จะถูกโหลดครั้งแรกที่ใช้งานในแต่ละ database แล้ว cache ไว้ 10 นาที
 ถ้าใน query มีชื่อตารางที่ cache ยังไม่รู้จัก (เช่นเพิ่งสร้าง) ระบบจะโหลดใหม่เองโดยห่างกันอย่างน้อย 30 วินาที
 
 ## ค้นหา object
 
-เปิดจาก **Tools › SqlAssist: Search Objects...** หรือปุ่ม **SqlAssist** (โลโก้ SqlAssist) บน toolbar **SqlAssist** (ถ้าไม่เห็น toolbar ให้คลิกขวาที่แถบ toolbar แล้วติ๊ก SqlAssist หรือไปที่ View › Toolbars) หน้าต่างจะ dock เป็นแท็บข้าง Output และลากไปวางที่อื่นได้
+เปิดจาก **Tools › SqlAssist › Search Objects...** หรือปุ่ม **SqlAssist** (โลโก้ SqlAssist) บน toolbar **SqlAssist** (ถ้าไม่เห็น toolbar ให้คลิกขวาที่แถบ toolbar แล้วติ๊ก SqlAssist หรือไปที่ View › Toolbars) หน้าต่างจะ dock เป็นแท็บข้าง Output และลากไปวางที่อื่นได้
 
 - **ค้นขณะพิมพ์:** พิมพ์อย่างน้อย 2 ตัวอักษรแล้วผลจะขึ้นเอง (กด Enter เพื่อค้นทันที หรือกด ↓ เพื่อไปที่ตารางผลลัพธ์)
 - **ค้นจากอะไร:** ชื่อ object และข้อความใน definition ของ view / procedure / function / trigger ส่วนชื่อตารางและคอลัมน์จะค้นจากชื่ออย่างเดียว
@@ -69,25 +69,31 @@ schema จะถูกโหลดครั้งแรกที่ใช้ง�
 - **ผลลัพธ์:** ตารางคอลัมน์ Name, Schema, Type, Parent, Database, Matched in คลิกที่หัวคอลัมน์เพื่อเรียงได้ แสดงสูงสุด 5,000 รายการ
 - **Preview:** แสดง definition และ highlight คำที่เจอ ถ้าเป็นตารางจะแสดง `CREATE TABLE` แบบย่อ (คอลัมน์, type, NULL/NOT NULL, primary key) ส่วนคอลัมน์จะแสดงของตาราง/view ที่คอลัมน์นั้นอยู่
 
-ข้อมูลที่ใช้ค้นจะถูกโหลดมาเก็บไว้ใน memory ทีละ database แล้ว cache ไว้ 10 นาที (เกิน 10 นาทีจะโหลดใหม่เบื้องหลัง) ถ้าต้องการโหลดใหม่ทันทีให้กดปุ่ม **Refresh** ในหน้าต่าง หรือกด Ctrl+Shift+R / **Tools › SqlAssist: Refresh Schema Cache**
+ข้อมูลที่ใช้ค้นจะถูกโหลดมาเก็บไว้ใน memory ทีละ database แล้ว cache ไว้ 10 นาที (เกิน 10 นาทีจะโหลดใหม่เบื้องหลัง) ถ้าต้องการโหลดใหม่ทันทีให้กดปุ่ม **Refresh** ในหน้าต่าง หรือกด Ctrl+Shift+R / **Tools › SqlAssist › Refresh Schema Cache**
 
 ตัวเลือกชนิด object และตัวเลือกการค้นจะถูกจำไว้ใน `%APPDATA%\SqlAssist\search.json` แต่ database ที่เลือกจะไม่ถูกจำ เพราะขึ้นกับ server ที่เชื่อมต่ออยู่
 
 ## แก้ไข Snippets
 
-ไปที่ **Tools › SqlAssist: Edit Snippets...** ไฟล์ที่เปิดขึ้นมาคือ `%APPDATA%\SqlAssist\snippets.xml` บันทึกแล้วใช้ได้ทันทีโดยไม่ต้องเปิด SSMS ใหม่
+ไปที่ **Tools › SqlAssist › Edit Snippets...** จะเปิดหน้าต่าง **Snippets Manager**
 
-```xml
-<snippet key="ssf" description="SELECT * FROM">SELECT * FROM $end$</snippet>
-<snippet key="cte" description="WITH cte AS (...)">
-  WITH cte AS (
-      $end$
-  )
-  SELECT * FROM cte;
-</snippet>
-```
+- **รายการด้านซ้าย:** มีช่องค้นหา และเลือกเรียงตาม Shortcut หรือตามคำอธิบายได้
+- **ด้านขวา:** แก้ **Shortcut** (คำที่พิมพ์แล้วกด Tab), **คำอธิบาย** และ **ข้อความ** ของ snippet
+- **Literals:** ดับเบิลคลิกเพื่อแทรกลงในข้อความ ค่าเหล่านี้จะถูกแทนตอนขยาย snippet
 
-`$end$` คือตำแหน่งเคอร์เซอร์หลังขยาย snippet แบบหลายบรรทัดจะเยื้องตามบรรทัดที่พิมพ์คำย่อ
+  | Literal | ได้อะไร |
+  |---|---|
+  | `$CARET$` | ตำแหน่งเคอร์เซอร์หลังขยาย snippet |
+  | `$DATE$` / `$TIME$` | วันที่ / เวลาปัจจุบัน |
+  | `$USER$` | ชื่อผู้ใช้ Windows |
+  | `$DB$` / `$SERVER$` | database / server ของหน้า query |
+
+- **ปุ่มด้านบน:** Snippet ใหม่, ลบ, บันทึก (Ctrl+S), ยกเลิกการแก้ไข (โหลดจากไฟล์ใหม่) และเปิดโฟลเดอร์
+- **การตรวจตอนบันทึก:** Shortcut ห้ามว่าง ห้ามซ้ำ และห้ามมีช่องว่าง ส่วนข้อความห้ามว่าง
+- **มีผลทันที:** บันทึกแล้วใช้ได้เลย ไม่ต้องเปิด SSMS ใหม่
+- **ถ้าปิดหน้าต่างโดยยังไม่ได้บันทึก:** จะถามก่อนว่าจะบันทึกไหม
+
+snippet เก็บอยู่ที่ไฟล์ `%APPDATA%\SqlAssist\snippets.xml` จะแก้ไฟล์นี้ด้วยมือก็ได้ ไฟล์เก่าที่ใช้ `$end$` ยังใช้ได้เหมือนเดิม (มีความหมายเดียวกับ `$CARET$`) snippet แบบหลายบรรทัดจะเยื้องตามบรรทัดที่พิมพ์คำย่อ
 
 ## ข้อจำกัด (v1)
 
@@ -100,7 +106,7 @@ schema จะถูกโหลดครั้งแรกที่ใช้ง�
 
 ## เมื่อมีปัญหา
 
-- **Tools › SqlAssist: Open Log** จะเปิด `%LOCALAPPDATA%\SqlAssist\SqlAssist.log` ซึ่งเก็บ error ทุกตัวไว้ (ใน SSMS ต้องกลืน error ทั้งหมดไม่ให้ editor ล่ม)
+- **Tools › SqlAssist › Open Log** จะเปิด `%LOCALAPPDATA%\SqlAssist\SqlAssist.log` ซึ่งเก็บ error ทุกตัวไว้ (ใน SSMS ต้องกลืน error ทั้งหมดไม่ให้ editor ล่ม)
 - ถ้าไม่เห็นเมนู SqlAssist ให้ปิด SSMS แล้วรัน `.\clear-ssms-cache.ps1`
 
 ## สำหรับนักพัฒนา

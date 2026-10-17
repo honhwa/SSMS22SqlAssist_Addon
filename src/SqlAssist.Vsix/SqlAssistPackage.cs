@@ -14,7 +14,7 @@ namespace SqlAssist
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [Guid(PackageGuidString)]
     // Bump the number whenever the .vsct changes, or SSMS keeps showing the old cached menu.
-    [ProvideMenuResource("Menus.ctmenu", 7)]
+    [ProvideMenuResource("Menus.ctmenu", 8)]
     // Puts the extension folder on SSMS's assembly probing path. The image service resolves the toolbar logo's
     // pack URIs (/SqlAssist;component/Resources/...) by loading "SqlAssist" by name, often before this package
     // has loaded; without the binding path that load fails and the button shows no icon.
@@ -44,9 +44,28 @@ namespace SqlAssist
                 commands.AddCommand(new MenuCommand((s, e) => { SchemaCache.Instance.Clear(); SearchIndexCache.Instance.Clear(); }, new CommandID(CommandSet, CmdRefreshSchema)));
                 foreach (int id in new[] { CmdSearch, CmdSearchToolbar })
                     commands.AddCommand(new MenuCommand((s, e) => JoinableTaskFactory.RunAsync(ShowSearchAsync).FileAndForget("SqlAssist/ShowSearch"), new CommandID(CommandSet, id)));
-                commands.AddCommand(new MenuCommand((s, e) => OpenFile(SnippetProvider.FilePath), new CommandID(CommandSet, CmdEditSnippets)));
+                commands.AddCommand(new MenuCommand((s, e) => ShowSnippetManager(), new CommandID(CommandSet, CmdEditSnippets)));
                 commands.AddCommand(new MenuCommand((s, e) => OpenFile(Log.FilePath), new CommandID(CommandSet, CmdOpenLog)));
                 commands.AddCommand(new MenuCommand((s, e) => ShowAbout(), new CommandID(CommandSet, CmdAbout)));
+            }
+        }
+
+        private static void ShowSnippetManager()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            try
+            {
+                var window = new SnippetManagerWindow();
+                // Owned by the SSMS main window: stays on top of it and is centred over it.
+                if (GetGlobalService(typeof(Microsoft.VisualStudio.Shell.Interop.SVsUIShell)) is Microsoft.VisualStudio.Shell.Interop.IVsUIShell shell &&
+                    shell.GetDialogOwnerHwnd(out IntPtr owner) == 0)
+                    new System.Windows.Interop.WindowInteropHelper(window).Owner = owner;
+                window.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Snippets Manager", ex);
+                OpenFile(SnippetProvider.FilePath); // the old behaviour, so snippets stay editable either way
             }
         }
 

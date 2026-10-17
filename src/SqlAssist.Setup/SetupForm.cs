@@ -279,7 +279,7 @@ namespace SqlAssist.Setup
                 SetStatus("ติดตั้งแล้ว", Success);
                 _message.Text =
                     $"ติดตั้ง SqlAssist {SetupEngine.SetupVersion} เรียบร้อยแล้ว (ใช้เวลา {(int)_elapsed.Elapsed.TotalSeconds} วินาที)\n\n" +
-                    "• เปิด SSMS แล้วตรวจสอบได้ที่ Tools › SqlAssist: About\n" +
+                    "• เปิด SSMS แล้วตรวจสอบได้ที่ Tools › SqlAssist › About\n" +
                     "• ปิด IntelliSense ของ SSMS: Tools › Options › Text Editor › Transact-SQL › IntelliSense" +
                     (SetupEngine.DbForgeInstalled(_ide) ? "\n• พบ dbForge SQL Complete ควรถอนหรือปิดก่อน เพราะแย่งปุ่ม Tab กัน" : "");
             }

@@ -47,6 +47,22 @@ namespace SqlAssist.Snippets
             }
         }
 
+        /// <summary>Writes the snippets (from the Snippets Manager) and makes them current straight away,
+        /// without waiting for the two-second file check.</summary>
+        public static void Save(System.Collections.Generic.IEnumerable<Snippet> snippets)
+        {
+            lock (Gate)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
+                string xml = SnippetStore.ToXml(snippets);
+                File.WriteAllText(FilePath, xml, new System.Text.UTF8Encoding(false));
+                _store = SnippetStore.Parse(xml);
+                _loadedWriteTime = File.GetLastWriteTimeUtc(FilePath);
+                _lastCheckUtc = DateTime.UtcNow;
+                Log.Info($"Saved {_store.All.Count} snippets to {FilePath}");
+            }
+        }
+
         public static void EnsureFileExists()
         {
             if (File.Exists(FilePath)) return;

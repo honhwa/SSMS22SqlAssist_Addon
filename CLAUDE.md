@@ -34,7 +34,7 @@ dotnet build src\SqlAssist.Vsix -c Release      # -> src\SqlAssist.Vsix\bin\Rele
   the build on mismatch) and the setup exe name. Bump it for every release.
 - Building needs no SSMS installed. Debugging: SSMS 22 has no experimental instance — install the extension first,
   then F5 (start program is `Ssms.exe /log`) or attach.
-- Runtime log: `%LOCALAPPDATA%\SqlAssist\SqlAssist.log` (Tools › SqlAssist: Open Log). User files:
+- Runtime log: `%LOCALAPPDATA%\SqlAssist\SqlAssist.log` (Tools › SqlAssist › Open Log). User files:
   `%APPDATA%\SqlAssist\snippets.xml`, `%APPDATA%\SqlAssist\search.json`.
 
 ## Architecture

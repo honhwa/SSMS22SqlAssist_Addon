@@ -15,6 +15,7 @@ using Microsoft.VisualStudio.Utilities;
 using SqlAssist.Connection;
 using SqlAssist.Core.Completion;
 using SqlAssist.Core.Schema;
+using SqlAssist.Core.Snippets;
 using SqlAssist.Core.Sql;
 using SqlAssist.Schema;
 using SqlAssist.Snippets;
@@ -218,7 +219,8 @@ namespace SqlAssist.Editor
 
             foreach (var s in SnippetProvider.Current.All)
             {
-                var item = Item(s.Key, Icons.Snippet, s.Key, "4", s.Key, s.Description, s.Body.Replace("$end$", ""));
+                var item = Item(s.Key, Icons.Snippet, s.Key, "4", s.Key, s.Description, System.Text.RegularExpressions.Regex.Replace(s.Body, SnippetLiterals.CaretPattern, "",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase));
                 item.Properties.AddProperty(ItemProps.Snippet, s);
                 items.Add(item);
             }

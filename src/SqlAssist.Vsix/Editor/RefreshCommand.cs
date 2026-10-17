@@ -41,7 +41,7 @@ namespace SqlAssist.Editor
                     // Not this name in this SSMS build — try the next.
                 }
             }
-            Log.Info("SSMS Refresh Local Cache command not found; use Tools > SqlAssist: Refresh Schema Cache");
+            Log.Info("SSMS Refresh Local Cache command not found; use Tools > SqlAssist > Refresh Schema Cache");
         }
     }
 }
