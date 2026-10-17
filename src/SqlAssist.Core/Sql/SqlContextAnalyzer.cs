@@ -17,6 +17,11 @@ namespace SqlAssist.Core.Sql
         public int Segment { get; set; }
         /// <summary>Token index of the FROM/JOIN/... that introduced it, within the statement (order of appearance).</summary>
         public int KeywordIndex { get; set; }
+        /// <summary>Text offsets of the (possibly multi-part) name and of the alias; -1 when absent.</summary>
+        public int NameStart { get; set; } = -1;
+        public int NameEnd { get; set; } = -1;
+        public int AliasStart { get; set; } = -1;
+        public int AliasEnd { get; set; } = -1;
 
         /// <summary>What the rest of the query calls this table: the alias, or the name as written.</summary>
         public string RefName => Alias ?? Name;
@@ -70,6 +75,14 @@ namespace SqlAssist.Core.Sql
         public IReadOnlyList<TableRef> JoinPartners { get; internal set; }
         /// <summary>For <see cref="CaretContextKind.JoinCondition"/>: the ON clause typed so far, to skip predicates already there.</summary>
         public string JoinConditionSoFar { get; internal set; }
+    }
+
+    /// <summary>The table under the mouse and the text span the tooltip belongs to.</summary>
+    public sealed class HoverTarget
+    {
+        public TableRef Table { get; internal set; }
+        public int Start { get; internal set; }
+        public int End { get; internal set; }
     }
 
     public sealed class StarContext
@@ -179,6 +192,26 @@ namespace SqlAssist.Core.Sql
             if (scope.Count == 0) return null;
             result.Tables = scope;
             return result;
+        }
+
+        /// <summary>Which table the mouse is over: its name in FROM/JOIN (with any schema part), its alias where it
+        /// is declared, or the alias / table name used elsewhere in the statement ("wr" in "wr.ReqId").</summary>
+        public static HoverTarget FindHoverTarget(string text, int position)
+        {
+            if (position < 0 || position > text.Length) return null;
+            var tokens = SqlTokenizer.Tokenize(text);
+            var token = tokens.FirstOrDefault(t => t.Start <= position && position < t.End);
+            if (token.Text == null || !token.IsName || token.Kind == TokenKind.Variable) return null;
+
+            var stmt = Statement.Build(text, tokens, position, position, position);
+            foreach (var r in stmt.Tables.Where(t => t.HasColumns))
+            {
+                if (position >= r.NameStart && position < r.NameEnd) return new HoverTarget { Table = r, Start = r.NameStart, End = r.NameEnd };
+                if (position >= r.AliasStart && position < r.AliasEnd) return new HoverTarget { Table = r, Start = r.AliasStart, End = r.AliasEnd };
+            }
+            // A use of the alias (or of an unaliased table's name) elsewhere: "wr" in "wr.ReqId".
+            var used = stmt.Tables.FirstOrDefault(t => t.HasColumns && t.Answers(token.Value));
+            return used == null ? null : new HoverTarget { Table = used, Start = token.Start, End = token.End };
         }
 
         /// <summary>The identifier ending at the caret, when it could be a snippet shortcut.</summary>
@@ -406,6 +439,8 @@ namespace SqlAssist.Core.Sql
                     }
                     r.Name = parts[parts.Count - 1];
                     if (parts.Count >= 2) r.Schema = parts[parts.Count - 2];
+                    r.NameStart = Sig[k].Start;
+                    r.NameEnd = Sig[j - 1].End;
                     if (allowFunction && j < Sig.Count && Sig[j].IsSymbol('('))
                     {
                         r.IsFunction = true;
@@ -419,12 +454,12 @@ namespace SqlAssist.Core.Sql
                 {
                     if (Sig[j].IsWord("AS") && j + 1 < Sig.Count && Sig[j + 1].IsName)
                     {
-                        r.Alias = Sig[j + 1].Value;
+                        SetAlias(r, Sig[j + 1]);
                         j += 2;
                     }
                     else if ((Sig[j].Kind == TokenKind.Word && SqlKeywords.CanBeAlias(Sig[j].Text)) || Sig[j].Kind == TokenKind.QuotedIdentifier)
                     {
-                        r.Alias = Sig[j].Value;
+                        SetAlias(r, Sig[j]);
                         j++;
                     }
                 }
@@ -432,6 +467,13 @@ namespace SqlAssist.Core.Sql
                     j = MatchingClose(j + 1) + 1; // table hints
                 Tables.Add(r);
                 return j;
+            }
+
+            private static void SetAlias(TableRef r, SqlToken alias)
+            {
+                r.Alias = alias.Value;
+                r.AliasStart = alias.Start;
+                r.AliasEnd = alias.End;
             }
 
             public int MatchingClose(int open)

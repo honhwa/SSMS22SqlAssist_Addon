@@ -14,6 +14,9 @@ namespace SqlAssist.Core.Schema
                     return type + "(" + (maxLength == -1 ? "max" : (maxLength / 2).ToString()) + ")";
                 case "decimal": case "numeric":
                     return type + "(" + precision + "," + scale + ")";
+                case "datetime2": case "time": case "datetimeoffset":
+                    // 7 is the default fractional-second precision, which declarations usually leave out.
+                    return scale == 7 ? type : type + "(" + scale + ")";
                 default:
                     return type;
             }

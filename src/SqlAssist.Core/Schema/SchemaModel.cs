@@ -7,21 +7,29 @@ namespace SqlAssist.Core.Schema
 {
     public sealed class DbColumn
     {
-        public DbColumn(string name, string typeName) { Name = name; TypeName = typeName; }
+        public DbColumn(string name, string typeName, bool isNullable = true, bool isIdentity = false, bool isPrimaryKey = false)
+        {
+            Name = name; TypeName = typeName; IsNullable = isNullable; IsIdentity = isIdentity; IsPrimaryKey = isPrimaryKey;
+        }
         public string Name { get; }
         public string TypeName { get; }
+        public bool IsNullable { get; }
+        public bool IsIdentity { get; }
+        public bool IsPrimaryKey { get; }
     }
 
     public sealed class DbObject
     {
-        public DbObject(string schema, string name, bool isView, IReadOnlyList<DbColumn> columns)
+        public DbObject(string schema, string name, bool isView, IReadOnlyList<DbColumn> columns, long? rowCount = null)
         {
-            Schema = schema; Name = name; IsView = isView; Columns = columns;
+            Schema = schema; Name = name; IsView = isView; Columns = columns; RowCount = rowCount;
         }
         public string Schema { get; }
         public string Name { get; }
         public bool IsView { get; }
         public IReadOnlyList<DbColumn> Columns { get; }
+        /// <summary>Estimated rows (sum of heap/clustered partitions); null for views or when unknown.</summary>
+        public long? RowCount { get; }
         public override string ToString() => Schema + "." + Name;
     }
 

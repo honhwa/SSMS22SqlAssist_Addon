@@ -11,11 +11,23 @@ namespace SqlAssist.Schema
     {
         private const string Sql = @"
 SET NOCOUNT ON;
-SELECT s.name, o.name, o.type, c.name, t.name, c.max_length, c.precision, c.scale
+WITH pk AS (
+    SELECT ic.object_id, ic.column_id
+    FROM sys.indexes i
+    JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+    WHERE i.is_primary_key = 1
+), rc AS (
+    -- Estimated row count: heap (0) or clustered index (1) partitions, the same figure SSMS shows.
+    SELECT object_id, SUM(rows) AS row_count FROM sys.partitions WHERE index_id IN (0, 1) GROUP BY object_id
+)
+SELECT s.name, o.name, o.type, c.name, t.name, c.max_length, c.precision, c.scale,
+       c.is_nullable, c.is_identity, CAST(CASE WHEN pk.column_id IS NULL THEN 0 ELSE 1 END AS bit), rc.row_count
 FROM sys.objects o
 JOIN sys.schemas s ON s.schema_id = o.schema_id
 JOIN sys.columns c ON c.object_id = o.object_id
 JOIN sys.types t ON t.user_type_id = c.user_type_id
+LEFT JOIN pk ON pk.object_id = c.object_id AND pk.column_id = c.column_id
+LEFT JOIN rc ON rc.object_id = o.object_id
 WHERE o.type IN ('U', 'V') AND o.is_ms_shipped = 0
 ORDER BY s.name, o.name, c.column_id;
 
@@ -43,11 +55,12 @@ ORDER BY fk.object_id, fkc.constraint_column_id;";
                 using (var reader = await cmd.ExecuteReaderAsync(token).ConfigureAwait(false))
                 {
                     string curSchema = null, curName = null, curType = null;
+                    long? curRows = null;
                     var columns = new List<DbColumn>();
                     void FlushObject()
                     {
                         if (curName == null) return;
-                        var o = new DbObject(curSchema, curName, curType.Trim() == "V", columns.ToArray());
+                        var o = new DbObject(curSchema, curName, curType.Trim() == "V", columns.ToArray(), curRows);
                         objects.Add(o);
                         byKey[curSchema + "." + curName] = o;
                     }
@@ -59,9 +72,15 @@ ORDER BY fk.object_id, fkc.constraint_column_id;";
                         {
                             FlushObject();
                             curSchema = schema; curName = name; curType = reader.GetString(2);
+                            curRows = reader.IsDBNull(11) ? (long?)null : reader.GetInt64(11);
                             columns.Clear();
                         }
-                        columns.Add(new DbColumn(reader.GetString(3), SqlTypeFormatter.Format(reader.GetString(4), reader.GetInt16(5), reader.GetByte(6), reader.GetByte(7))));
+                        columns.Add(new DbColumn(
+                            reader.GetString(3),
+                            SqlTypeFormatter.Format(reader.GetString(4), reader.GetInt16(5), reader.GetByte(6), reader.GetByte(7)),
+                            isNullable: reader.GetBoolean(8),
+                            isIdentity: reader.GetBoolean(9),
+                            isPrimaryKey: reader.GetBoolean(10)));
                     }
                     FlushObject();
 

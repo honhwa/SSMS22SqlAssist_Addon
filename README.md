@@ -7,6 +7,8 @@ add-on ขนาดเล็กสำหรับ SQL Server Management Studio 2
 | ขยาย `*` เป็นรายชื่อคอลัมน์ | `SELECT *` แล้วกด **Tab** จะได้ `c.CustomerID, c.Name, ...` (หรือ `c.*` + Tab เพื่อขยายเฉพาะตาราง `c`) |
 | alias อัตโนมัติ | เลือกตารางหลัง `FROM`/`JOIN` จะได้ `Customers c`, `OrderDetails od` และถ้าซ้ำจะได้ `c2` |
 | JOIN ตาม Foreign Key | พิมพ์ `JOIN ` แล้วรายการจะเริ่มด้วย `Orders o ON o.CustomerID = c.CustomerID` |
+| ดูโครงสร้างตาราง | เลื่อนเลือกตาราง/วิวในรายการแนะนำค้างไว้ 1.5 วินาที จะมีกล่องข้าง ๆ แสดงคอลัมน์ ชนิดข้อมูล PK/FK, `IDENTITY` / `NOT NULL` และจำนวนแถวโดยประมาณ (Est. row count) |
+| ชี้เมาส์ดูตาราง | เอาเมาส์ชี้ชื่อตารางหรือ alias ใน query (เช่น `Work_InitialApproval`, `wia`, หรือ `wr` ใน `wr.ReqId`) จะขึ้นกล่องโครงสร้างตารางแบบเดียวกัน |
 | เงื่อนไข ON อัตโนมัติ | พิมพ์ `JOIN Work_InitialApproval wia ON ` แล้วจะได้ `wr.ReqId = wia.ReqId` เรียงจาก Foreign Key ก่อน แล้วตามด้วยคอลัมน์ที่ชื่อตรงกัน (คอลัมน์ `...Id` ขึ้นก่อน) ใช้หลัง `AND` ได้ด้วย |
 | ค้นชื่อไม่ต้องตรงตัว | `custid` → `CustomerID`, `od` → `OrderDetails` |
 | Snippets | `ssf` + **Tab** → `SELECT * FROM ` แล้วรายชื่อตารางจะเด้งขึ้นมาให้เลือกต่อ |

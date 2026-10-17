@@ -1,16 +1,20 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Markup;
 using System.Windows.Media;
+using Microsoft.VisualStudio.Imaging;
 using Microsoft.VisualStudio.Imaging.Interop;
+using SqlAssist.Core.Schema;
 using Microsoft.VisualStudio.Language.Intellisense.AsyncCompletion;
 using Microsoft.VisualStudio.Language.Intellisense.AsyncCompletion.Data;
 using Microsoft.VisualStudio.PlatformUI;
@@ -36,12 +40,14 @@ namespace SqlAssist.Editor
             textView.Properties.GetOrCreateSingletonProperty(() => new SqlCompletionPresenter((IWpfTextView)textView, this));
 
         /// <summary>The colour the editor gives keywords, so the list matches the code (and the theme).</summary>
-        public Brush KeywordBrush(ITextView view)
+        public Brush KeywordBrush(ITextView view) => KeywordBrush(FormatMaps, Classifications, view);
+
+        public static Brush KeywordBrush(IClassificationFormatMapService formatMaps, IClassificationTypeRegistryService classifications, ITextView view)
         {
-            var map = FormatMaps.GetClassificationFormatMap(view);
+            var map = formatMaps.GetClassificationFormatMap(view);
             foreach (var name in new[] { "SQL Keyword", "keyword" })
             {
-                var type = Classifications.GetClassificationType(name);
+                var type = classifications.GetClassificationType(name);
                 if (type == null) continue;
                 var brush = map.GetTextProperties(type).ForegroundBrush;
                 if (brush != null && !map.GetTextProperties(type).ForegroundBrushEmpty) return brush;
@@ -57,12 +63,15 @@ namespace SqlAssist.Editor
     {
         public const int VisibleRows = 9;
         private const double RowHeight = 20;
+        /// <summary>How long a table must stay selected before its column panel appears.</summary>
+        private static readonly TimeSpan TableDetailsDelay = TimeSpan.FromSeconds(1.5);
 
         private readonly IWpfTextView _view;
         private readonly SqlCompletionPresenterProvider _provider;
         private Popup _popup;
         private ListBox _list;
         private TextBlock _description;
+        private Border _details;
         private IAsyncCompletionSession _session;
         private CompletionPresentationViewModel _model;
         private CompletionItem _describedItem;
@@ -159,10 +168,35 @@ namespace SqlAssist.Editor
             _describedItem = item;
             _descriptionCts?.Cancel();
             _description.Visibility = Visibility.Collapsed;
+            _details.Visibility = Visibility.Collapsed;
             if (item == null || _session == null) return;
 
             var cts = _descriptionCts = new CancellationTokenSource();
             var session = _session;
+
+            // Tables and views get the column panel beside the list instead of the one-line description — after a
+            // pause on the item, so arrowing through the list doesn't flash a large panel for every table passed.
+            if (item.Properties.TryGetProperty(ItemProps.Table, out Lazy<TableDetails> table))
+            {
+                ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+                {
+                    await Task.Delay(TableDetailsDelay, cts.Token);
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cts.Token);
+                    if (cts.IsCancellationRequested || _describedItem != item) return;
+                    try
+                    {
+                        _details.Child = TableDetailsView.Create(table.Value, _provider.KeywordBrush(_view),
+                            EnvironmentColors.ToolWindowTextBrushKey, EnvironmentColors.ToolWindowBorderBrushKey);
+                        _details.Visibility = Visibility.Visible;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error("Table details panel", ex);
+                    }
+                }).FileAndForget("SqlAssist/TableDetailsPanel");
+                return;
+            }
+
             ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
             {
                 var description = await item.Source.GetDescriptionAsync(session, item, cts.Token);
@@ -220,10 +254,22 @@ namespace SqlAssist.Editor
             // Clicking the list must not take keyboard focus from the editor.
             _list.PreviewMouseUp += (s, e) => _view.VisualElement.Focus();
 
+            // The column panel sits to the right of the list, top-aligned, in its own bordered box.
+            _details = new Border { BorderThickness = new Thickness(1), Margin = new Thickness(2, 0, 0, 0), VerticalAlignment = VerticalAlignment.Top, Visibility = Visibility.Collapsed };
+            _details.SetResourceReference(Border.BackgroundProperty, EnvironmentColors.ToolWindowBackgroundBrushKey);
+            _details.SetResourceReference(Border.BorderBrushProperty, EnvironmentColors.ToolWindowBorderBrushKey);
+            TextElement.SetFontFamily(_details, new FontFamily("Segoe UI"));
+            TextElement.SetFontSize(_details, 13);
+            root.VerticalAlignment = VerticalAlignment.Top;
+            var container = new StackPanel { Orientation = Orientation.Horizontal };
+            container.Children.Add(root);
+            container.Children.Add(_details);
+
             _popup = new Popup
             {
-                Child = root,
-                AllowsTransparency = false,
+                Child = container,
+                // Transparent, so the space beside a list shorter than the panel is not painted black.
+                AllowsTransparency = true,
                 StaysOpen = true,
                 Focusable = false,
             };

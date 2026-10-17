@@ -44,6 +44,8 @@ namespace SqlAssist.Editor
         public const string Snippet = "SqlAssist.Snippet";
         /// <summary>Set on T-SQL keyword items so the list can draw them in the editor's keyword colour.</summary>
         public const string IsKeyword = "SqlAssist.IsKeyword";
+        /// <summary>Lazy&lt;TableDetails&gt; on table/view items: the column panel beside the list.</summary>
+        public const string Table = "SqlAssist.Table";
     }
 
     internal sealed class SqlCompletionSource : IAsyncCompletionSource
@@ -152,10 +154,10 @@ namespace SqlAssist.Editor
             if (ctx.IsJoin)
             {
                 foreach (var j in JoinSuggester.Suggest(schema, ctx.SiblingTables, ctx.AliasesInStatement))
-                    items.Add(Item(j.Text, Icons.Join, j.Text, "0", j.Target.Name, j.ForeignKeyName, "Join on " + j.ForeignKeyName));
+                    items.Add(WithTable(Item(j.Text, Icons.Join, j.Text, "0", j.Target.Name, j.ForeignKeyName, "Join on " + j.ForeignKeyName), schema, j.Target));
             }
             foreach (var o in schema.Objects)
-                items.Add(ObjectItem(o, SchemaModel.DisplayName(o), ctx));
+                items.Add(ObjectItem(schema, o,SchemaModel.DisplayName(o), ctx));
             foreach (var s in schema.Schemas)
                 items.Add(Item(s, Icons.Schema, SqlIdentifier.QuoteIfNeeded(s), "2", s, "schema", null));
         }
@@ -165,7 +167,7 @@ namespace SqlAssist.Editor
             if (ctx.QualifierIsSchema)
             {
                 foreach (var o in schema.Objects.Where(o => string.Equals(o.Schema, ctx.Qualifier, StringComparison.OrdinalIgnoreCase)))
-                    items.Add(ObjectItem(o, SqlIdentifier.QuoteIfNeeded(o.Name), ctx));
+                    items.Add(ObjectItem(schema, o,SqlIdentifier.QuoteIfNeeded(o.Name), ctx));
                 return;
             }
 
@@ -181,7 +183,7 @@ namespace SqlAssist.Editor
             }
             // "SELECT ... WHERE dbo." — a schema outside table position.
             foreach (var o in schema.Objects.Where(o => string.Equals(o.Schema, ctx.Qualifier, StringComparison.OrdinalIgnoreCase)))
-                items.Add(ObjectItem(o, SqlIdentifier.QuoteIfNeeded(o.Name), ctx));
+                items.Add(ObjectItem(schema, o,SqlIdentifier.QuoteIfNeeded(o.Name), ctx));
         }
 
         private void AddGeneralItems(List<CompletionItem> items, CaretContext ctx, SchemaModel schema)
@@ -222,13 +224,21 @@ namespace SqlAssist.Editor
             }
         }
 
-        private CompletionItem ObjectItem(DbObject o, string name, CaretContext ctx)
+        private CompletionItem ObjectItem(SchemaModel schema, DbObject o, string name, CaretContext ctx)
         {
             string insert = name;
             if (ctx.AllowAlias) insert += " " + AliasGenerator.Generate(o.Name, ctx.AliasesInStatement);
             string description = $"{o.Schema}.{o.Name} ({(o.IsView ? "view" : "table")}, {o.Columns.Count} columns)";
-            return Item(o.Name, o.IsView ? Icons.View : Icons.Table, insert, "1", o.Name,
+            var item = Item(o.Name, o.IsView ? Icons.View : Icons.Table, insert, "1", o.Name,
                 string.Equals(o.Schema, SchemaModel.DefaultSchema, StringComparison.OrdinalIgnoreCase) ? null : o.Schema, description);
+            return WithTable(item, schema, o);
+        }
+
+        /// <summary>Lets the list show the table's columns beside the item (built only when the item is selected).</summary>
+        private static CompletionItem WithTable(CompletionItem item, SchemaModel schema, DbObject o)
+        {
+            item.Properties.AddProperty(ItemProps.Table, new Lazy<TableDetails>(() => TableDetails.Build(schema, o)));
+            return item;
         }
 
         private CompletionItem ColumnItem(DbColumn c, string insert, DbObject owner, string suffix = null) =>
