@@ -169,6 +169,12 @@ WHERE </snippet>
 
     END
   </snippet>
+  <snippet key=""cw"" description=""CASE WHEN ... THEN ... ELSE ... END"">
+    CASE
+        WHEN $CARET$ THEN
+        ELSE
+    END
+  </snippet>
 </snippets>
 ";
     }
