@@ -74,7 +74,7 @@ namespace SqlAssist.Editor
                             char ch = trigger.Character;
                             bool starts =
                                 (ch == '.' && ctx.Kind == CaretContextKind.Qualified) ||
-                                (ch == ' ' && (ctx.Kind == CaretContextKind.TableName || ctx.Kind == CaretContextKind.JoinCondition)) ||
+                                (ch == ' ' && (ctx.Kind == CaretContextKind.TableName || ctx.Kind == CaretContextKind.JoinCondition || ctx.IsRightAfterSelect)) ||
                                 ((char.IsLetter(ch) || ch == '_' || ch == '#' || ch == '[') && ctx.TypedText.Length > 0);
                             if (!starts) return CompletionStartData.DoesNotParticipateInCompletion;
                             break;
@@ -120,7 +120,18 @@ namespace SqlAssist.Editor
                         AddJoinConditionItems(items, ctx, schema);
                         AddGeneralItems(items, ctx, schema); // anything else the user wants to type after ON
                         break;
-                    default: AddGeneralItems(items, ctx, schema); break;
+                    default:
+                        if (ctx.IsSelectListWithoutFrom)
+                        {
+                            // "SELECT |": the table tree; picking from it writes the column list and the FROM.
+                            var tree = TreeState.For(session);
+                            tree.Schema = schema;
+                            tree.TakenAliases = ctx.AliasesInStatement;
+                            AddTreeItems(items, ctx, schema);
+                            AddGeneralItems(items, ctx, schema, columns: false);
+                        }
+                        else AddGeneralItems(items, ctx, schema);
+                        break;
                 }
                 return new CompletionContext(items.ToImmutableArray());
             }
@@ -157,6 +168,12 @@ namespace SqlAssist.Editor
                 foreach (var j in JoinSuggester.Suggest(schema, ctx.SiblingTables, ctx.AliasesInStatement))
                     items.Add(WithTable(Item(j.Text, Icons.Join, j.Text, "0", j.Target.Name, j.ForeignKeyName, "Join on " + j.ForeignKeyName), schema, j.Target));
             }
+            // The statement's CTEs, right after the JOIN suggestions and ahead of the database's tables.
+            foreach (var cte in ctx.CommonTableExpressions)
+            {
+                var o = cte.Resolve(schema);
+                if (o != null) items.Add(ObjectItem(schema, o, SchemaModel.DisplayName(o), ctx, group: "1!"));
+            }
             foreach (var o in schema.Objects)
                 items.Add(ObjectItem(schema, o,SchemaModel.DisplayName(o), ctx));
             foreach (var s in schema.Schemas)
@@ -176,10 +193,12 @@ namespace SqlAssist.Editor
             var r = ctx.TablesInScope.FirstOrDefault(t => t.HasColumns && t.Answers(ctx.Qualifier) &&
                 (ctx.QualifierSchema == null || string.Equals(t.Schema, ctx.QualifierSchema, StringComparison.OrdinalIgnoreCase)));
             if (r != null) table = schema.Find(r);
+            if (table == null && ctx.QualifierSchema == null)
+                table = ctx.CommonTableExpressions.FirstOrDefault(c => string.Equals(c.Name, ctx.Qualifier, StringComparison.OrdinalIgnoreCase))?.Resolve(schema);
             if (table == null) table = schema.Find(ctx.QualifierSchema, ctx.Qualifier);
             if (table != null)
             {
-                foreach (var c in table.Columns) items.Add(ColumnItem(c, SqlIdentifier.QuoteIfNeeded(c.Name), table));
+                foreach (var c in table.Columns) items.Add(ColumnItem(schema, c, SqlIdentifier.QuoteIfNeeded(c.Name), table));
                 return;
             }
             // "SELECT ... WHERE dbo." — a schema outside table position.
@@ -187,26 +206,50 @@ namespace SqlAssist.Editor
                 items.Add(ObjectItem(schema, o,SqlIdentifier.QuoteIfNeeded(o.Name), ctx));
         }
 
-        private void AddGeneralItems(List<CompletionItem> items, CaretContext ctx, SchemaModel schema)
+        // Tables of the tree: the statement's CTEs first, then the database's tables and views. Their columns are added
+        // under them by SqlItemManager when expanded.
+        private void AddTreeItems(List<CompletionItem> items, CaretContext ctx, SchemaModel schema)
         {
-            var tables = ctx.TablesInScope
-                .Select(r => (r, o: schema.Find(r)))
+            var noAlias = SqlContextAnalyzer.Analyze("", 0); // AllowAlias is false here; the commit writes the query anyway
+            foreach (var o in ctx.CommonTableExpressions.Select(c => c.Resolve(schema)).Where(o => o != null))
+                items.Add(TreeTableItem(schema, o, noAlias, "1!"));
+            foreach (var o in schema.Objects)
+                items.Add(TreeTableItem(schema, o, noAlias, "1"));
+        }
+
+        private CompletionItem TreeTableItem(SchemaModel schema, DbObject o, CaretContext ctx, string group)
+        {
+            var item = ObjectItem(schema, o, SchemaModel.DisplayName(o), ctx, group);
+            item.Properties.AddProperty(typeof(TreeNode), new TreeNode(o));
+            return item;
+        }
+
+        private void AddGeneralItems(List<CompletionItem> items, CaretContext ctx, SchemaModel schema, bool columns = true)
+        {
+            var tables = !columns ? new List<(string refName, DbObject o)>() : ctx.TablesInScope
+                .Select(r => (refName: r.RefName, o: schema.Find(r)))
                 .Where(x => x.o != null)
                 .ToList();
+            // "WITH c AS (...) SELECT |" before any FROM: the CTEs are what the query is about to read.
+            if (columns && tables.Count == 0)
+                tables = ctx.CommonTableExpressions
+                    .Select(c => (refName: c.Name, o: c.Resolve(schema)))
+                    .Where(x => x.o != null)
+                    .ToList();
             var ambiguous = new HashSet<string>(
                 tables.SelectMany(x => x.o.Columns.Select(c => c.Name)).GroupBy(n => n, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1).Select(g => g.Key),
                 StringComparer.OrdinalIgnoreCase);
 
             var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var (r, o) in tables)
+            foreach (var (refName, o) in tables)
             {
                 foreach (var c in o.Columns)
                 {
                     // A column that exists in two tables only runs when qualified, so qualify it.
                     string insert = ambiguous.Contains(c.Name)
-                        ? SqlIdentifier.QuoteIfNeeded(r.RefName) + "." + SqlIdentifier.QuoteIfNeeded(c.Name)
+                        ? SqlIdentifier.QuoteIfNeeded(refName) + "." + SqlIdentifier.QuoteIfNeeded(c.Name)
                         : SqlIdentifier.QuoteIfNeeded(c.Name);
-                    if (added.Add(insert)) items.Add(ColumnItem(c, insert, o, suffix: r.RefName));
+                    if (added.Add(insert)) items.Add(ColumnItem(schema, c, insert, o, suffix: refName));
                 }
             }
 
@@ -226,13 +269,14 @@ namespace SqlAssist.Editor
             }
         }
 
-        private CompletionItem ObjectItem(SchemaModel schema, DbObject o, string name, CaretContext ctx)
+        private CompletionItem ObjectItem(SchemaModel schema, DbObject o, string name, CaretContext ctx, string group = "1")
         {
             string insert = name;
             if (ctx.AllowAlias) insert += " " + AliasGenerator.Generate(o.Name, ctx.AliasesInStatement);
-            string description = $"{o.Schema}.{o.Name} ({(o.IsView ? "view" : "table")}, {o.Columns.Count} columns)";
-            var item = Item(o.Name, o.IsView ? Icons.View : Icons.Table, insert, "1", o.Name,
-                string.Equals(o.Schema, SchemaModel.DefaultSchema, StringComparison.OrdinalIgnoreCase) ? null : o.Schema, description);
+            string description = $"{o} ({o.Kind.ToLowerInvariant()}, {o.Columns.Count} columns)";
+            string suffix = o.Schema == null ? o.Kind
+                : string.Equals(o.Schema, SchemaModel.DefaultSchema, StringComparison.OrdinalIgnoreCase) ? null : o.Schema;
+            var item = Item(o.Name, o.IsView ? Icons.View : Icons.Table, insert, group, o.Name, suffix, description);
             return WithTable(item, schema, o);
         }
 
@@ -243,8 +287,9 @@ namespace SqlAssist.Editor
             return item;
         }
 
-        private CompletionItem ColumnItem(DbColumn c, string insert, DbObject owner, string suffix = null) =>
-            Item(c.Name, Icons.Column, insert, "1", c.Name, suffix ?? c.TypeName, $"{owner.Schema}.{owner.Name}.{c.Name}  {c.TypeName}");
+        // Description: name, type, flags, MS_Description and foreign key — shown beside the list when selected.
+        private CompletionItem ColumnItem(SchemaModel schema, DbColumn c, string insert, DbObject owner, string suffix = null) =>
+            Item(c.Name, Icons.Column, insert, "1", c.Name, suffix ?? c.TypeName?.ToUpperInvariant(), ColumnInfo.Describe(schema, owner, c));
 
         private CompletionItem Item(string display, ImageElement icon, string insert, string group, string filter, string suffix, string description)
         {

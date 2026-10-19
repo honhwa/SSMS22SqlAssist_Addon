@@ -100,6 +100,11 @@ namespace SqlAssist.Editor
                             Trigger(CompletionTriggerReason.Invoke, '\0');
                             return VSConstants.S_OK;
 
+                        case VSConstants.VSStd2KCmdID.RIGHT:
+                        case VSConstants.VSStd2KCmdID.LEFT:
+                            if (HandleTreeArrow((VSConstants.VSStd2KCmdID)nCmdID == VSConstants.VSStd2KCmdID.RIGHT)) return VSConstants.S_OK;
+                            break;
+
                         case VSConstants.VSStd2KCmdID.TYPECHAR:
                             return TypeChar(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
                     }
@@ -116,6 +121,15 @@ namespace SqlAssist.Editor
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             char ch = (char)(ushort)Marshal.GetObjectForNativeVariant(pvaIn);
+
+            // Shift+Space in the table tree ticks the selected table/column instead of typing a space.
+            if (ch == ' ' && (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Shift) != 0 &&
+                TrySelectedTreeNode(out var treeSession, out var treeItem, out var treeNode))
+            {
+                TreeState.For(treeSession).ToggleCheck(treeNode);
+                TreeState.Refresh(treeSession, _view, treeItem);
+                return VSConstants.S_OK;
+            }
             // Nothing commits on a typed character (see SqlCommitManager), so a list still open when the word ends
             // is closed here instead of following the caret into the next word.
             if (!SqlIdentifier.IsWordChar(ch) && ch != '[')
@@ -136,6 +150,37 @@ namespace SqlAssist.Editor
                 Trigger(CompletionTriggerReason.Insertion, ch);
             }
             return hr;
+        }
+
+        // → expands the selected table, ← collapses it (or, on a column, collapses its table and selects it).
+        private bool HandleTreeArrow(bool right)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (!TrySelectedTreeNode(out var session, out var item, out var node)) return false;
+            var tree = TreeState.For(session);
+            if (node.IsTable)
+            {
+                bool expanded = tree.Expanded.Contains(node.Key);
+                if (right != expanded) tree.ToggleExpanded(node);
+                TreeState.Refresh(session, _view, item);
+                return true;
+            }
+            if (right) return true; // a column has nothing to expand; keep the caret where it is
+            var parent = tree.ParentItem(node);
+            tree.Expanded.Remove(TreeNode.TableKey(node.Table));
+            TreeState.Refresh(session, _view, parent);
+            return true;
+        }
+
+        private bool TrySelectedTreeNode(out IAsyncCompletionSession session, out CompletionItem item, out TreeNode node)
+        {
+            session = _broker.GetSession(_view);
+            item = null;
+            node = null;
+            if (session == null || session.IsDismissed) return false;
+            item = session.GetComputedItems(CancellationToken.None)?.SelectedItem;
+            node = TreeState.NodeOf(item);
+            return node != null;
         }
 
         private bool HandleTab()

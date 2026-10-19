@@ -24,13 +24,23 @@ namespace SqlAssist.Editor
             TextElement.SetFontSize(panel, 13);
 
             var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
-            header.Children.Add(Image(d.Kind == "View" ? KnownMonikers.View : KnownMonikers.Table, new Thickness(0, 0, 6, 0)));
+            header.Children.Add(Image(d.Kind == "Table" ? KnownMonikers.Table : KnownMonikers.View, new Thickness(0, 0, 6, 0)));
             var title = Text(textKey, null, 14);
-            title.Inlines.Add(new Run(d.Schema + "."));
+            if (d.Schema != null) title.Inlines.Add(new Run(d.Schema + "."));
             title.Inlines.Add(new Bold(new Run(d.Name)));
             title.Inlines.Add(new Run(" (" + d.Kind + ")"));
             header.Children.Add(title);
             panel.Children.Add(header);
+
+            if (d.Description != null)
+            {
+                var description = Text(textKey, d.Description);
+                description.TextWrapping = TextWrapping.Wrap;
+                description.MaxWidth = 520;
+                description.Opacity = 0.8;
+                description.Margin = new Thickness(22, 0, 0, 6);
+                panel.Children.Add(description);
+            }
 
             var grid = new Grid();
             for (int i = 0; i < 3; i++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });

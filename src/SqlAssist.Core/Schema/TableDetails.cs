@@ -21,10 +21,13 @@ namespace SqlAssist.Core.Schema
     /// nullability, and the estimated row count.</summary>
     public sealed class TableDetails
     {
+        /// <summary>Null for a CTE or derived table.</summary>
         public string Schema { get; set; }
         public string Name { get; set; }
-        /// <summary>"Table" or "View".</summary>
+        /// <summary>"Table", "View", "CTE" or "Derived table".</summary>
         public string Kind { get; set; }
+        /// <summary>The table's MS_Description, if any.</summary>
+        public string Description { get; set; }
         public IReadOnlyList<ColumnDetail> Columns { get; set; }
         /// <summary>Columns left out to keep the panel on screen (see <see cref="Build"/>).</summary>
         public int HiddenColumns { get; set; }
@@ -35,6 +38,9 @@ namespace SqlAssist.Core.Schema
         {
             var fkColumns = new HashSet<string>(
                 schema.ForeignKeysFrom(o).SelectMany(fk => fk.Columns.Select(c => c.from)), StringComparer.OrdinalIgnoreCase);
+            // A CTE column that passes a foreign-key column through is still that key.
+            bool IsForeignKey(DbColumn c) => fkColumns.Contains(c.Name) || (c.Origin != null &&
+                schema.ForeignKeysFrom(c.Origin).Any(fk => fk.Columns.Any(p => string.Equals(p.from, c.OriginColumn, StringComparison.OrdinalIgnoreCase))));
 
             var columns = o.Columns.Take(maxColumns).Select(c => new ColumnDetail
             {
@@ -42,14 +48,15 @@ namespace SqlAssist.Core.Schema
                 Type = (c.TypeName ?? "").ToUpperInvariant(),
                 // IDENTITY implies NOT NULL, so one word is enough.
                 Flags = c.IsIdentity ? "IDENTITY" : c.IsNullable ? "" : "NOT NULL",
-                Key = c.IsPrimaryKey ? ColumnKeyKind.PrimaryKey : fkColumns.Contains(c.Name) ? ColumnKeyKind.ForeignKey : ColumnKeyKind.None,
+                Key = c.IsPrimaryKey ? ColumnKeyKind.PrimaryKey : IsForeignKey(c) ? ColumnKeyKind.ForeignKey : ColumnKeyKind.None,
             }).ToList();
 
             return new TableDetails
             {
                 Schema = o.Schema,
                 Name = o.Name,
-                Kind = o.IsView ? "View" : "Table",
+                Kind = o.Kind,
+                Description = string.IsNullOrWhiteSpace(o.Description) ? null : o.Description.Trim(),
                 Columns = columns,
                 HiddenColumns = Math.Max(0, o.Columns.Count - maxColumns),
                 RowCount = o.IsView || o.RowCount == null ? null : o.RowCount.Value.ToString("N0", CultureInfo.InvariantCulture),

@@ -9,6 +9,9 @@ add-on ขนาดเล็กสำหรับ SQL Server Management Studio 2
 | JOIN ตาม Foreign Key | พิมพ์ `JOIN ` แล้วรายการจะเริ่มด้วย `Orders o ON o.CustomerID = c.CustomerID` |
 | ดูโครงสร้างตาราง | เลื่อนเลือกตาราง/วิวในรายการแนะนำค้างไว้ 1.5 วินาที จะมีกล่องข้าง ๆ แสดงคอลัมน์ ชนิดข้อมูล PK/FK, `IDENTITY` / `NOT NULL` และจำนวนแถวโดยประมาณ (Est. row count) |
 | ชี้เมาส์ดูตาราง | เอาเมาส์ชี้ชื่อตารางหรือ alias ใน query (เช่น `Work_InitialApproval`, `wia`, หรือ `wr` ใน `wr.ReqId`) จะขึ้นกล่องโครงสร้างตารางแบบเดียวกัน |
+| CTE / subquery | คอลัมน์ของ `WITH Sales_CTE AS (...)` และ `FROM (SELECT ...) d` ถูกแนะนำเหมือนตารางจริง ใช้กับ `*` + Tab, JOIN, การชี้เมาส์ได้ ถ้ายังไม่มี FROM (`SELECT |`) จะแนะนำคอลัมน์ของ CTE ให้เลย |
+| เลือกคอลัมน์แบบกิ่ง | ใน `SELECT |` ที่ยังไม่มี FROM รายการจะเป็นกิ่ง: CTE และทุกตาราง กด ▸ (หรือ → / ←) เพื่อขยายดูคอลัมน์ ติ๊ก ☐ (หรือ Shift+Space) ได้หลายตัว แล้ว Enter / Tab จะ gen `SELECT ... FROM ... JOIN ...` ให้ทั้งก้อน (JOIN ตาม FK หรือคอลัมน์ `...Id` ที่ชื่อตรงกัน) ไม่ติ๊กอะไร = ได้ทั้งตารางหรือคอลัมน์ที่เลือก |
+| ข้อมูลคอลัมน์ | เลือกคอลัมน์ในรายการแนะนำ จะเห็นชนิดข้อมูล, PK / IDENTITY / NOT NULL, คำอธิบายจากฐานข้อมูล (MS_Description) และ Foreign key ไปตารางไหน |
 | เงื่อนไข ON อัตโนมัติ | พิมพ์ `JOIN Work_InitialApproval wia ON ` แล้วจะได้ `wr.ReqId = wia.ReqId` เรียงจาก Foreign Key ก่อน แล้วตามด้วยคอลัมน์ที่ชื่อตรงกัน (คอลัมน์ `...Id` ขึ้นก่อน) ใช้หลัง `AND` ได้ด้วย |
 | ค้นชื่อไม่ต้องตรงตัว | `custid` → `CustomerID`, `od` → `OrderDetails` |
 | Snippets | `ssf` + **Tab** → `SELECT * FROM ` แล้วรายชื่อตารางจะเด้งขึ้นมาให้เลือกต่อ |
@@ -71,7 +74,7 @@ schema จะถูกโหลดครั้งแรกที่ใช้ง�
 
 ข้อมูลที่ใช้ค้นจะถูกโหลดมาเก็บไว้ใน memory ทีละ database แล้ว cache ไว้ 10 นาที (เกิน 10 นาทีจะโหลดใหม่เบื้องหลัง) ถ้าต้องการโหลดใหม่ทันทีให้กดปุ่ม **Refresh** ในหน้าต่าง หรือกด Ctrl+Shift+R / **Tools › SqlAssist › Refresh Schema Cache**
 
-ตัวเลือกชนิด object และตัวเลือกการค้นจะถูกจำไว้ใน `%APPDATA%\SqlAssist\search.json` แต่ database ที่เลือกจะไม่ถูกจำ เพราะขึ้นกับ server ที่เชื่อมต่ออยู่
+ทุกครั้งที่เปิด SSMS ใหม่ หน้าต่าง Search จะเริ่มจากค่าเริ่มต้นเสมอ (ทุกชนิด object, ไม่ติ๊กตัวเลือกการค้น, database ปัจจุบัน) ค่าที่เลือกไว้จะใช้ได้จนกว่าจะปิด SSMS
 
 ## แก้ไข Snippets
 
@@ -100,7 +103,8 @@ snippet เก็บอยู่ที่ไฟล์ `%APPDATA%\SqlAssist\snipp
 - รองรับแค่ Windows auth กับ SQL auth ยังไม่รองรับ Entra ID / Azure AD
 - database ที่ใช้มาจาก connection ของหน้าต่าง query (`AdvancedOptions["DATABASE"]` ของ SSMS) ถ้าเปลี่ยนด้วย `USE` แล้วรายการยังไม่เปลี่ยนตาม ให้เลือก database จาก dropdown แทน
 - แบ่ง statement ด้วย `;`, `GO` หรือบรรทัดว่าง ถ้าเขียนหลาย query ติดกันโดยไม่มีตัวคั่น ตารางของ query อื่นอาจโผล่มาในรายการด้วย
-- ไม่รู้จักคอลัมน์ของ CTE, derived table และ table-valued function
+- ไม่รู้จักคอลัมน์ของ table-valued function
+- คอลัมน์ของ CTE ที่คำนวณจาก expression (เช่น `YEAR(OrderDate) AS SalesYear`) จะไม่มีชนิดข้อมูล รู้ชนิดเฉพาะคอลัมน์ที่ดึงมาจากตารางตรง ๆ
 - Search: ยังไม่ค้นข้อมูลในตาราง (data search), index, constraint และ user-defined type และ preview หรือ script ของตารางเป็น `CREATE TABLE` แบบย่อ ไม่ใช่ script เต็มแบบของ SSMS ส่วน definition ที่เปิดใน query window เป็นข้อความ `CREATE` ตามที่ SQL Server เก็บไว้ ถ้าจะแก้ต้องเปลี่ยนเป็น `ALTER` เอง
 - Search: ถ้าไม่มีหน้าต่าง query ที่ active อยู่ จะใช้ connection ล่าสุดที่เคยเห็น
 

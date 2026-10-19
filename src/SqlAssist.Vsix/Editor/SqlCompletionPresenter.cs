@@ -128,7 +128,9 @@ namespace SqlAssist.Editor
             {
                 var text = (Brush)_list.TryFindResource(EnvironmentColors.ToolWindowTextBrushKey) ?? SystemColors.WindowTextBrush;
                 var keyword = _provider.KeywordBrush(_view);
-                var rows = model.ItemList.Select(i => new Row(i.CompletionItem, i.CompletionItem.Properties.ContainsProperty(ItemProps.IsKeyword) ? keyword : text, model.UseSoftSelection)).ToList();
+                TreeState tree = null;
+                session.Properties.TryGetProperty(typeof(TreeState), out tree);
+                var rows = model.ItemList.Select(i => new Row(i.CompletionItem, i.CompletionItem.Properties.ContainsProperty(ItemProps.IsKeyword) ? keyword : text, model.UseSoftSelection, tree)).ToList();
 
                 _list.ItemsSource = rows;
                 _list.Width = MeasureWidth(rows);
@@ -238,7 +240,8 @@ namespace SqlAssist.Editor
             var typeface = new Typeface(_list.FontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
             double dpi = VisualTreeHelper.GetDpi(_view.VisualElement).PixelsPerDip;
             double Width(string s) => new FormattedText(s, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, typeface, _list.FontSize, Brushes.Black, dpi).WidthIncludingTrailingWhitespace;
-            double width = 20 + 8 + Width(longest.Text) + 16 + Width(longest.Suffix) + 30; // icon, gaps, scrollbar
+            double tree = rows.Any(r => r.TreeVisibility == Visibility.Visible) ? 18 + 18 + 18 : 0; // indent, expander, checkbox
+            double width = tree + 20 + 8 + Width(longest.Text) + 16 + Width(longest.Suffix) + 30; // icon, gaps, scrollbar
             return Math.Max(220, Math.Min(700, width));
         }
 
@@ -251,6 +254,7 @@ namespace SqlAssist.Editor
             _list.MaxHeight = VisibleRows * RowHeight + 4;
             _list.SelectionChanged += OnSelectionChanged;
             _list.MouseDoubleClick += OnDoubleClick;
+            _list.AddHandler(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, new RoutedEventHandler(OnTreeClick));
             // Clicking the list must not take keyboard focus from the editor.
             _list.PreviewMouseUp += (s, e) => _view.VisualElement.Focus();
 
@@ -277,7 +281,7 @@ namespace SqlAssist.Editor
 
         private sealed class Row
         {
-            public Row(CompletionItem item, Brush foreground, bool soft)
+            public Row(CompletionItem item, Brush foreground, bool soft, TreeState tree)
             {
                 Item = item;
                 Foreground = foreground;
@@ -285,6 +289,15 @@ namespace SqlAssist.Editor
                 Text = item.DisplayText ?? "";
                 Suffix = item.Suffix ?? "";
                 Moniker = item.Icon == null ? default : new ImageMoniker { Guid = item.Icon.ImageId.Guid, Id = item.Icon.ImageId.Id };
+
+                // Table tree ("SELECT |"): expander on tables, a checkbox on every node, columns indented.
+                Node = TreeState.NodeOf(item);
+                bool inTree = Node != null && tree != null;
+                TreeVisibility = inTree ? Visibility.Visible : Visibility.Collapsed;
+                ExpanderVisibility = inTree && Node.IsTable ? Visibility.Visible : Visibility.Hidden;
+                Glyph = inTree && tree.Expanded.Contains(Node.Key) ? "▾" : "▸"; // ▾ expanded, ▸ collapsed
+                Indent = inTree && !Node.IsTable ? 18 : 0;
+                IsChecked = inTree && tree.IsChecked(Node);
             }
 
             public CompletionItem Item { get; }
@@ -293,6 +306,36 @@ namespace SqlAssist.Editor
             public Brush Foreground { get; }
             public ImageMoniker Moniker { get; }
             public bool SoftSelection { get; }
+            public TreeNode Node { get; }
+            public Visibility TreeVisibility { get; }
+            public Visibility ExpanderVisibility { get; }
+            public string Glyph { get; }
+            public double Indent { get; }
+            public bool IsChecked { get; }
+        }
+
+        // Expander and checkbox clicks in the table tree. Both re-run the item manager through the session, so the
+        // list (and the ticks) are redrawn from TreeState rather than patched here.
+        private void OnTreeClick(object sender, RoutedEventArgs e)
+        {
+            if (_session == null || !(e.OriginalSource is FrameworkElement fe) || !(fe.DataContext is Row row) || row.Node == null) return;
+            e.Handled = true;
+            try
+            {
+                var tree = TreeState.For(_session);
+                if ((fe.Tag as string) == "expand") tree.ToggleExpanded(row.Node);
+                else if ((fe.Tag as string) == "check") tree.ToggleCheck(row.Node);
+                else return;
+                TreeState.Refresh(_session, _view, row.Item);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Completion tree click", ex);
+            }
+            finally
+            {
+                _view.VisualElement.Focus();
+            }
         }
 
         // Theme colours come from the VS environment, so the list follows light/dark/blue themes like the rest of SSMS.
@@ -344,14 +387,28 @@ namespace SqlAssist.Editor
         <DataTemplate>
           <Grid Height='20'>
             <Grid.ColumnDefinitions>
+              <ColumnDefinition Width='Auto' />
               <ColumnDefinition Width='20' />
               <ColumnDefinition Width='*' />
               <ColumnDefinition Width='Auto' />
             </Grid.ColumnDefinitions>
-            <imaging:CrispImage Width='16' Height='16' Moniker='{Binding Moniker}' />
-            <TextBlock Grid.Column='1' Text='{Binding Text}' Foreground='{Binding Foreground}' Margin='6,0,12,0'
+            <StackPanel Orientation='Horizontal' Visibility='{Binding TreeVisibility}'>
+              <Border Width='{Binding Indent}' />
+              <Button Tag='expand' Content='{Binding Glyph}' Visibility='{Binding ExpanderVisibility}' Focusable='False'
+                      Width='16' Height='18' Padding='0' Margin='0,0,2,0' Cursor='Hand' VerticalAlignment='Center'
+                      Foreground='{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}'>
+                <Button.Template>
+                  <ControlTemplate TargetType='Button'>
+                    <Border Background='Transparent'><ContentPresenter HorizontalAlignment='Center' VerticalAlignment='Center' /></Border>
+                  </ControlTemplate>
+                </Button.Template>
+              </Button>
+              <CheckBox Tag='check' IsChecked='{Binding IsChecked, Mode=OneWay}' Focusable='False' VerticalAlignment='Center' Margin='0,0,2,0' />
+            </StackPanel>
+            <imaging:CrispImage Grid.Column='1' Width='16' Height='16' Moniker='{Binding Moniker}' />
+            <TextBlock Grid.Column='2' Text='{Binding Text}' Foreground='{Binding Foreground}' Margin='6,0,12,0'
                        VerticalAlignment='Center' TextTrimming='CharacterEllipsis' />
-            <TextBlock Grid.Column='2' Text='{Binding Suffix}' Opacity='0.6' Margin='0,0,4,0' VerticalAlignment='Center'
+            <TextBlock Grid.Column='3' Text='{Binding Suffix}' Opacity='0.6' Margin='0,0,4,0' VerticalAlignment='Center'
                        Foreground='{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}' />
           </Grid>
         </DataTemplate>

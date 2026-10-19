@@ -21,13 +21,17 @@ WITH pk AS (
     SELECT object_id, SUM(rows) AS row_count FROM sys.partitions WHERE index_id IN (0, 1) GROUP BY object_id
 )
 SELECT s.name, o.name, o.type, c.name, t.name, c.max_length, c.precision, c.scale,
-       c.is_nullable, c.is_identity, CAST(CASE WHEN pk.column_id IS NULL THEN 0 ELSE 1 END AS bit), rc.row_count
+       c.is_nullable, c.is_identity, CAST(CASE WHEN pk.column_id IS NULL THEN 0 ELSE 1 END AS bit), rc.row_count,
+       CAST(cd.value AS nvarchar(2000)), CAST(td.value AS nvarchar(2000))
 FROM sys.objects o
 JOIN sys.schemas s ON s.schema_id = o.schema_id
 JOIN sys.columns c ON c.object_id = o.object_id
 JOIN sys.types t ON t.user_type_id = c.user_type_id
 LEFT JOIN pk ON pk.object_id = c.object_id AND pk.column_id = c.column_id
 LEFT JOIN rc ON rc.object_id = o.object_id
+-- MS_Description: what SSMS's table designer and most documentation tools write.
+LEFT JOIN sys.extended_properties cd ON cd.class = 1 AND cd.major_id = c.object_id AND cd.minor_id = c.column_id AND cd.name = 'MS_Description'
+LEFT JOIN sys.extended_properties td ON td.class = 1 AND td.major_id = o.object_id AND td.minor_id = 0 AND td.name = 'MS_Description'
 WHERE o.type IN ('U', 'V') AND o.is_ms_shipped = 0
 ORDER BY s.name, o.name, c.column_id;
 
@@ -56,11 +60,12 @@ ORDER BY fk.object_id, fkc.constraint_column_id;";
                 {
                     string curSchema = null, curName = null, curType = null;
                     long? curRows = null;
+                    string curDescription = null;
                     var columns = new List<DbColumn>();
                     void FlushObject()
                     {
                         if (curName == null) return;
-                        var o = new DbObject(curSchema, curName, curType.Trim() == "V", columns.ToArray(), curRows);
+                        var o = new DbObject(curSchema, curName, curType.Trim() == "V", columns.ToArray(), curRows, curDescription);
                         objects.Add(o);
                         byKey[curSchema + "." + curName] = o;
                     }
@@ -73,6 +78,7 @@ ORDER BY fk.object_id, fkc.constraint_column_id;";
                             FlushObject();
                             curSchema = schema; curName = name; curType = reader.GetString(2);
                             curRows = reader.IsDBNull(11) ? (long?)null : reader.GetInt64(11);
+                            curDescription = reader.IsDBNull(13) ? null : reader.GetString(13);
                             columns.Clear();
                         }
                         columns.Add(new DbColumn(
@@ -80,7 +86,8 @@ ORDER BY fk.object_id, fkc.constraint_column_id;";
                             SqlTypeFormatter.Format(reader.GetString(4), reader.GetInt16(5), reader.GetByte(6), reader.GetByte(7)),
                             isNullable: reader.GetBoolean(8),
                             isIdentity: reader.GetBoolean(9),
-                            isPrimaryKey: reader.GetBoolean(10)));
+                            isPrimaryKey: reader.GetBoolean(10),
+                            description: reader.IsDBNull(12) ? null : reader.GetString(12)));
                     }
                     FlushObject();
 

@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.ComponentModel.Composition;
 using System.Linq;
@@ -33,26 +35,56 @@ namespace SqlAssist.Editor
         {
             string typed = session.ApplicableToSpan.GetText(data.Snapshot).TrimStart('[');
 
+            List<CompletionItem> items;
             if (typed.Length == 0)
             {
-                // Nothing typed yet (list opened by "." or "JOIN "): show everything, but only soft-select,
-                // so Enter still means a new line.
-                var all = data.InitialSortedItemList.Select(i => new CompletionItemWithHighlight(i)).ToImmutableArray();
-                return Task.FromResult(new FilteredCompletionModel(all, 0, data.SelectedFilters, UpdateSelectionHint.SoftSelected,
-                    centerSelection: true, uniqueItem: null));
+                // Nothing typed yet (list opened by "." or "JOIN "): show everything.
+                items = data.InitialSortedItemList.ToList();
+            }
+            else
+            {
+                items = data.InitialSortedItemList
+                    .Select((item, index) => (item, index, score: FuzzyMatcher.Score(typed, item.FilterText)))
+                    .Where(x => x.score > 0)
+                    .OrderByDescending(x => x.score)
+                    .ThenBy(x => x.index) // ties keep group order: JOIN suggestions before the plain table list
+                    .Select(x => x.item)
+                    .ToList();
             }
 
-            var ranked = data.InitialSortedItemList
-                .Select((item, index) => (item, index, score: FuzzyMatcher.Score(typed, item.FilterText)))
-                .Where(x => x.score > 0)
-                .OrderByDescending(x => x.score)
-                .ThenBy(x => x.index) // ties keep group order: JOIN suggestions before the plain table list
-                .Select(x => new CompletionItemWithHighlight(x.item))
-                .ToImmutableArray();
+            int selected = 0;
+            var hint = typed.Length == 0 ? UpdateSelectionHint.SoftSelected : UpdateSelectionHint.Selected;
+            if (items.Any(i => TreeState.NodeOf(i) != null))
+            {
+                var tree = TreeState.For(session);
+                items = WithExpandedColumns(items, tree);
+                if (tree.SelectAfterUpdate != null)
+                {
+                    selected = Math.Max(0, items.IndexOf(tree.SelectAfterUpdate));
+                    tree.SelectAfterUpdate = null;
+                    hint = UpdateSelectionHint.Selected;
+                }
+                if (tree.HasChecks) hint = UpdateSelectionHint.Selected; // Enter writes the ticked columns
+            }
+            // Soft selection with nothing typed, so Enter still means a new line.
+            if (items.Count == 0) hint = UpdateSelectionHint.NoChange;
 
-            return Task.FromResult(new FilteredCompletionModel(ranked, 0, data.SelectedFilters,
-                ranked.IsEmpty ? UpdateSelectionHint.NoChange : UpdateSelectionHint.Selected,
-                centerSelection: true, uniqueItem: null));
+            return Task.FromResult(new FilteredCompletionModel(items.Select(i => new CompletionItemWithHighlight(i)).ToImmutableArray(),
+                selected, data.SelectedFilters, hint, centerSelection: true, uniqueItem: null));
+        }
+
+        // The columns of each expanded table, right under it.
+        private static List<CompletionItem> WithExpandedColumns(List<CompletionItem> items, TreeState tree)
+        {
+            var result = new List<CompletionItem>(items.Count);
+            foreach (var item in items)
+            {
+                result.Add(item);
+                var node = TreeState.NodeOf(item);
+                if (node != null && node.IsTable && tree.Expanded.Contains(node.Key))
+                    result.AddRange(tree.ChildrenOf(item, node));
+            }
+            return result;
         }
     }
 }

@@ -59,7 +59,7 @@ namespace SqlAssist.Search
             (SearchObjectType.Trigger, "Trigger"), (SearchObjectType.Column, "Column"),
         };
 
-        private readonly SearchSettings _settings = SearchSettings.Load();
+        private readonly SearchSettings _settings = new SearchSettings();
         private readonly ObservableCollection<ResultRow> _results = new ObservableCollection<ResultRow>();
         private readonly DispatcherTimer _timer;
         private readonly TextBox _searchBox;
@@ -193,7 +193,6 @@ namespace SqlAssist.Search
                 item.Click += (s, e) =>
                 {
                     set(item.IsChecked);
-                    _settings.Save();
                     StartSearch();
                 };
                 menu.Items.Add(item);
@@ -234,7 +233,6 @@ namespace SqlAssist.Search
 
         private void TypesChanged()
         {
-            _settings.Save();
             UpdateTypesButton();
             StartSearch();
         }

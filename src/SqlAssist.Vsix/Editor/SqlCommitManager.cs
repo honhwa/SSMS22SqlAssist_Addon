@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.Language.Intellisense.AsyncCompletion.Data;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Utilities;
+using SqlAssist.Core.Completion;
 using SqlAssist.Core.Snippets;
 
 namespace SqlAssist.Editor
@@ -48,6 +49,22 @@ namespace SqlAssist.Editor
                 if (item.Properties.TryGetProperty(ItemProps.Snippet, out Snippet snippet))
                 {
                     SnippetInserter.Insert(_view, _broker, span, snippet);
+                    return new CommitResult(true, CommitBehavior.None);
+                }
+
+                // Table tree ("SELECT |"): write the column list and FROM/JOINs for what is ticked, or else for the
+                // committed table (all columns) or column.
+                var node = TreeState.NodeOf(item);
+                if (node != null && session.Properties.TryGetProperty(typeof(TreeState), out TreeState tree))
+                {
+                    var line = span.Start.GetContainingLine();
+                    string linePrefix = span.Snapshot.GetText(line.Start, span.Start - line.Start);
+                    string newLine = line.GetLineBreakText();
+                    if (string.IsNullOrEmpty(newLine)) newLine = _view.Options.GetOptionValue(DefaultOptions.NewLineCharacterOptionId);
+
+                    string sql = SelectBuilder.Build(tree.Schema, tree.Picks(node), linePrefix, newLine, tree.TakenAliases);
+                    var after = buffer.Replace(span, sql);
+                    _view.Caret.MoveTo(new SnapshotPoint(after, span.Start.Position + sql.Length));
                     return new CommitResult(true, CommitBehavior.None);
                 }
 

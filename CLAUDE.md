@@ -35,7 +35,7 @@ dotnet build src\SqlAssist.Vsix -c Release      # -> src\SqlAssist.Vsix\bin\Rele
 - Building needs no SSMS installed. Debugging: SSMS 22 has no experimental instance — install the extension first,
   then F5 (start program is `Ssms.exe /log`) or attach.
 - Runtime log: `%LOCALAPPDATA%\SqlAssist\SqlAssist.log` (Tools › SqlAssist › Open Log). User files:
-  `%APPDATA%\SqlAssist\snippets.xml`, `%APPDATA%\SqlAssist\search.json`.
+  `%APPDATA%\SqlAssist\snippets.xml`.
 
 ## Architecture
 
@@ -60,7 +60,7 @@ Three projects (`SqlAssist.sln`) plus tests:
     and reloads (≥30s apart) when a query names a table the cache doesn't know.
   - `Search/` — the Search tool window (`SearchToolWindow`/`SearchControl`), `SearchIndexLoader`/`SearchIndexCache`
     (per-database in-memory index, 10-minute stale-while-revalidate, loads databases one by one and streams results),
-    `SearchSettings` (persists object-type/match options, not the database selection).
+    `SearchSettings` (object-type/match options, in memory only: every SSMS session starts from the defaults).
   - `SqlAssistPackage.cs` + `SqlAssistPackage.vsct` — the AsyncPackage, Tools-menu commands, Ctrl+Shift+R refresh.
 - **`src/SqlAssist.Setup`** (net48 WinForms) — `SqlAssistSetup.exe`. Its build depends on the Vsix project and
   embeds `SqlAssist.vsix` as a resource (`EmbedVsix` target); `SetupEngine` detects SSMS 22, the installed version
@@ -71,5 +71,8 @@ Three projects (`SqlAssist.sln`) plus tests:
 Conventions that matter inside SSMS: exceptions must never escape into the editor — catch and write to `Log`
 instead. Connection/reflection code runs on the UI thread (`ThreadHelper.ThrowIfNotOnUIThread`).
 
-Statement boundaries for completion are `;`, `GO` or a blank line. Known v1 gaps (don't assume they work): CTE /
-derived-table / TVF columns, `USE` switching the database, data search, index/constraint/UDT search.
+Statement boundaries for completion are `;`, `GO` or a blank line — except a blank line inside parentheses or right
+after a CTE (`WITH x AS (...)` ⏎⏎ `SELECT`). CTE and derived-table columns come from the query text
+(`DerivedTable`, linked to `TableRef.Derived`; `SchemaModel.Find(TableRef)` resolves them, borrowing types and
+MS_Description from the columns they pass through). Known v1 gaps (don't assume they work): TVF columns, `USE`
+switching the database, data search, index/constraint/UDT search.

@@ -25,7 +25,9 @@ namespace SqlAssist.Core.Sql
 
         /// <summary>What the rest of the query calls this table: the alias, or the name as written.</summary>
         public string RefName => Alias ?? Name;
-        public bool HasColumns => !IsDerived && !IsFunction;
+        /// <summary>Set when the reference names a CTE of the statement, or is a derived table "(SELECT ...) d".</summary>
+        public DerivedTable Derived { get; set; }
+        public bool HasColumns => Derived != null || (!IsDerived && !IsFunction);
 
         public bool Answers(string qualifier) =>
             string.Equals(Alias, qualifier, StringComparison.OrdinalIgnoreCase) ||
@@ -69,6 +71,13 @@ namespace SqlAssist.Core.Sql
         /// <summary>Tables of the caret's own query block only (what a new JOIN can join to).</summary>
         public IReadOnlyList<TableRef> SiblingTables { get; internal set; }
         public IReadOnlyCollection<string> AliasesInStatement { get; internal set; }
+        /// <summary>In a SELECT list whose query block has no FROM yet ("SELECT |"): the completion list offers tables
+        /// to expand and pick columns from, and the pick writes the FROM too.</summary>
+        public bool IsSelectListWithoutFrom { get; internal set; }
+        /// <summary>Directly after SELECT / DISTINCT, so typing the space there opens the table tree.</summary>
+        public bool IsRightAfterSelect { get; internal set; }
+        /// <summary>The CTEs defined by the statement's WITH clause, in order.</summary>
+        public IReadOnlyList<DerivedTable> CommonTableExpressions { get; internal set; } = new DerivedTable[0];
         /// <summary>For <see cref="CaretContextKind.JoinCondition"/>: the table this ON belongs to.</summary>
         public TableRef JoinTarget { get; internal set; }
         /// <summary>For <see cref="CaretContextKind.JoinCondition"/>: the tables named before it, which the ON can reference.</summary>
@@ -118,6 +127,7 @@ namespace SqlAssist.Core.Sql
                 AliasesInStatement = new HashSet<string>(stmt.Tables.Where(t => t.Alias != null).Select(t => t.Alias), StringComparer.OrdinalIgnoreCase),
             };
             ctx.TablesInScope = stmt.TablesVisibleFrom(stmt.CaretGroup, stmt.CaretSegment);
+            ctx.CommonTableExpressions = stmt.Ctes;
             ctx.SiblingTables = stmt.Tables.Where(t => t.Group == stmt.CaretGroup && t.Segment == stmt.CaretSegment && t.HasColumns).ToList();
 
             var sig = stmt.Sig;
@@ -158,6 +168,14 @@ namespace SqlAssist.Core.Sql
                 ctx.IsJoin = table.Value.isJoin;
             }
             ctx.IsAliasPosition = stmt.AliasSlots.Contains(p) || (sig[p].IsWord("AS") && p > 0 && stmt.AliasSlots.Contains(p - 1));
+            if (ctx.Kind == CaretContextKind.General && ctx.SiblingTables.Count == 0)
+            {
+                int clause = stmt.ClauseIndexOf(p + 1);
+                ctx.IsSelectListWithoutFrom = clause >= 0 && sig[clause].IsWord("SELECT") &&
+                    !stmt.Tables.Any(t => t.Group == stmt.CaretGroup && t.Segment == stmt.CaretSegment);
+                ctx.IsRightAfterSelect = ctx.IsSelectListWithoutFrom && ctx.TypedText.Length == 0 &&
+                    (sig[p].IsWord("SELECT") || sig[p].IsWord("DISTINCT"));
+            }
             return ctx;
         }
 
@@ -299,6 +317,10 @@ namespace SqlAssist.Core.Sql
             public HashSet<int> AliasSlots = new HashSet<int>();
             public int CaretGroup = -1;
             public int CaretSegment;
+            public List<DerivedTable> Ctes = new List<DerivedTable>();
+            // Derived-table references and the body parens, filled in once every table of the statement is parsed.
+            private readonly List<(TableRef r, int open, int close)> _pendingDerived = new List<(TableRef, int, int)>();
+            private readonly List<(DerivedTable cte, int open, int close, List<string> columns)> _cteBodies = new List<(DerivedTable, int, int, List<string>)>();
 
             public static Statement Build(string text, List<SqlToken> tokens, int caret, int wordStart, int wordEnd)
             {
@@ -312,8 +334,147 @@ namespace SqlAssist.Core.Sql
                     st.Sig.Add(t);
                 }
                 st.ComputeGroups(wordStart);
+                st.ParseCtes();
                 st.ParseTables();
+                st.LinkDerivedTables();
                 return st;
+            }
+
+            // WITH a [(c1, c2)] AS (SELECT ...), b AS (...) — only at the start of the statement, so a table hint
+            // "WITH (NOLOCK)" is never mistaken for one.
+            private void ParseCtes()
+            {
+                if (Sig.Count == 0 || !Sig[0].IsWord("WITH")) return;
+                int i = 1;
+                while (i < Sig.Count && Sig[i].IsName)
+                {
+                    var cte = new DerivedTable { Name = Sig[i].Value, IsCte = true };
+                    i++;
+                    List<string> columns = null;
+                    if (i < Sig.Count && Sig[i].IsSymbol('('))
+                    {
+                        int close = MatchingClose(i);
+                        columns = Sig.Skip(i + 1).Take(close - i - 1).Where(t => t.IsName).Select(t => t.Value).ToList();
+                        i = close + 1;
+                    }
+                    if (i + 1 >= Sig.Count || !Sig[i].IsWord("AS") || !Sig[i + 1].IsSymbol('(')) break;
+                    int open = i + 1, end = MatchingClose(open);
+                    Ctes.Add(cte);
+                    _cteBodies.Add((cte, open, end, columns));
+                    i = end + 1;
+                    if (i < Sig.Count && Sig[i].IsSymbol(',')) { i++; continue; }
+                    break;
+                }
+            }
+
+            private void LinkDerivedTables()
+            {
+                foreach (var (cte, open, close, columns) in _cteBodies)
+                    FillDerived(cte, open, close, columns);
+                foreach (var (r, open, close) in _pendingDerived)
+                {
+                    r.Derived = new DerivedTable { Name = r.Alias ?? "", IsCte = false };
+                    FillDerived(r.Derived, open, close, null);
+                }
+                // A plain name that matches a CTE is that CTE, not a database table.
+                foreach (var r in Tables.Where(t => t.Derived == null && !t.IsDerived && !t.IsFunction && t.Schema == null))
+                    r.Derived = Ctes.FirstOrDefault(c => string.Equals(c.Name, r.Name, StringComparison.OrdinalIgnoreCase));
+            }
+
+            /// <summary>Reads the columns of a CTE / derived table from the select list of its body (open..close parens),
+            /// renamed by an explicit column list when there is one.</summary>
+            private void FillDerived(DerivedTable table, int open, int close, List<string> explicitColumns)
+            {
+                int select = -1;
+                for (int k = open + 1; k < close; k++)
+                    if (GroupOf[k] == open && Sig[k].IsWord("SELECT")) { select = k; break; }
+
+                var items = new List<DerivedColumn>();
+                if (select >= 0)
+                {
+                    int segment = SegmentOf[select];
+                    table.BodyTables = Tables.Where(t => t.Group == open && t.Segment == segment).ToList();
+
+                    int k = select + 1;
+                    while (k < close && (Sig[k].IsWord("DISTINCT") || Sig[k].IsWord("ALL"))) k++;
+                    if (k < close && Sig[k].IsWord("TOP"))
+                    {
+                        k++;
+                        k = k < close && Sig[k].IsSymbol('(') ? MatchingClose(k) + 1 : k + 1;
+                        while (k < close && (Sig[k].IsWord("PERCENT") || Sig[k].IsWord("WITH") || Sig[k].IsWord("TIES"))) k++;
+                    }
+                    var item = new List<SqlToken>();
+                    for (; k <= close; k++)
+                    {
+                        bool atTop = k < close && GroupOf[k] == open;
+                        if (k == close || (atTop && (Sig[k].IsSymbol(',') || IsSelectListEnd(Sig[k]))))
+                        {
+                            var column = ParseSelectItem(item);
+                            if (column != null) items.Add(column);
+                            item.Clear();
+                            if (k == close || !Sig[k].IsSymbol(',')) break;
+                            continue;
+                        }
+                        item.Add(Sig[k]);
+                    }
+                }
+
+                if (explicitColumns != null && explicitColumns.Count > 0)
+                {
+                    // WITH c (a, b) AS (...): the list names the columns; sources still come from the select list by position.
+                    var named = items.Where(c => !c.IsStar).ToList();
+                    items = explicitColumns.Select((name, i) => new DerivedColumn
+                    {
+                        Name = name,
+                        SourceQualifier = i < named.Count ? named[i].SourceQualifier : null,
+                        SourceColumn = i < named.Count ? named[i].SourceColumn : null,
+                    }).ToList();
+                }
+                table.Columns = items;
+            }
+
+            private static bool IsSelectListEnd(SqlToken t) =>
+                t.Kind == TokenKind.Word && (SetOperators.Contains(t.Text) || t.IsWord("FROM") || t.IsWord("INTO") ||
+                    t.IsWord("WHERE") || t.IsWord("GROUP") || t.IsWord("ORDER") || t.IsWord("HAVING") || t.IsWord("OPTION"));
+
+            // "x", "t.x", "expr AS a", "expr a", "a = expr", "*", "t.*".
+            private static DerivedColumn ParseSelectItem(List<SqlToken> t)
+            {
+                int n = t.Count;
+                if (n == 0) return null;
+                if (n == 1 && t[0].IsSymbol('*')) return new DerivedColumn { IsStar = true };
+                if (n == 3 && t[0].IsName && t[1].IsSymbol('.') && t[2].IsSymbol('*'))
+                    return new DerivedColumn { IsStar = true, StarQualifier = t[0].Value };
+
+                string alias = null;
+                List<SqlToken> expr = t;
+                if (n >= 3 && t[0].IsName && t[1].IsSymbol('=') && !(t[0].Kind == TokenKind.Word && SqlKeywords.IsReserved(t[0].Text)))
+                {
+                    alias = t[0].Value;
+                    expr = t.GetRange(2, n - 2);
+                }
+                else if (n >= 3 && t[n - 2].IsWord("AS") && (t[n - 1].IsName || t[n - 1].Kind == TokenKind.String))
+                {
+                    alias = t[n - 1].Kind == TokenKind.String ? t[n - 1].Text.Trim('\'') : t[n - 1].Value;
+                    expr = t.GetRange(0, n - 2);
+                }
+                else if (n >= 2 && (t[n - 1].Kind == TokenKind.QuotedIdentifier || (t[n - 1].Kind == TokenKind.Word && SqlKeywords.CanBeAlias(t[n - 1].Text)))
+                         && !t[n - 2].IsSymbol('.'))
+                {
+                    alias = t[n - 1].Value;
+                    expr = t.GetRange(0, n - 1);
+                }
+
+                var column = new DerivedColumn();
+                if (expr.Count == 1 && expr[0].IsName && expr[0].Kind != TokenKind.Variable)
+                    column.SourceColumn = expr[0].Value;
+                else if (expr.Count == 3 && expr[0].IsName && expr[1].IsSymbol('.') && expr[2].IsName)
+                {
+                    column.SourceQualifier = expr[0].Value;
+                    column.SourceColumn = expr[2].Value;
+                }
+                column.Name = alias ?? column.SourceColumn;
+                return column.Name == null ? null : column;
             }
 
             private static (int start, int end) Bounds(string text, List<SqlToken> tokens, int caret)
@@ -325,18 +486,39 @@ namespace SqlAssist.Core.Sql
                     else end = Math.Min(end, tokenStart);
                 }
                 int prevEnd = 0;
+                // Within the current statement: paren depth, whether it began with WITH, and its last real token.
+                int depth = 0;
+                bool startsWithWith = false, atStart = true;
+                SqlToken last = default;
                 for (int k = 0; k <= tokens.Count; k++)
                 {
-                    // A blank line between two tokens separates statements (the usual way SSMS scripts are laid out).
+                    // A blank line between two tokens separates statements (the usual way SSMS scripts are laid out) —
+                    // but not inside parentheses, nor between a CTE "WITH x AS (...)" and the query that uses it.
                     int gapEnd = k < tokens.Count ? tokens[k].Start : text.Length;
                     int newlines = 0, lastNewline = -1;
                     for (int i = prevEnd; i < gapEnd; i++)
                         if (text[i] == '\n') { newlines++; lastNewline = i; }
-                    if (newlines >= 2) Boundary(lastNewline + 1, lastNewline + 1);
+                    bool cteContinues = startsWithWith && last.Text != null && (last.IsSymbol(')') || last.IsSymbol(',') || last.IsWord("AS"));
+                    if (newlines >= 2 && depth <= 0 && !cteContinues)
+                    {
+                        Boundary(lastNewline + 1, lastNewline + 1);
+                        depth = 0; atStart = true; startsWithWith = false; last = default;
+                    }
                     if (k == tokens.Count) break;
 
                     var t = tokens[k];
-                    if (t.IsSymbol(';') || IsBatchSeparator(text, t)) Boundary(t.End, t.Start);
+                    if (t.IsSymbol(';') || IsBatchSeparator(text, t))
+                    {
+                        Boundary(t.End, t.Start);
+                        depth = 0; atStart = true; startsWithWith = false; last = default;
+                    }
+                    else if (t.Kind != TokenKind.Comment)
+                    {
+                        if (atStart) { startsWithWith = t.IsWord("WITH"); atStart = false; }
+                        if (t.IsSymbol('(')) depth++;
+                        else if (t.IsSymbol(')')) depth--;
+                        last = t;
+                    }
                     prevEnd = t.End;
                 }
                 return (start, Math.Max(start, end));
@@ -412,7 +594,9 @@ namespace SqlAssist.Core.Sql
                 if (Sig[j].IsSymbol('('))
                 {
                     r.IsDerived = true;
-                    j = MatchingClose(j) + 1;
+                    int close = MatchingClose(j);
+                    _pendingDerived.Add((r, j, close));
+                    j = close + 1;
                 }
                 else
                 {

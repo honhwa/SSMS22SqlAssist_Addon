@@ -7,30 +7,46 @@ namespace SqlAssist.Core.Schema
 {
     public sealed class DbColumn
     {
-        public DbColumn(string name, string typeName, bool isNullable = true, bool isIdentity = false, bool isPrimaryKey = false)
+        public DbColumn(string name, string typeName, bool isNullable = true, bool isIdentity = false, bool isPrimaryKey = false,
+            string description = null, DbObject origin = null, string originColumn = null)
         {
             Name = name; TypeName = typeName; IsNullable = isNullable; IsIdentity = isIdentity; IsPrimaryKey = isPrimaryKey;
+            Description = description; Origin = origin; OriginColumn = originColumn;
         }
         public string Name { get; }
+        /// <summary>Declared type (nvarchar(50)); empty when unknown, e.g. a CTE column computed by an expression.</summary>
         public string TypeName { get; }
         public bool IsNullable { get; }
         public bool IsIdentity { get; }
         public bool IsPrimaryKey { get; }
+        /// <summary>The column's MS_Description extended property, if the database has one.</summary>
+        public string Description { get; }
+        /// <summary>For a CTE / derived-table column that passes a real column through: that table and column,
+        /// so its foreign keys can still be described.</summary>
+        public DbObject Origin { get; }
+        public string OriginColumn { get; }
     }
 
     public sealed class DbObject
     {
-        public DbObject(string schema, string name, bool isView, IReadOnlyList<DbColumn> columns, long? rowCount = null)
+        public DbObject(string schema, string name, bool isView, IReadOnlyList<DbColumn> columns, long? rowCount = null,
+            string description = null, string kind = null)
         {
             Schema = schema; Name = name; IsView = isView; Columns = columns; RowCount = rowCount;
+            Description = description; Kind = kind ?? (isView ? "View" : "Table");
         }
+        /// <summary>Null for objects that only exist in the query (CTEs, derived tables).</summary>
         public string Schema { get; }
         public string Name { get; }
         public bool IsView { get; }
         public IReadOnlyList<DbColumn> Columns { get; }
         /// <summary>Estimated rows (sum of heap/clustered partitions); null for views or when unknown.</summary>
         public long? RowCount { get; }
-        public override string ToString() => Schema + "." + Name;
+        /// <summary>The table's MS_Description extended property, if any.</summary>
+        public string Description { get; }
+        /// <summary>"Table", "View", "CTE" or "Derived table".</summary>
+        public string Kind { get; }
+        public override string ToString() => Schema == null ? Name : Schema + "." + Name;
     }
 
     public sealed class ForeignKey
@@ -88,7 +104,13 @@ namespace SqlAssist.Core.Schema
                 ?? (list.Count == 1 ? list[0] : null);
         }
 
-        public DbObject Find(TableRef r) => r.HasColumns ? Find(r.Schema, r.Name) : null;
+        /// <summary>The object a FROM/JOIN reference names: a CTE or derived table of the query when it is one,
+        /// otherwise a table or view of the database.</summary>
+        public DbObject Find(TableRef r)
+        {
+            if (r.Derived != null) return r.Derived.Resolve(this);
+            return r.HasColumns ? Find(r.Schema, r.Name) : null;
+        }
 
         public IReadOnlyList<ForeignKey> ForeignKeysFrom(DbObject o) => _from.TryGetValue(o, out var l) ? l : (IReadOnlyList<ForeignKey>)new ForeignKey[0];
         public IReadOnlyList<ForeignKey> ForeignKeysTo(DbObject o) => _to.TryGetValue(o, out var l) ? l : (IReadOnlyList<ForeignKey>)new ForeignKey[0];
@@ -97,7 +119,7 @@ namespace SqlAssist.Core.Schema
         public static string DisplayName(DbObject o)
         {
             string name = SqlIdentifier.QuoteIfNeeded(o.Name);
-            return string.Equals(o.Schema, DefaultSchema, StringComparison.OrdinalIgnoreCase)
+            return o.Schema == null || string.Equals(o.Schema, DefaultSchema, StringComparison.OrdinalIgnoreCase)
                 ? name
                 : SqlIdentifier.QuoteIfNeeded(o.Schema) + "." + name;
         }

@@ -40,7 +40,15 @@ namespace SqlAssist.Core.Tests
         [InlineData("SELECT wr.Req|Id FROM Work_Request wr")]
         [InlineData("SEL|ECT 1 FROM Work_Request wr")]
         [InlineData("SELECT 'Work_Req|uest' FROM Work_Request wr")]
-        [InlineData("SELECT * FROM (SELECT 1 a) d|t")]
         public void NothingToShow(string sql) => Assert.Null(Hover(sql));
+
+        [Fact]
+        public void DerivedTableAlias_ShowsItsColumns()
+        {
+            const string sql = "SELECT * FROM (SELECT 1 a) dt";
+            var h = SqlContextAnalyzer.FindHoverTarget(sql, sql.Length - 1);
+            Assert.NotNull(h.Table.Derived);
+            Assert.Equal("dt", sql.Substring(h.Start, h.End - h.Start));
+        }
     }
 }
