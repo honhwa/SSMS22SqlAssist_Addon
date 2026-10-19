@@ -55,6 +55,20 @@ namespace SqlAssist.Setup
         /// %LOCALAPPDATA%\Microsoft\SSMS\22.0_*\Extensions, machine-wide ones under the SSMS folder.</summary>
         public static string FindInstalledVersion(string ide)
         {
+            string manifest = FindInstalledManifest(ide);
+            if (manifest == null) return null;
+            try
+            {
+                return (string)XDocument.Load(manifest).Descendants().First(e => e.Name.LocalName == "Identity").Attribute("Version");
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string FindInstalledManifest(string ide)
+        {
             var roots = new List<string> { Path.Combine(ide, "Extensions") };
             string local = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Microsoft\SSMS");
             if (Directory.Exists(local))
@@ -67,7 +81,7 @@ namespace SqlAssist.Setup
                     try
                     {
                         var identity = XDocument.Load(manifest).Descendants().FirstOrDefault(e => e.Name.LocalName == "Identity");
-                        if ((string)identity?.Attribute("Id") == VsixId) return (string)identity.Attribute("Version");
+                        if ((string)identity?.Attribute("Id") == VsixId) return manifest;
                     }
                     catch
                     {
@@ -117,6 +131,7 @@ namespace SqlAssist.Setup
                 if (code != 0) return InstallerError(code);
                 progress?.Report(new Step(4, total, "ล้าง cache ของ SSMS"));
                 ClearComponentCache();
+                RegisterUninstaller(ide);
                 return null;
             }
             finally
@@ -133,7 +148,99 @@ namespace SqlAssist.Setup
             if (code != 0) return InstallerError(code);
             progress?.Report(new Step(2, total, "ล้าง cache ของ SSMS"));
             ClearComponentCache();
+            UnregisterUninstaller();
             return null;
+        }
+
+        // ---- Programs and Features ----------------------------------------------------------------------------
+        // The extension itself is installed by VSIXInstaller, which adds nothing to Programs and Features. So after an
+        // install the setup exe copies itself to %LOCALAPPDATA%\SqlAssist (the downloaded copy may be deleted) and
+        // writes a per-user Uninstall key pointing at that copy with /remove, which opens the window on "uninstall".
+
+        private const string UninstallKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\SqlAssist";
+
+        public static string InstalledSetupPath => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SqlAssist", "SqlAssistSetup.exe");
+
+        private static string RunningExe => typeof(SetupEngine).Assembly.Location;
+
+        public static void RegisterUninstaller(string ide)
+        {
+            try
+            {
+                string target = InstalledSetupPath;
+                Directory.CreateDirectory(Path.GetDirectoryName(target));
+                if (!string.Equals(Path.GetFullPath(RunningExe), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase))
+                    File.Copy(RunningExe, target, true);
+
+                using (var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(UninstallKey))
+                {
+                    key.SetValue("DisplayName", "SqlAssist for SSMS 22");
+                    key.SetValue("DisplayVersion", SetupVersion);
+                    key.SetValue("Publisher", "SqlAssist");
+                    key.SetValue("DisplayIcon", target + ",0");
+                    key.SetValue("InstallLocation", Path.GetDirectoryName(target));
+                    key.SetValue("InstallDate", DateTime.Now.ToString("yyyyMMdd"));
+                    key.SetValue("UninstallString", $"\"{target}\" /remove");
+                    key.SetValue("QuietUninstallString", $"\"{target}\" /uninstall");
+                    key.SetValue("NoModify", 1, Microsoft.Win32.RegistryValueKind.DWord);
+                    key.SetValue("NoRepair", 1, Microsoft.Win32.RegistryValueKind.DWord);
+                    long kb = (ExtensionSize(ide) + new FileInfo(target).Length) / 1024;
+                    key.SetValue("EstimatedSize", (int)Math.Min(kb, int.MaxValue), Microsoft.Win32.RegistryValueKind.DWord);
+                }
+            }
+            catch
+            {
+                // The extension is installed either way; only the Programs and Features entry is missing.
+            }
+        }
+
+        /// <summary>Removes the Programs and Features entry and the copied setup exe. When that copy is the one running
+        /// (uninstall started from Programs and Features), a short-lived cmd deletes it once this process has exited.</summary>
+        public static void UnregisterUninstaller()
+        {
+            try { Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(UninstallKey, false); } catch { /* already gone */ }
+
+            string target = InstalledSetupPath;
+            if (!File.Exists(target)) return;
+            if (!string.Equals(Path.GetFullPath(RunningExe), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase))
+            {
+                TryDelete(() => File.Delete(target));
+                return;
+            }
+            try
+            {
+                Process.Start(new ProcessStartInfo("cmd.exe", $"/c ping 127.0.0.1 -n 4 > nul & del /f /q \"{target}\"")
+                {
+                    UseShellExecute = false, CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden,
+                });
+            }
+            catch
+            {
+                // Left behind: a 270 KB file in %LOCALAPPDATA%\SqlAssist.
+            }
+        }
+
+        public static bool UninstallerRegistered
+        {
+            get
+            {
+                try { using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(UninstallKey)) return key != null; }
+                catch { return false; }
+            }
+        }
+
+        private static long ExtensionSize(string ide)
+        {
+            try
+            {
+                string dir = Path.GetDirectoryName(FindInstalledManifest(ide));
+                return Directory.GetFiles(dir, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length);
+            }
+            catch
+            {
+                return 0;
+            }
         }
 
         private static string InstallerError(int code) =>

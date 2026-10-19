@@ -5,7 +5,8 @@ using System.Windows.Forms;
 
 namespace SqlAssist.Setup
 {
-    /// <summary>Double-click: the setup window. Command line (no window): /install or /uninstall, with /quiet.
+    /// <summary>Double-click: the setup window; /remove opens it with "uninstall" chosen (Programs and Features).
+    /// Command line (no window): /install or /uninstall, with /quiet.
     /// Exit codes: 0 done, 1 failed, 2 SSMS is running, 3 SSMS 22 not found.</summary>
     internal static class Program
     {
@@ -18,8 +19,24 @@ namespace SqlAssist.Setup
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new SetupForm());
+            // /remove: started from Programs and Features' Uninstall button.
+            bool remove = args.Any(a => Is(a, "remove"));
+            if (remove && !ExtensionInstalled())
+            {
+                // Removed some other way (e.g. SSMS's Extension Manager): only the stale entry is left.
+                SetupEngine.UnregisterUninstaller();
+                MessageBox.Show("SqlAssist ไม่ได้ติดตั้งอยู่ใน SSMS 22 แล้ว\nนำรายการออกจาก Programs and Features เรียบร้อย",
+                    "SqlAssist Setup", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return 0;
+            }
+            Application.Run(new SetupForm(preferUninstall: remove));
             return 0;
+        }
+
+        private static bool ExtensionInstalled()
+        {
+            string ide = SetupEngine.FindSsmsIde();
+            return ide != null && SetupEngine.FindInstalledVersion(ide) != null;
         }
 
         private static int RunUnattended(bool uninstall)

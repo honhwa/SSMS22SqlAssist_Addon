@@ -87,7 +87,7 @@ namespace SqlAssist.Setup
         private SetupEngine.Step _step;
         private double _shownProgress;
 
-        public SetupForm()
+        public SetupForm(bool preferUninstall = false)
         {
             Text = "SqlAssist Setup";
             Font = Theme.Ui(9f);
@@ -116,6 +116,7 @@ namespace SqlAssist.Setup
             FormClosed += (s, e) => LaunchSsmsIfAsked();
 
             LoadInstalledState();
+            if (preferUninstall && _installed != null) _uninstallOption.Checked = true;
         }
 
         private static int D(int v) => (int)Math.Round(v * Theme.Scale);

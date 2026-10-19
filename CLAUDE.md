@@ -66,7 +66,9 @@ Three projects (`SqlAssist.sln`) plus tests:
   embeds `SqlAssist.vsix` as a resource (`EmbedVsix` target); `SetupEngine` detects SSMS 22, the installed version
   (per-user under `%LOCALAPPDATA%\Microsoft\SSMS\22.0_*\Extensions`), whether SSMS is running, and drives SSMS's own
   `VSIXInstaller.exe` (uninstalls first so same-version reinstall works). CLI: `/install`, `/uninstall`
-  (exit codes 0 ok, 1 fail, 2 SSMS running, 3 no SSMS 22).
+  (exit codes 0 ok, 1 fail, 2 SSMS running, 3 no SSMS 22). After installing it copies itself to
+  `%LOCALAPPDATA%\SqlAssist\SqlAssistSetup.exe` and writes an HKCU `...\Uninstall\SqlAssist` key so it shows in
+  Programs and Features; that entry runs the copy with `/remove` (the window, "uninstall" preselected).
 
 Conventions that matter inside SSMS: exceptions must never escape into the editor — catch and write to `Log`
 instead. Connection/reflection code runs on the UI thread (`ThreadHelper.ThrowIfNotOnUIThread`).
