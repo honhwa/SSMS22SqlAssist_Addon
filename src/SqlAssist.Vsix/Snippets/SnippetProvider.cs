@@ -27,7 +27,6 @@ namespace SqlAssist.Snippets
                     try
                     {
                         EnsureFileExists();
-                        if (_store == null) UpgradeDefaults();
                         var writeTime = File.GetLastWriteTimeUtc(FilePath);
                         if (_store == null || writeTime != _loadedWriteTime)
                         {
@@ -64,14 +63,28 @@ namespace SqlAssist.Snippets
             }
         }
 
+        /// <summary>Creates snippets.xml from the defaults, or (once per session) adds defaults newer than the
+        /// existing file. Every reader goes through here — completion, Tab, the Snippets Manager, Edit Snippets.</summary>
         public static void EnsureFileExists()
         {
-            if (File.Exists(FilePath)) return;
-            Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
-            File.WriteAllText(FilePath, SnippetStore.DefaultXml);
+            lock (Gate)
+            {
+                if (!File.Exists(FilePath))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
+                    File.WriteAllText(FilePath, SnippetStore.DefaultXml);
+                }
+                else if (!_defaultsUpgraded)
+                {
+                    UpgradeDefaults();
+                }
+                _defaultsUpgraded = true;
+            }
         }
 
-        // Once per session: new default snippets reach users whose snippets.xml predates them.
+        private static bool _defaultsUpgraded;
+
+        // New default snippets reach users whose snippets.xml predates them.
         private static void UpgradeDefaults()
         {
             try
