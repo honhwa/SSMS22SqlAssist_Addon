@@ -29,7 +29,8 @@ $sections = [regex]::Matches($changelog, "(?ms)^## \[(\d+\.\d+\.\d+)\]([^\r\n]*)
 if (-not ($sections | Where-Object { $_.Groups[1].Value -eq $version -and $_.Groups[3].Value.Trim() })) {
     throw "CHANGELOG.md has no section for [$version] - add one first."
 }
-$previous = Invoke-RestMethod "$api/releases?per_page=100" -Headers $headers |
+# Parenthesised so the JSON array is unrolled: PowerShell 7 pipes Invoke-RestMethod's array as one object.
+$previous = (Invoke-RestMethod "$api/releases?per_page=100" -Headers $headers) |
     Where-Object { -not $_.draft -and $_.tag_name -match '^v?\d+\.\d+\.\d+$' } |
     ForEach-Object { [version]($_.tag_name.TrimStart('v')) } |
     Where-Object { $_ -lt [version]$version } | Sort-Object -Descending | Select-Object -First 1
@@ -48,7 +49,9 @@ function Send-Json($uri, $method, $object) {
 
 if ($UpdateNotes) {
     $existing = Invoke-RestMethod "$api/releases/tags/$tag" -Headers $headers
-    $updated = Send-Json "$api/releases/$($existing.id)" Patch @{ body = $notes }
+    # Keep GitHub's "**Full Changelog**: compare link" line under the new text.
+    $compare = ([string]$existing.body -split "\r?\n" | Where-Object { $_ -like '`*`*Full Changelog`*`**' } | Select-Object -First 1)
+    $updated = Send-Json "$api/releases/$($existing.id)" Patch @{ body = $notes + $(if ($compare) { "`n`n" + $compare } else { "" }) }
     Write-Host "Updated notes of $($updated.html_url)" -ForegroundColor Green
     return
 }
