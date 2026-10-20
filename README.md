@@ -72,8 +72,30 @@ add-on ขนาดเล็กสำหรับ SQL Server Management Studio 2
 | Ctrl+Space | เปิดรายการแนะนำเอง |
 | Ctrl+Shift+R | โหลด schema ใหม่ (หรือใช้ Tools › SqlAssist › Refresh Schema Cache) |
 
+| Ctrl+J แล้ว I / T / W / O / U | (ใน results grid) copy script ของ cell ที่เลือกเป็น INSERT / INSERT #tmpTable / WHERE IN() / WHERE AND OR / UPDATE ดูหัวข้อ Generate Script As ด้านล่าง |
+
 schema จะถูกโหลดครั้งแรกที่ใช้งานในแต่ละ database แล้ว cache ไว้ 10 นาที
 ถ้าใน query มีชื่อตารางที่ cache ยังไม่รู้จัก (เช่นเพิ่งสร้าง) ระบบจะโหลดใหม่เองโดยห่างกันอย่างน้อย 30 วินาที
+
+## Generate Script As จาก results grid
+
+เลือก cell ในผลลัพธ์ของ query (ลากคลุมหลายแถว/หลายคอลัมน์ หรือกด Ctrl ค้างเพื่อเลือกหลายช่วงก็ได้) แล้วคลิกขวา ›
+**Generate Script As** › ชนิด statement › **New Query Window** (เปิดหน้าต่าง query ใหม่ที่ต่อ server เดียวกัน),
+**Clipboard** หรือ **File...** (บันทึกเป็น `.sql`)
+
+| ชนิด | ได้อะไร |
+|---|---|
+| INSERT | `INSERT INTO [Table] (คอลัมน์ที่เลือก) VALUES (...), (...)` แบ่ง statement ทุก 1,000 แถว |
+| INSERT #tmpTable | `CREATE TABLE #tmpTable` ตามชนิดข้อมูลของคอลัมน์ แล้ว INSERT, `SELECT * FROM #tmpTable` และ `DROP TABLE` |
+| WHERE IN() | `WHERE col IN(...)` ค่าไม่ซ้ำกัน ถ้าเลือกหลายคอลัมน์จะต่อกันด้วย `AND` |
+| WHERE AND OR | `WHERE (a = ... AND b = ...) OR (...)` หนึ่งวงเล็บต่อแถว |
+| UPDATE | `UPDATE [Table] SET คอลัมน์ที่เลือก = ... WHERE คอลัมน์แรกของผลลัพธ์ = ...` ทีละแถวตามด้วย `GO` |
+
+- ชื่อตารางเป็น `[Table]` ให้แก้เป็นชื่อจริงเอง (ผลลัพธ์ของ SSMS ไม่ได้บอกว่าคอลัมน์มาจากตารางไหน)
+- UPDATE ใช้คอลัมน์แรกของผลลัพธ์เป็นเงื่อนไข `WHERE` จึงควร SELECT คอลัมน์ key (เช่น ID) ไว้เป็นคอลัมน์แรก
+- ค่า NULL เขียนเป็น `NULL` / `IS NULL`, ข้อความเป็น `N'...'` (หรือ `'...'` สำหรับ varchar), วันที่เป็น `'yyyy-MM-dd HH:mm:ss.fff'` (script ขึ้นต้นด้วย `SET DATEFORMAT ymd`), binary เป็น `0x...`
+- ทำได้ครั้งละไม่เกิน 100,000 แถว
+- ปุ่มลัด (copy ลง clipboard ทันที): คลิกใน grid แล้วกด **Ctrl+J** ตามด้วย **I** / **T** / **W** / **O** / **U**
 
 ## ค้นหา object
 

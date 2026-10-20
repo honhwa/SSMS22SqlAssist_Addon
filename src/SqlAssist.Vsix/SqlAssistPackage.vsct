@@ -22,6 +22,44 @@
           <CommandName>SqlAssist</CommandName>
         </Strings>
       </Menu>
+      <!-- Results grid (right-click) > Generate Script As > statement > New Query Window / Clipboard / File. -->
+      <Menu guid="guidSqlAssistCmdSet" id="GenerateScriptMenu" priority="0x0100" type="Menu">
+        <Parent guid="guidSqlAssistCmdSet" id="GridContextGroup" />
+        <Strings>
+          <ButtonText>Generate Script As</ButtonText>
+          <CommandName>Generate Script As</CommandName>
+        </Strings>
+      </Menu>
+      <Menu guid="guidSqlAssistCmdSet" id="ScriptInsertMenu" priority="0x0100" type="Menu">
+        <Parent guid="guidSqlAssistCmdSet" id="GenerateScriptGroup" />
+        <Strings>
+          <ButtonText>INSERT</ButtonText>
+        </Strings>
+      </Menu>
+      <Menu guid="guidSqlAssistCmdSet" id="ScriptInsertTempTableMenu" priority="0x0101" type="Menu">
+        <Parent guid="guidSqlAssistCmdSet" id="GenerateScriptGroup" />
+        <Strings>
+          <ButtonText>INSERT #tmpTable</ButtonText>
+        </Strings>
+      </Menu>
+      <Menu guid="guidSqlAssistCmdSet" id="ScriptWhereInMenu" priority="0x0102" type="Menu">
+        <Parent guid="guidSqlAssistCmdSet" id="GenerateScriptGroup" />
+        <Strings>
+          <ButtonText>WHERE IN()</ButtonText>
+        </Strings>
+      </Menu>
+      <Menu guid="guidSqlAssistCmdSet" id="ScriptWhereAndOrMenu" priority="0x0103" type="Menu">
+        <Parent guid="guidSqlAssistCmdSet" id="GenerateScriptGroup" />
+        <Strings>
+          <ButtonText>WHERE AND OR</ButtonText>
+        </Strings>
+      </Menu>
+      <Menu guid="guidSqlAssistCmdSet" id="ScriptUpdateMenu" priority="0x0104" type="Menu">
+        <Parent guid="guidSqlAssistCmdSet" id="GenerateScriptGroup" />
+        <Strings>
+          <ButtonText>UPDATE</ButtonText>
+        </Strings>
+      </Menu>
     </Menus>
     <Groups>
       <Group guid="guidSqlAssistCmdSet" id="ToolsGroup" priority="0x0600">
@@ -32,6 +70,27 @@
       </Group>
       <Group guid="guidSqlAssistCmdSet" id="ToolbarGroup" priority="0x0000">
         <Parent guid="guidSqlAssistCmdSet" id="SqlAssistToolbar" />
+      </Group>
+      <Group guid="guidSqlAssistCmdSet" id="GridContextGroup" priority="0x0600">
+        <Parent guid="guidSqlEditorGroup" id="IDM_SQLWB_SQLRESGRID_CONTEXT" />
+      </Group>
+      <Group guid="guidSqlAssistCmdSet" id="GenerateScriptGroup" priority="0x0100">
+        <Parent guid="guidSqlAssistCmdSet" id="GenerateScriptMenu" />
+      </Group>
+      <Group guid="guidSqlAssistCmdSet" id="ScriptInsertGroup" priority="0x0100">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptInsertMenu" />
+      </Group>
+      <Group guid="guidSqlAssistCmdSet" id="ScriptInsertTempTableGroup" priority="0x0100">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptInsertTempTableMenu" />
+      </Group>
+      <Group guid="guidSqlAssistCmdSet" id="ScriptWhereInGroup" priority="0x0100">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptWhereInMenu" />
+      </Group>
+      <Group guid="guidSqlAssistCmdSet" id="ScriptWhereAndOrGroup" priority="0x0100">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptWhereAndOrMenu" />
+      </Group>
+      <Group guid="guidSqlAssistCmdSet" id="ScriptUpdateGroup" priority="0x0100">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptUpdateMenu" />
       </Group>
     </Groups>
     <Buttons>
@@ -92,6 +151,101 @@
           <ToolTipText>SqlAssist: Search Objects</ToolTipText>
         </Strings>
       </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdScriptInsertNewWindow" priority="0x0100" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptInsertGroup" />
+        <Strings>
+          <ButtonText>New Query Window</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdScriptInsertClipboard" priority="0x0101" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptInsertGroup" />
+        <Strings>
+          <ButtonText>Clipboard</ButtonText>
+          <ToolTipText>Copy the INSERT script (Ctrl+J, I in the results grid)</ToolTipText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdScriptInsertFile" priority="0x0102" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptInsertGroup" />
+        <Strings>
+          <ButtonText>File...</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdScriptInsertTempTableNewWindow" priority="0x0100" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptInsertTempTableGroup" />
+        <Strings>
+          <ButtonText>New Query Window</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdScriptInsertTempTableClipboard" priority="0x0101" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptInsertTempTableGroup" />
+        <Strings>
+          <ButtonText>Clipboard</ButtonText>
+          <ToolTipText>Copy the INSERT #tmpTable script (Ctrl+J, T in the results grid)</ToolTipText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdScriptInsertTempTableFile" priority="0x0102" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptInsertTempTableGroup" />
+        <Strings>
+          <ButtonText>File...</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdScriptWhereInNewWindow" priority="0x0100" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptWhereInGroup" />
+        <Strings>
+          <ButtonText>New Query Window</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdScriptWhereInClipboard" priority="0x0101" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptWhereInGroup" />
+        <Strings>
+          <ButtonText>Clipboard</ButtonText>
+          <ToolTipText>Copy the WHERE IN() script (Ctrl+J, W in the results grid)</ToolTipText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdScriptWhereInFile" priority="0x0102" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptWhereInGroup" />
+        <Strings>
+          <ButtonText>File...</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdScriptWhereAndOrNewWindow" priority="0x0100" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptWhereAndOrGroup" />
+        <Strings>
+          <ButtonText>New Query Window</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdScriptWhereAndOrClipboard" priority="0x0101" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptWhereAndOrGroup" />
+        <Strings>
+          <ButtonText>Clipboard</ButtonText>
+          <ToolTipText>Copy the WHERE AND OR script (Ctrl+J, O in the results grid)</ToolTipText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdScriptWhereAndOrFile" priority="0x0102" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptWhereAndOrGroup" />
+        <Strings>
+          <ButtonText>File...</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdScriptUpdateNewWindow" priority="0x0100" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptUpdateGroup" />
+        <Strings>
+          <ButtonText>New Query Window</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdScriptUpdateClipboard" priority="0x0101" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptUpdateGroup" />
+        <Strings>
+          <ButtonText>Clipboard</ButtonText>
+          <ToolTipText>Copy the UPDATE script (Ctrl+J, U in the results grid)</ToolTipText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdScriptUpdateFile" priority="0x0102" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="ScriptUpdateGroup" />
+        <Strings>
+          <ButtonText>File...</ButtonText>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -117,6 +271,39 @@
       <IDSymbol name="cmdSearch" value="0x0104" />
       <IDSymbol name="cmdSearchToolbar" value="0x0105" />
       <IDSymbol name="cmdCheckUpdates" value="0x0106" />
+      <IDSymbol name="GridContextGroup" value="0x1040" />
+      <IDSymbol name="GenerateScriptMenu" value="0x1041" />
+      <IDSymbol name="GenerateScriptGroup" value="0x1042" />
+      <IDSymbol name="ScriptInsertMenu" value="0x1050" />
+      <IDSymbol name="ScriptInsertGroup" value="0x1060" />
+      <IDSymbol name="cmdScriptInsertNewWindow" value="0x0200" />
+      <IDSymbol name="cmdScriptInsertClipboard" value="0x0201" />
+      <IDSymbol name="cmdScriptInsertFile" value="0x0202" />
+      <IDSymbol name="ScriptInsertTempTableMenu" value="0x1051" />
+      <IDSymbol name="ScriptInsertTempTableGroup" value="0x1061" />
+      <IDSymbol name="cmdScriptInsertTempTableNewWindow" value="0x0210" />
+      <IDSymbol name="cmdScriptInsertTempTableClipboard" value="0x0211" />
+      <IDSymbol name="cmdScriptInsertTempTableFile" value="0x0212" />
+      <IDSymbol name="ScriptWhereInMenu" value="0x1052" />
+      <IDSymbol name="ScriptWhereInGroup" value="0x1062" />
+      <IDSymbol name="cmdScriptWhereInNewWindow" value="0x0220" />
+      <IDSymbol name="cmdScriptWhereInClipboard" value="0x0221" />
+      <IDSymbol name="cmdScriptWhereInFile" value="0x0222" />
+      <IDSymbol name="ScriptWhereAndOrMenu" value="0x1053" />
+      <IDSymbol name="ScriptWhereAndOrGroup" value="0x1063" />
+      <IDSymbol name="cmdScriptWhereAndOrNewWindow" value="0x0230" />
+      <IDSymbol name="cmdScriptWhereAndOrClipboard" value="0x0231" />
+      <IDSymbol name="cmdScriptWhereAndOrFile" value="0x0232" />
+      <IDSymbol name="ScriptUpdateMenu" value="0x1054" />
+      <IDSymbol name="ScriptUpdateGroup" value="0x1064" />
+      <IDSymbol name="cmdScriptUpdateNewWindow" value="0x0240" />
+      <IDSymbol name="cmdScriptUpdateClipboard" value="0x0241" />
+      <IDSymbol name="cmdScriptUpdateFile" value="0x0242" />
+    </GuidSymbol>
+    <!-- SSMS's own results-grid context menu (SQLEditors' SQLWorkbenchCommands.GUID_SQLEditorGroup /
+         IDM_SQLWB_SQLRESGRID_CONTEXT). -->
+    <GuidSymbol name="guidSqlEditorGroup" value="{33F13AC3-80BB-4ECB-85BC-225435603A5E}">
+      <IDSymbol name="IDM_SQLWB_SQLRESGRID_CONTEXT" value="0x0070" />
     </GuidSymbol>
     <GuidSymbol name="guidSqlAssistImages" value="{b3f1c6e2-5a47-4d8e-9c21-7e4a0d9f3b58}">
       <!-- Same Guid and ID as in SqlAssist.imagemanifest. -->

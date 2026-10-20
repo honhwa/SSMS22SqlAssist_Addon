@@ -71,22 +71,8 @@ namespace SqlAssist.Search
                 string text = prefix + body.Replace("\r\n", "\n").Replace("\n", "\r\n");
                 if (selectStart >= 0) selectStart = prefix.Length + CrLfOffset(body, selectStart);
 
-                var factoryType = FindAssembly("SQLEditors")?.GetType("Microsoft.SqlServer.Management.UI.VSIntegration.Editors.ScriptFactory");
-                object factory = factoryType?.GetProperty("Instance", Any)?.GetValue(null);
-                if (factory == null) return Fail("ScriptFactory not available");
-
-                var create = factoryType.GetMethods().FirstOrDefault(m => m.Name == "CreateNewBlankScript" && m.GetParameters().Length == 3
-                    && m.GetParameters()[1].ParameterType.Name == "UIConnectionInfo");
-                var createBlank = factoryType.GetMethods().FirstOrDefault(m => m.Name == "CreateNewBlankScript" && m.GetParameters().Length == 1);
-                var scriptType = (create ?? createBlank)?.GetParameters()[0].ParameterType;
-                if (scriptType == null) return Fail("CreateNewBlankScript not found");
-                object sql = Enum.Parse(scriptType, "Sql");
-                if (create != null && server.UiConnectionInfo != null) create.Invoke(factory, new[] { sql, server.UiConnectionInfo, null });
-                else createBlank.Invoke(factory, new[] { sql });
-
-                if (!(ServiceProvider.GlobalProvider.GetService(typeof(DTE)) is DTE dte) || !(dte.ActiveDocument?.Object("TextDocument") is TextDocument doc))
-                    return Fail("The new query window did not open");
-                doc.StartPoint.CreateEditPoint().Insert(text);
+                var doc = NewQueryWindow(server.UiConnectionInfo, text, out string error);
+                if (doc == null) return error;
 
                 var selection = doc.Selection;
                 if (selectStart >= 0)
@@ -104,6 +90,50 @@ namespace SqlAssist.Search
                 Log.Error("Open script", ex);
                 return "Open script failed: " + ex.Message;
             }
+        }
+
+        /// <summary>Opens a new query window holding <paramref name="text"/> (CRLF), connected through
+        /// <paramref name="uiConnectionInfo"/> when there is one. Null on success; otherwise why not.</summary>
+        public static string OpenQueryWindow(object uiConnectionInfo, string text)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            try
+            {
+                var doc = NewQueryWindow(uiConnectionInfo, text.Replace("\r\n", "\n").Replace("\n", "\r\n"), out string error);
+                doc?.Selection.StartOfDocument();
+                return error;
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Open query window", ex);
+                return "Open query window failed: " + ex.Message;
+            }
+        }
+
+        private static TextDocument NewQueryWindow(object uiConnectionInfo, string text, out string error)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            error = null;
+            var factoryType = FindAssembly("SQLEditors")?.GetType("Microsoft.SqlServer.Management.UI.VSIntegration.Editors.ScriptFactory");
+            object factory = factoryType?.GetProperty("Instance", Any)?.GetValue(null);
+            if (factory == null) { error = Fail("ScriptFactory not available"); return null; }
+
+            var create = factoryType.GetMethods().FirstOrDefault(m => m.Name == "CreateNewBlankScript" && m.GetParameters().Length == 3
+                && m.GetParameters()[1].ParameterType.Name == "UIConnectionInfo");
+            var createBlank = factoryType.GetMethods().FirstOrDefault(m => m.Name == "CreateNewBlankScript" && m.GetParameters().Length == 1);
+            var scriptType = (create ?? createBlank)?.GetParameters()[0].ParameterType;
+            if (scriptType == null) { error = Fail("CreateNewBlankScript not found"); return null; }
+            object sql = Enum.Parse(scriptType, "Sql");
+            if (create != null && uiConnectionInfo != null) create.Invoke(factory, new[] { sql, uiConnectionInfo, null });
+            else createBlank.Invoke(factory, new[] { sql });
+
+            if (!(ServiceProvider.GlobalProvider.GetService(typeof(DTE)) is DTE dte) || !(dte.ActiveDocument?.Object("TextDocument") is TextDocument doc))
+            {
+                error = Fail("The new query window did not open");
+                return null;
+            }
+            doc.StartPoint.CreateEditPoint().Insert(text);
+            return doc;
         }
 
         private static void ShowObjectExplorer()

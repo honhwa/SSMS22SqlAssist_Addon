@@ -8,6 +8,17 @@
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-20
+
+### เพิ่ม
+- **Generate Script As** จาก results grid: เลือก cell ในผลลัพธ์ แล้วคลิกขวา › **Generate Script As** › เลือกชนิด statement › ส่งไปที่ **New Query Window**, **Clipboard** หรือ **File...**
+  - **INSERT**: `INSERT INTO [Table] (...) VALUES (...), (...)` (แบ่งทุก 1,000 แถว)
+  - **INSERT #tmpTable**: `CREATE TABLE #tmpTable` ตามชนิดข้อมูลของคอลัมน์ + INSERT + `SELECT * FROM #tmpTable` + `DROP TABLE`
+  - **WHERE IN()**: `WHERE col IN(...)` (ค่าไม่ซ้ำ, ค่า NULL กลายเป็น `IS NULL`)
+  - **WHERE AND OR**: `WHERE (a = 1 AND b = N'x') OR (...)` หนึ่งกลุ่มต่อแถว
+  - **UPDATE**: `UPDATE [Table] SET ... WHERE <คอลัมน์แรกของผลลัพธ์> = ...` ทีละแถว
+- ปุ่มลัดในผลลัพธ์ (copy ลง clipboard): **Ctrl+J** แล้วตามด้วย **I** (INSERT), **T** (INSERT #tmpTable), **W** (WHERE IN), **O** (WHERE AND OR), **U** (UPDATE) ใช้ได้เฉพาะตอนที่ results grid ถูกเลือกอยู่ ส่วน Ctrl+J ใน editor ยังเป็น List Members เหมือนเดิม
+
 ## [1.3.3] - 2026-10-20
 
 ### เพิ่ม

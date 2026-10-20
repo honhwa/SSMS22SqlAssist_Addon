@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
+using SqlAssist.Results;
 using SqlAssist.Schema;
 using SqlAssist.Search;
 using SqlAssist.Snippets;
@@ -12,11 +13,11 @@ using Task = System.Threading.Tasks.Task;
 
 namespace SqlAssist
 {
-    /// <summary>Hosts the Tools-menu commands. The editor features are MEF parts and load without it.</summary>
+    /// <summary>Hosts the Tools-menu and results-grid commands. The editor features are MEF parts and load without it.</summary>
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [Guid(PackageGuidString)]
     // Bump the number whenever the .vsct changes, or SSMS keeps showing the old cached menu.
-    [ProvideMenuResource("Menus.ctmenu", 9)]
+    [ProvideMenuResource("Menus.ctmenu", 10)]
     // Loads in the background once SSMS is up, so the daily update check runs without a menu click first.
     [ProvideAutoLoad(VSConstants.UICONTEXT.ShellInitialized_string, PackageAutoLoadFlags.BackgroundLoad)]
     // Puts the extension folder on SSMS's assembly probing path. The image service resolves the toolbar logo's
@@ -53,6 +54,7 @@ namespace SqlAssist
                 commands.AddCommand(new MenuCommand((s, e) => OpenFile(Log.FilePath), new CommandID(CommandSet, CmdOpenLog)));
                 commands.AddCommand(new MenuCommand((s, e) => ShowAbout(), new CommandID(CommandSet, CmdAbout)));
                 commands.AddCommand(new MenuCommand((s, e) => JoinableTaskFactory.RunAsync(() => UpdateService.CheckManuallyAsync(this, DisposalToken)).FileAndForget("SqlAssist/CheckUpdates"), new CommandID(CommandSet, CmdCheckUpdates)));
+                GenerateScriptCommands.Register(commands);
             }
             JoinableTaskFactory.RunAsync(() => UpdateService.CheckAutomaticallyAsync(this, DisposalToken)).FileAndForget("SqlAssist/AutoCheckUpdates");
         }

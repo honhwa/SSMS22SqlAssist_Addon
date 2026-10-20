@@ -48,7 +48,7 @@ Three projects (`SqlAssist.sln`) plus tests:
 
 - **`src/SqlAssist.Core`** (netstandard2.0) — pure logic, no VS/SSMS references: `Sql/` (tokenizer, context
   analyzer that figures out which tables/aliases are in scope and what kind of completion the caret wants),
-  `Completion/` (fuzzy matcher, alias generator, JOIN suggester, star expander), `Snippets/`, `Schema/` (schema model,
+  `Completion/` (fuzzy matcher, alias generator, JOIN suggester, star expander), `Snippets/`, `Results/` (scripts from result-grid cells), `Schema/` (schema model,
   SQL type formatting), `Search/` (search matcher with match-case/whole-word/wildcards, `CREATE TABLE` preview
   builder). All unit tests target this layer; put testable logic here, not in the Vsix project.
 - **`src/SqlAssist.Vsix`** (net48, WPF) — SSMS glue. It does **not** reference the Core assembly: Core's `.cs`
@@ -66,6 +66,12 @@ Three projects (`SqlAssist.sln`) plus tests:
   - `Search/` — the Search tool window (`SearchToolWindow`/`SearchControl`), `SearchIndexLoader`/`SearchIndexCache`
     (per-database in-memory index, 10-minute stale-while-revalidate, loads databases one by one and streams results),
     `SearchSettings` (object-type/match options, in memory only: every SSMS session starts from the defaults).
+  - `Results/` — results grid › Generate Script As (INSERT / INSERT #tmpTable / WHERE IN() / WHERE AND OR / UPDATE
+    to new window, clipboard or file). `ResultsGridReader` reads the focused grid by reflection
+    (`Microsoft.SqlServer.GridControl`'s GridControl: `SelectedCells`, `GridStorage` = SQLEditors' `QEResultSet`, whose
+    storage column 0 is the row-number column). The submenu hangs off SSMS's grid context menu
+    (`{33F13AC3-80BB-4ECB-85BC-225435603A5E}:0x70`). Ctrl+J,<key> is caught in `ComponentDispatcher.ThreadPreprocessMessage`
+    only while a grid has focus. Script text comes from Core `Results/ResultScriptBuilder`.
   - `Update/` — online update: `UpdateService` reads GitHub's `releases/latest` for `kriangdet/SSMS22SqlAssist_Addon`
     (daily on startup via background `ProvideAutoLoad`, or Tools › SqlAssist › Check for Updates), shows
     `UpdateInfoBar`, and on request downloads the release's `SqlAssistSetup-*.exe` (SHA-256 checked against the
