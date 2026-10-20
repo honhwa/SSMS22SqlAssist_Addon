@@ -75,7 +75,7 @@ namespace SqlAssist.Editor
                             bool starts =
                                 (ch == '.' && ctx.Kind == CaretContextKind.Qualified) ||
                                 (ch == ' ' && (ctx.Kind == CaretContextKind.TableName || ctx.Kind == CaretContextKind.JoinCondition || ctx.IsRightAfterSelect)) ||
-                                ((char.IsLetter(ch) || ch == '_' || ch == '#' || ch == '[') && ctx.TypedText.Length > 0);
+                                ((char.IsLetter(ch) || ch == '_' || ch == '#' || ch == '[' || ch == '@') && ctx.TypedText.Length > 0);
                             if (!starts) return CompletionStartData.DoesNotParticipateInCompletion;
                             break;
                         case CompletionTriggerReason.Deletion:
@@ -106,6 +106,16 @@ namespace SqlAssist.Editor
                 var target = _target;
                 var window = TextWindow.Around(triggerLocation.Snapshot, triggerLocation.Position);
                 var ctx = SqlContextAnalyzer.Analyze(window.Text, window.Caret);
+                var variables = SqlVariables.DeclaredBefore(window.Text, window.Caret);
+
+                // "@|": only what the script declared — no schema needed.
+                if (ctx.TypedText.StartsWith("@"))
+                {
+                    var varItems = new List<CompletionItem>();
+                    AddVariableItems(varItems, variables, "0");
+                    return new CompletionContext(varItems.ToImmutableArray());
+                }
+
                 var schema = await SchemaCache.Instance.GetAsync(target, SchemaWait, token).ConfigureAwait(false);
 
                 if (schema.Objects.Count > 0 && ctx.TablesInScope.Any(t => t.HasColumns && schema.Find(t) == null))
@@ -131,6 +141,7 @@ namespace SqlAssist.Editor
                             AddGeneralItems(items, ctx, schema, columns: false);
                         }
                         else AddGeneralItems(items, ctx, schema);
+                        AddVariableItems(items, variables, "2");
                         break;
                 }
                 return new CompletionContext(items.ToImmutableArray());
@@ -266,6 +277,20 @@ namespace SqlAssist.Editor
                     System.Text.RegularExpressions.RegexOptions.IgnoreCase));
                 item.Properties.AddProperty(ItemProps.Snippet, s);
                 items.Add(item);
+            }
+        }
+
+        // Declared @variables and @parameters; the description reads like SSMS's: "uspGetList.@MaxPrice (Parameter)".
+        private void AddVariableItems(List<CompletionItem> items, IReadOnlyList<SqlVariable> variables, string group)
+        {
+            foreach (var v in variables)
+            {
+                bool parameter = v.Kind == SqlVariableKind.Parameter;
+                string title = (v.Owner != null ? v.Owner + "." : "") + v.Name +
+                    (parameter ? " (Parameter)" : v.Kind == SqlVariableKind.TableVariable ? " (Table variable)" : " (Variable)");
+                string signature = v.Name + (v.TypeName != null ? " " + v.TypeName : "") + (v.Direction != null ? " " + v.Direction : "");
+                items.Add(Item(v.Name, parameter ? Icons.Parameter : Icons.Variable, v.Name, group, v.Name,
+                    v.TypeName, title + "\n" + signature));
             }
         }
 

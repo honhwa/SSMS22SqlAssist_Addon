@@ -11,6 +11,7 @@ add-on ขนาดเล็กสำหรับ SQL Server Management Studio 2
 | ชี้เมาส์ดูตาราง | เอาเมาส์ชี้ชื่อตารางหรือ alias ใน query (เช่น `Work_InitialApproval`, `wia`, หรือ `wr` ใน `wr.ReqId`) จะขึ้นกล่องโครงสร้างตารางแบบเดียวกัน |
 | CTE / subquery | คอลัมน์ของ `WITH Sales_CTE AS (...)` และ `FROM (SELECT ...) d` ถูกแนะนำเหมือนตารางจริง ใช้กับ `*` + Tab, JOIN, การชี้เมาส์ได้ ถ้ายังไม่มี FROM (`SELECT |`) จะแนะนำคอลัมน์ของ CTE ให้เลย |
 | เลือกคอลัมน์แบบกิ่ง | ใน `SELECT |` ที่ยังไม่มี FROM รายการจะเป็นกิ่ง: CTE และทุกตาราง กด ▸ (หรือ → / ←) เพื่อขยายดูคอลัมน์ ติ๊ก ☐ (หรือ Shift+Space) ได้หลายตัว แล้ว Enter / Tab จะ gen `SELECT ... FROM ... JOIN ...` ให้ทั้งก้อน (JOIN ตาม FK หรือคอลัมน์ `...Id` ที่ชื่อตรงกัน) ไม่ติ๊กอะไร = ได้ทั้งตารางหรือคอลัมน์ที่เลือก |
+| ตัวแปร / parameter | พิมพ์ `@` จะแนะนำตัวแปรที่ `DECLARE` ไว้ด้านบน และ parameter ของ `CREATE/ALTER PROCEDURE / FUNCTION` พร้อมชนิดข้อมูล และ INPUT / OUTPUT (นับเฉพาะใน batch เดียวกัน คือหลัง `GO` ตัวล่าสุด) |
 | ข้อมูลคอลัมน์ | เลือกคอลัมน์ในรายการแนะนำ จะเห็นชนิดข้อมูล, PK / IDENTITY / NOT NULL, คำอธิบายจากฐานข้อมูล (MS_Description) และ Foreign key ไปตารางไหน |
 | เงื่อนไข ON อัตโนมัติ | พิมพ์ `JOIN Work_InitialApproval wia ON ` แล้วจะได้ `wr.ReqId = wia.ReqId` เรียงจาก Foreign Key ก่อน แล้วตามด้วยคอลัมน์ที่ชื่อตรงกัน (คอลัมน์ `...Id` ขึ้นก่อน) ใช้หลัง `AND` ได้ด้วย |
 | ค้นชื่อไม่ต้องตรงตัว | `custid` → `CustomerID`, `od` → `OrderDetails` |
