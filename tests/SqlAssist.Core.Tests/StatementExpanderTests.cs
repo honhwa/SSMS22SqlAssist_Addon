@@ -16,7 +16,7 @@ namespace SqlAssist.Core.Tests
             new DbColumn("RowVer", "timestamp", isNullable: false),
         });
 
-        private static readonly DbRoutine UpdatePerson = new DbRoutine("Person", "sp_UpdatePerson", true, new[]
+        private static readonly DbRoutine UpdatePerson = new DbRoutine("Person", "sp_UpdatePerson", RoutineKind.Procedure, new[]
         {
             new DbParameter("@BusinessEntityID", "int"),
             new DbParameter("@FirstName", "nvarchar(50)"),
@@ -117,7 +117,7 @@ namespace SqlAssist.Core.Tests
 
         [Fact]
         public void Exec_NoParametersIsNothingToExpand() =>
-            Assert.Null(StatementExpander.BuildExec(new DbRoutine("dbo", "p", true, new DbParameter[0]), "EXEC p", "", "\n"));
+            Assert.Null(StatementExpander.BuildExec(new DbRoutine("dbo", "p", RoutineKind.Procedure, new DbParameter[0]), "EXEC p", "", "\n"));
 
         [Theory]
         [InlineData("CREATE PROCEDURE dbo.p AS SELECT 1\r\n", "ALTER PROCEDURE dbo.p AS SELECT 1")]

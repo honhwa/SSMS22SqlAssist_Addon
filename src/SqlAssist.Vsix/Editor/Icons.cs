@@ -16,6 +16,9 @@ namespace SqlAssist.Editor
         public static readonly ImageElement Snippet = Make(KnownMonikers.Snippet, "Snippet");
         public static readonly ImageElement Variable = Make(KnownMonikers.LocalVariable, "Variable");
         public static readonly ImageElement Parameter = Make(KnownMonikers.Parameter, "Parameter");
+        public static readonly ImageElement Procedure = Make(KnownMonikers.StoredProcedure, "Procedure");
+        public static readonly ImageElement Function = Make(KnownMonikers.ScalarFunction, "Function");
+        public static readonly ImageElement TableFunction = Make(KnownMonikers.TableFunction, "Table function");
 
         private static ImageElement Make(ImageMoniker moniker, string name) => new ImageElement(new ImageId(moniker.Guid, moniker.Id), name);
     }

@@ -66,17 +66,27 @@ namespace SqlAssist.Core.Schema
         public bool IsReadOnly { get; }
     }
 
-    /// <summary>A stored procedure or function, for EXEC templates.</summary>
+    public enum RoutineKind { Procedure, ScalarFunction, TableFunction }
+
+    /// <summary>A stored procedure or function: EXEC templates, and the completion list's parameter panel.</summary>
     public sealed class DbRoutine
     {
-        public DbRoutine(string schema, string name, bool isProcedure, IReadOnlyList<DbParameter> parameters)
+        public DbRoutine(string schema, string name, RoutineKind kind, IReadOnlyList<DbParameter> parameters,
+            string returnType = null, string description = null)
         {
-            Schema = schema; Name = name; IsProcedure = isProcedure; Parameters = parameters;
+            Schema = schema; Name = name; Kind = kind; Parameters = parameters;
+            ReturnType = returnType ?? (kind == RoutineKind.TableFunction ? "TABLE" : null);
+            Description = description;
         }
         public string Schema { get; }
         public string Name { get; }
-        public bool IsProcedure { get; }
+        public RoutineKind Kind { get; }
+        public bool IsProcedure => Kind == RoutineKind.Procedure;
         public IReadOnlyList<DbParameter> Parameters { get; }
+        /// <summary>A scalar function's return type ("money"); "TABLE" for table-valued functions; null for procedures.</summary>
+        public string ReturnType { get; }
+        /// <summary>The MS_Description extended property, if any.</summary>
+        public string Description { get; }
         public override string ToString() => Schema + "." + Name;
     }
 

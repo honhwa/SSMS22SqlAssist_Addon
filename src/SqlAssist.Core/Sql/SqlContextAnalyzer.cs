@@ -62,6 +62,8 @@ namespace SqlAssist.Core.Sql
         /// <summary>Right after a table name (or AS) in FROM/JOIN, where the user is typing an alias:
         /// a list here would turn "FROM Customers c⏎" into a committed suggestion.</summary>
         public bool IsAliasPosition { get; internal set; }
+        /// <summary>After EXEC ("EXEC |", "EXEC dbo.|", "EXEC @rc = |"): procedures and functions are expected.</summary>
+        public bool IsRoutineName { get; internal set; }
         /// <summary>The identifier around the caret, replaced on commit (includes a leading '[').</summary>
         public int WordStart { get; internal set; }
         public int WordEnd { get; internal set; }
@@ -152,7 +154,8 @@ namespace SqlAssist.Core.Sql
                         chainStart = q - 2;
                     }
                     var before = TableKeywordAt(stmt, chainStart - 1);
-                    ctx.QualifierIsSchema = before.HasValue && ctx.QualifierSchema == null;
+                    ctx.IsRoutineName = IsExecAt(sig, chainStart - 1); // "EXEC dbo.|": the schema's procedures
+                    ctx.QualifierIsSchema = (before.HasValue || ctx.IsRoutineName) && ctx.QualifierSchema == null;
                     if (before.HasValue)
                     {
                         ctx.AllowAlias = before.Value.allowAlias;
@@ -163,6 +166,12 @@ namespace SqlAssist.Core.Sql
             }
 
             if (TryJoinCondition(stmt, p, ctx)) return ctx;
+
+            if (IsExecAt(sig, p))
+            {
+                ctx.IsRoutineName = true;
+                return ctx;
+            }
 
             var table = TableKeywordAt(stmt, p);
             if (table.HasValue)
@@ -298,6 +307,15 @@ namespace SqlAssist.Core.Sql
         }
 
         // Is token k a keyword (or FROM-list comma) after which a table name goes?
+        // "EXEC |", "EXECUTE |" or "EXEC @rc = |": a procedure name goes here.
+        private static bool IsExecAt(IReadOnlyList<SqlToken> sig, int k)
+        {
+            if (k < 0 || k >= sig.Count) return false;
+            if (sig[k].IsWord("EXEC") || sig[k].IsWord("EXECUTE")) return true;
+            return sig[k].IsSymbol('=') && k >= 2 && sig[k - 1].Kind == TokenKind.Variable &&
+                   (sig[k - 2].IsWord("EXEC") || sig[k - 2].IsWord("EXECUTE"));
+        }
+
         private static (bool allowAlias, bool isJoin)? TableKeywordAt(Statement stmt, int k)
         {
             if (k < 0) return null;

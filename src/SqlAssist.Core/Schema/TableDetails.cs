@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace SqlAssist.Core.Schema
 {
-    public enum ColumnKeyKind { None, PrimaryKey, ForeignKey }
+    public enum ColumnKeyKind { None, PrimaryKey, ForeignKey, Parameter }
 
     public sealed class ColumnDetail
     {
@@ -24,8 +24,10 @@ namespace SqlAssist.Core.Schema
         /// <summary>Null for a CTE or derived table.</summary>
         public string Schema { get; set; }
         public string Name { get; set; }
-        /// <summary>"Table", "View", "CTE" or "Derived table".</summary>
+        /// <summary>"Table", "View", "CTE", "Derived table", "Procedure" or "Function".</summary>
         public string Kind { get; set; }
+        /// <summary>For a function: what it returns ("MONEY", "TABLE").</summary>
+        public string Returns { get; set; }
         /// <summary>The table's MS_Description, if any.</summary>
         public string Description { get; set; }
         public IReadOnlyList<ColumnDetail> Columns { get; set; }
@@ -33,6 +35,24 @@ namespace SqlAssist.Core.Schema
         public int HiddenColumns { get; set; }
         /// <summary>"60,533", or null for views and unknown counts.</summary>
         public string RowCount { get; set; }
+
+        /// <summary>A procedure or function: one row per parameter — name, type, INPUT / OUTPUT / READONLY — as in
+        /// "dbo.ufnGetProductDealerPrice (Function) returns MONEY".</summary>
+        public static TableDetails Build(DbRoutine r) => new TableDetails
+        {
+            Schema = r.Schema,
+            Name = r.Name,
+            Kind = r.IsProcedure ? "Procedure" : "Function",
+            Returns = r.ReturnType?.ToUpperInvariant(),
+            Description = string.IsNullOrWhiteSpace(r.Description) ? null : r.Description.Trim(),
+            Columns = r.Parameters.Select(p => new ColumnDetail
+            {
+                Name = p.Name,
+                Type = (p.TypeName ?? "").ToUpperInvariant(),
+                Flags = p.IsOutput ? "OUTPUT" : p.IsReadOnly ? "READONLY" : "INPUT",
+                Key = ColumnKeyKind.Parameter,
+            }).ToList(),
+        };
 
         public static TableDetails Build(SchemaModel schema, DbObject o, int maxColumns = 60)
         {

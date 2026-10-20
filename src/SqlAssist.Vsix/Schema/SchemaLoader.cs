@@ -47,12 +47,15 @@ JOIN sys.schemas rs ON rs.schema_id = rt.schema_id
 JOIN sys.columns rc ON rc.object_id = fkc.referenced_object_id AND rc.column_id = fkc.referenced_column_id
 ORDER BY fk.object_id, fkc.constraint_column_id;
 
--- Procedures and functions with their parameters, for EXEC templates (a routine without parameters has one NULL row).
-SELECT s.name, o.name, o.type, p.name, t.name, p.max_length, p.precision, p.scale, p.is_output, p.is_readonly
+-- Procedures and functions with their parameters (a routine without any has one NULL row). Parameter 0 is a
+-- scalar function's return value.
+SELECT s.name, o.name, o.type, p.name, t.name, p.max_length, p.precision, p.scale, p.is_output, p.is_readonly,
+       p.parameter_id, CAST(d.value AS nvarchar(2000))
 FROM sys.objects o
 JOIN sys.schemas s ON s.schema_id = o.schema_id
-LEFT JOIN sys.parameters p ON p.object_id = o.object_id AND p.parameter_id > 0
+LEFT JOIN sys.parameters p ON p.object_id = o.object_id
 LEFT JOIN sys.types t ON t.user_type_id = p.user_type_id
+LEFT JOIN sys.extended_properties d ON d.class = 1 AND d.major_id = o.object_id AND d.minor_id = 0 AND d.name = 'MS_Description'
 WHERE o.type IN ('P', 'PC', 'FN', 'IF', 'TF', 'FS', 'FT') AND o.is_ms_shipped = 0
 ORDER BY s.name, o.name, p.parameter_id;";
 
@@ -128,12 +131,12 @@ ORDER BY s.name, o.name, p.parameter_id;";
                     FlushKey();
 
                     await reader.NextResultAsync(token).ConfigureAwait(false);
-                    string rSchema = null, rName = null;
-                    bool rProc = false;
+                    string rSchema = null, rName = null, rReturns = null, rDescription = null;
+                    var rKind = RoutineKind.Procedure;
                     var parameters = new List<DbParameter>();
                     void FlushRoutine()
                     {
-                        if (rName != null) routines.Add(new DbRoutine(rSchema, rName, rProc, parameters.ToArray()));
+                        if (rName != null) routines.Add(new DbRoutine(rSchema, rName, rKind, parameters.ToArray(), rReturns, rDescription));
                     }
 
                     while (await reader.ReadAsync(token).ConfigureAwait(false))
@@ -142,15 +145,18 @@ ORDER BY s.name, o.name, p.parameter_id;";
                         if (schema != rSchema || name != rName)
                         {
                             FlushRoutine();
-                            rSchema = schema; rName = name;
+                            rSchema = schema; rName = name; rReturns = null;
+                            rDescription = reader.IsDBNull(11) ? null : reader.GetString(11);
                             string type = reader.GetString(2).Trim();
-                            rProc = type == "P" || type == "PC";
+                            rKind = type == "P" || type == "PC" ? RoutineKind.Procedure
+                                : type == "FN" || type == "FS" ? RoutineKind.ScalarFunction
+                                : RoutineKind.TableFunction;
                             parameters.Clear();
                         }
-                        if (reader.IsDBNull(3)) continue;
-                        parameters.Add(new DbParameter(
-                            reader.GetString(3),
-                            SqlTypeFormatter.Format(reader.GetString(4), reader.GetInt16(5), reader.GetByte(6), reader.GetByte(7)),
+                        if (reader.IsDBNull(10) || reader.IsDBNull(4)) continue;
+                        string typeName = SqlTypeFormatter.Format(reader.GetString(4), reader.GetInt16(5), reader.GetByte(6), reader.GetByte(7));
+                        if (reader.GetInt32(10) == 0) { rReturns = typeName; continue; }
+                        parameters.Add(new DbParameter(reader.GetString(3), typeName,
                             isOutput: reader.GetBoolean(8),
                             isReadOnly: reader.GetBoolean(9)));
                     }

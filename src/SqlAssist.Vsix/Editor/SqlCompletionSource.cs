@@ -74,7 +74,7 @@ namespace SqlAssist.Editor
                             char ch = trigger.Character;
                             bool starts =
                                 (ch == '.' && ctx.Kind == CaretContextKind.Qualified) ||
-                                (ch == ' ' && (ctx.Kind == CaretContextKind.TableName || ctx.Kind == CaretContextKind.JoinCondition || ctx.IsRightAfterSelect)) ||
+                                (ch == ' ' && (ctx.Kind == CaretContextKind.TableName || ctx.Kind == CaretContextKind.JoinCondition || ctx.IsRightAfterSelect || ctx.IsRoutineName)) ||
                                 ((char.IsLetter(ch) || ch == '_' || ch == '#' || ch == '[' || ch == '@') && ctx.TypedText.Length > 0);
                             if (!starts) return CompletionStartData.DoesNotParticipateInCompletion;
                             break;
@@ -131,6 +131,12 @@ namespace SqlAssist.Editor
                         AddGeneralItems(items, ctx, schema); // anything else the user wants to type after ON
                         break;
                     default:
+                        if (ctx.IsRoutineName)
+                        {
+                            // "EXEC |": procedures, then functions, each with its parameters beside the list.
+                            AddRoutineItems(items, schema.Routines, qualified: false);
+                            break;
+                        }
                         if (ctx.IsSelectListWithoutFrom)
                         {
                             // "SELECT |": the table tree; picking from it writes the column list and the FROM.
@@ -194,14 +200,23 @@ namespace SqlAssist.Editor
                 items.Add(ObjectItem(schema, o,SchemaModel.DisplayName(o), ctx));
             foreach (var s in schema.Schemas)
                 items.Add(Item(s, Icons.Schema, SqlIdentifier.QuoteIfNeeded(s), "2", s, "schema", null));
+            // FROM dbo.ufnGetContacts(...): table-valued functions read like tables.
+            AddRoutineItems(items, schema.Routines.Where(r => r.Kind == RoutineKind.TableFunction), qualified: false, group: "2");
         }
 
         private void AddQualifiedItems(List<CompletionItem> items, CaretContext ctx, SchemaModel schema)
         {
+            var inSchema = schema.Routines.Where(r => string.Equals(r.Schema, ctx.Qualifier, StringComparison.OrdinalIgnoreCase));
+            if (ctx.QualifierIsSchema && ctx.IsRoutineName)
+            {
+                AddRoutineItems(items, inSchema, qualified: true); // "EXEC dbo.|"
+                return;
+            }
             if (ctx.QualifierIsSchema)
             {
                 foreach (var o in schema.Objects.Where(o => string.Equals(o.Schema, ctx.Qualifier, StringComparison.OrdinalIgnoreCase)))
                     items.Add(ObjectItem(schema, o,SqlIdentifier.QuoteIfNeeded(o.Name), ctx));
+                AddRoutineItems(items, inSchema.Where(r => r.Kind == RoutineKind.TableFunction), qualified: true, group: "2");
                 return;
             }
 
@@ -217,9 +232,29 @@ namespace SqlAssist.Editor
                 foreach (var c in table.Columns) items.Add(ColumnItem(schema, c, SqlIdentifier.QuoteIfNeeded(c.Name), table));
                 return;
             }
-            // "SELECT ... WHERE dbo." — a schema outside table position.
+            // "SELECT ... WHERE dbo." — a schema outside table position: its scalar functions first.
+            AddRoutineItems(items, inSchema.Where(r => r.Kind == RoutineKind.ScalarFunction), qualified: true, group: "0");
             foreach (var o in schema.Objects.Where(o => string.Equals(o.Schema, ctx.Qualifier, StringComparison.OrdinalIgnoreCase)))
                 items.Add(ObjectItem(schema, o,SqlIdentifier.QuoteIfNeeded(o.Name), ctx));
+        }
+
+        /// <summary>Procedures and functions, with the parameter panel beside the list
+        /// ("dbo.ufnGetProductDealerPrice (Function) returns MONEY", @ProductID INT INPUT ...).</summary>
+        /// <param name="qualified">After "schema.": insert the bare name.</param>
+        /// <param name="group">Sort group; by default procedures ("1") ahead of functions ("2").</param>
+        private void AddRoutineItems(List<CompletionItem> items, IEnumerable<DbRoutine> routines, bool qualified, string group = null)
+        {
+            foreach (var r in routines)
+            {
+                string name = SqlIdentifier.QuoteIfNeeded(r.Name);
+                bool dbo = string.Equals(r.Schema, SchemaModel.DefaultSchema, StringComparison.OrdinalIgnoreCase);
+                string insert = qualified || dbo ? name : SqlIdentifier.QuoteIfNeeded(r.Schema) + "." + name;
+                var icon = r.IsProcedure ? Icons.Procedure : r.Kind == RoutineKind.TableFunction ? Icons.TableFunction : Icons.Function;
+                string description = $"{r} ({(r.IsProcedure ? "procedure" : "function")}, {r.Parameters.Count} parameters)";
+                var item = Item(r.Name, icon, insert, group ?? (r.IsProcedure ? "1" : "2"), r.Name, qualified || dbo ? null : r.Schema, description);
+                item.Properties.AddProperty(ItemProps.Table, new Lazy<TableDetails>(() => TableDetails.Build(r)));
+                items.Add(item);
+            }
         }
 
         // Tables of the tree: the statement's CTEs first, then the database's tables and views. Their columns are added
@@ -293,6 +328,9 @@ namespace SqlAssist.Editor
                     if (added.Add(insert)) items.Add(ColumnItem(schema, c, insert, o, suffix: refName));
                 }
             }
+
+            // Scalar functions, used in expressions: after the columns, ahead of keywords.
+            AddRoutineItems(items, schema.Routines.Where(r => r.Kind == RoutineKind.ScalarFunction), qualified: false, group: "2");
 
             foreach (var k in SqlKeywords.CompletionKeywords)
             {

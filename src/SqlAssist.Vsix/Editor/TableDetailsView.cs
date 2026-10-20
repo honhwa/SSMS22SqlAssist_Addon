@@ -10,7 +10,8 @@ namespace SqlAssist.Editor
 {
     /// <summary>The table panel shared by the completion list (beside a selected table) and the hover tooltip:
     /// "dbo.Work_InitialApproval (Table)", one row per column — key icon, name, type, IDENTITY / NOT NULL — and the
-    /// estimated row count. Types and flags use the editor's keyword colour, as in the code.</summary>
+    /// estimated row count. Types and flags use the editor's keyword colour, as in the code. For a procedure or
+    /// function the rows are its parameters (INPUT / OUTPUT) and the title says what a function returns.</summary>
     internal static class TableDetailsView
     {
         private const double RowHeight = 20;
@@ -24,11 +25,20 @@ namespace SqlAssist.Editor
             TextElement.SetFontSize(panel, 13);
 
             var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
-            header.Children.Add(Image(d.Kind == "Table" ? KnownMonikers.Table : KnownMonikers.View, new Thickness(0, 0, 6, 0)));
+            var icon = d.Kind == "Table" ? KnownMonikers.Table
+                : d.Kind == "Procedure" ? KnownMonikers.StoredProcedure
+                : d.Kind == "Function" ? (d.Returns == "TABLE" ? KnownMonikers.TableFunction : KnownMonikers.ScalarFunction)
+                : KnownMonikers.View;
+            header.Children.Add(Image(icon, new Thickness(0, 0, 6, 0)));
             var title = Text(textKey, null, 14);
             if (d.Schema != null) title.Inlines.Add(new Run(d.Schema + "."));
             title.Inlines.Add(new Bold(new Run(d.Name)));
             title.Inlines.Add(new Run(" (" + d.Kind + ")"));
+            if (d.Returns != null)
+            {
+                title.Inlines.Add(new Run(" returns "));
+                title.Inlines.Add(new Run(d.Returns) { Foreground = keyword });
+            }
             header.Children.Add(title);
             panel.Children.Add(header);
 
@@ -52,6 +62,7 @@ namespace SqlAssist.Editor
                 var name = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 16, 0) };
                 var moniker = c.Key == ColumnKeyKind.PrimaryKey ? KnownMonikers.KeyColumn
                     : c.Key == ColumnKeyKind.ForeignKey ? KnownMonikers.ForeignKey
+                    : c.Key == ColumnKeyKind.Parameter ? KnownMonikers.Parameter
                     : KnownMonikers.Column;
                 name.Children.Add(Image(moniker, new Thickness(0, 0, 6, 0)));
                 name.Children.Add(Text(textKey, c.Name));
