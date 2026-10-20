@@ -2,10 +2,12 @@ using System;
 using System.ComponentModel.Design;
 using System.Runtime.InteropServices;
 using System.Threading;
+using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using SqlAssist.Schema;
 using SqlAssist.Search;
 using SqlAssist.Snippets;
+using SqlAssist.Update;
 using Task = System.Threading.Tasks.Task;
 
 namespace SqlAssist
@@ -14,7 +16,9 @@ namespace SqlAssist
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [Guid(PackageGuidString)]
     // Bump the number whenever the .vsct changes, or SSMS keeps showing the old cached menu.
-    [ProvideMenuResource("Menus.ctmenu", 8)]
+    [ProvideMenuResource("Menus.ctmenu", 9)]
+    // Loads in the background once SSMS is up, so the daily update check runs without a menu click first.
+    [ProvideAutoLoad(VSConstants.UICONTEXT.ShellInitialized_string, PackageAutoLoadFlags.BackgroundLoad)]
     // Puts the extension folder on SSMS's assembly probing path. The image service resolves the toolbar logo's
     // pack URIs (/SqlAssist;component/Resources/...) by loading "SqlAssist" by name, often before this package
     // has loaded; without the binding path that load fails and the button shows no icon.
@@ -30,6 +34,7 @@ namespace SqlAssist
         private const int CmdAbout = 0x0103;
         private const int CmdSearch = 0x0104;
         private const int CmdSearchToolbar = 0x0105;
+        private const int CmdCheckUpdates = 0x0106;
         /// <summary>The Output window: the Search window docks as a tab beside it on first open.</summary>
         private const string OutputWindowGuid = "34e76e81-ee4a-11d0-ae2e-00a0c90fffc3";
 
@@ -47,7 +52,9 @@ namespace SqlAssist
                 commands.AddCommand(new MenuCommand((s, e) => ShowSnippetManager(), new CommandID(CommandSet, CmdEditSnippets)));
                 commands.AddCommand(new MenuCommand((s, e) => OpenFile(Log.FilePath), new CommandID(CommandSet, CmdOpenLog)));
                 commands.AddCommand(new MenuCommand((s, e) => ShowAbout(), new CommandID(CommandSet, CmdAbout)));
+                commands.AddCommand(new MenuCommand((s, e) => JoinableTaskFactory.RunAsync(() => UpdateService.CheckManuallyAsync(this, DisposalToken)).FileAndForget("SqlAssist/CheckUpdates"), new CommandID(CommandSet, CmdCheckUpdates)));
             }
+            JoinableTaskFactory.RunAsync(() => UpdateService.CheckAutomaticallyAsync(this, DisposalToken)).FileAndForget("SqlAssist/AutoCheckUpdates");
         }
 
         private static void ShowSnippetManager()

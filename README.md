@@ -38,6 +38,16 @@ add-on ขนาดเล็กสำหรับ SQL Server Management Studio 2
 - ใน log (Tools › SqlAssist › Open Log) ทุกครั้งที่เปิดหน้า query จะมีบรรทัด `SqlAssist x.y.z attached`
 - ก่อนออกเวอร์ชันใหม่ ให้แก้เลขเวอร์ชันที่ `Directory.Build.props` ที่เดียว แล้วรัน `.\build-setup.ps1`
 
+### อัปเดตออนไลน์ (ตั้งแต่ 1.3.0)
+- ตอนเปิด SSMS ระบบจะเช็ก [GitHub Releases](https://github.com/kriangdet/SSMS22SqlAssist_Addon/releases) วันละครั้ง ถ้ามีเวอร์ชันใหม่จะขึ้นแถบแจ้งเตือนด้านบนหน้าต่าง SSMS
+- เช็กเองได้ที่ **Tools › SqlAssist › Check for Updates...**
+- ในแถบแจ้งเตือนมีปุ่มให้เลือก:
+  - **Download and install** — ดาวน์โหลดตัวติดตั้งไว้ที่ `%LOCALAPPDATA%\SqlAssist\updates\` แล้วตรวจ SHA-256 กับค่าที่ GitHub ให้มา จากนั้นจะเปิดหน้าต่างติดตั้งขึ้นมา ให้ **ปิด SSMS แล้วกดอัปเดต**
+  - **What's new** — เปิดหน้า release เพื่อดูว่ามีอะไรใหม่
+  - **Skip this version** — ไม่ต้องเตือนเวอร์ชันนี้อีก
+  - **Don't check automatically** — ปิดการเช็กอัตโนมัติ (เมนู Check for Updates ยังใช้ได้ตามปกติ) ถ้าอยากเปิดกลับ ให้ลบไฟล์ `%LOCALAPPDATA%\SqlAssist\update.txt`
+- ออกเวอร์ชันใหม่ (สำหรับนักพัฒนา): แก้เวอร์ชัน → `.\build-setup.ps1` → commit แล้ว push → ตั้งค่า `$env:GITHUB_TOKEN` → `.\publish-release.ps1`
+
 - ไฟล์ exe ไฟล์เดียวมี add-on อยู่ข้างในแล้ว จะก๊อปไปเครื่องอื่นที่มี SSMS 22 ก็ใช้ได้เลย ไม่ต้องลงโปรแกรมเพิ่ม
 - ติดตั้งแบบ per-user ไม่ต้องใช้สิทธิ์ admin ถ้า SSMS ยังเปิดอยู่จะขอให้ปิดก่อน
 - ติดตั้งซ้ำทับได้ (ใช้ตอนอัปเดตเวอร์ชัน)
@@ -119,8 +129,8 @@ snippet เก็บอยู่ที่ไฟล์ `%APPDATA%\SqlAssist\snipp
 ## สำหรับนักพัฒนา
 
 ```
-src/SqlAssist.Core     logic ล้วน (netstandard2.0) ไม่พึ่ง VS: tokenizer, context, fuzzy, alias, JOIN, *, snippets, search matcher, CREATE TABLE preview
-src/SqlAssist.Vsix     ส่วนที่เชื่อมกับ SSMS (net48): completion source, item/commit manager, Tab filter, schema cache, Search tool window + index cache
+src/SqlAssist.Core     logic ล้วน (netstandard2.0) ไม่พึ่ง VS: tokenizer, context, fuzzy, alias, JOIN, *, snippets, search matcher, CREATE TABLE preview, update policy
+src/SqlAssist.Vsix     ส่วนที่เชื่อมกับ SSMS (net48): completion source, item/commit manager, Tab filter, schema cache, Search tool window + index cache, update check
 tests/                 xUnit ของ Core
 ```
 

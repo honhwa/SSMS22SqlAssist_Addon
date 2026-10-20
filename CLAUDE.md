@@ -61,6 +61,12 @@ Three projects (`SqlAssist.sln`) plus tests:
   - `Search/` — the Search tool window (`SearchToolWindow`/`SearchControl`), `SearchIndexLoader`/`SearchIndexCache`
     (per-database in-memory index, 10-minute stale-while-revalidate, loads databases one by one and streams results),
     `SearchSettings` (object-type/match options, in memory only: every SSMS session starts from the defaults).
+  - `Update/` — online update: `UpdateService` reads GitHub's `releases/latest` for `kriangdet/SSMS22SqlAssist_Addon`
+    (daily on startup via background `ProvideAutoLoad`, or Tools › SqlAssist › Check for Updates), shows
+    `UpdateInfoBar`, and on request downloads the release's `SqlAssistSetup-*.exe` (SHA-256 checked against the
+    asset's GitHub digest) and starts it — the setup window then waits for SSMS to close. Version/asset parsing and
+    the check/skip policy live in Core `Update/`. State: `%LOCALAPPDATA%\SqlAssist\update.txt`.
+    Releases are published with `.\publish-release.ps1` (needs `$env:GITHUB_TOKEN`).
   - `SqlAssistPackage.cs` + `SqlAssistPackage.vsct` — the AsyncPackage, Tools-menu commands, Ctrl+Shift+R refresh.
 - **`src/SqlAssist.Setup`** (net48 WinForms) — `SqlAssistSetup.exe`. Its build depends on the Vsix project and
   embeds `SqlAssist.vsix` as a resource (`EmbedVsix` target); `SetupEngine` detects SSMS 22, the installed version

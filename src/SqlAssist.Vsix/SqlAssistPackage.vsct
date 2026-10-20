@@ -55,10 +55,16 @@
           <ButtonText>Open Log</ButtonText>
         </Strings>
       </Button>
-      <Button guid="guidSqlAssistCmdSet" id="cmdAbout" priority="0x0103" type="Button">
+      <Button guid="guidSqlAssistCmdSet" id="cmdAbout" priority="0x0110" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
         <Strings>
           <ButtonText>About...</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdCheckUpdates" priority="0x0103" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
+        <Strings>
+          <ButtonText>Check for Updates...</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdSearch" priority="0x0099" type="Button">
@@ -110,6 +116,7 @@
       <IDSymbol name="cmdAbout" value="0x0103" />
       <IDSymbol name="cmdSearch" value="0x0104" />
       <IDSymbol name="cmdSearchToolbar" value="0x0105" />
+      <IDSymbol name="cmdCheckUpdates" value="0x0106" />
     </GuidSymbol>
     <GuidSymbol name="guidSqlAssistImages" value="{b3f1c6e2-5a47-4d8e-9c21-7e4a0d9f3b58}">
       <!-- Same Guid and ID as in SqlAssist.imagemanifest. -->
