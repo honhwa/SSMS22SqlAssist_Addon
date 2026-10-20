@@ -126,8 +126,7 @@ namespace SqlAssist.Editor
             if (ch == ' ' && (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Shift) != 0 &&
                 TrySelectedTreeNode(out var treeSession, out var treeItem, out var treeNode))
             {
-                TreeState.For(treeSession).ToggleCheck(treeNode);
-                TreeState.Refresh(treeSession, _view, treeItem);
+                TreeState.Toggle(treeSession, _view, treeItem, treeNode);
                 return VSConstants.S_OK;
             }
             // Nothing commits on a typed character (see SqlCommitManager), so a list still open when the word ends
@@ -145,7 +144,7 @@ namespace SqlAssist.Editor
                 var caret = _view.Caret.Position.BufferPosition;
                 session.OpenOrUpdate(new CompletionTrigger(CompletionTriggerReason.Insertion, caret.Snapshot, ch), caret, CancellationToken.None);
             }
-            else if (char.IsLetter(ch) || ch == '_' || ch == '.' || ch == ' ')
+            else if (char.IsLetter(ch) || ch == '_' || ch == '.' || ch == ' ' || ch == '@')
             {
                 Trigger(CompletionTriggerReason.Insertion, ch);
             }
@@ -167,7 +166,7 @@ namespace SqlAssist.Editor
             }
             if (right) return true; // a column has nothing to expand; keep the caret where it is
             var parent = tree.ParentItem(node);
-            tree.Expanded.Remove(TreeNode.TableKey(node.Table));
+            tree.Expanded.Remove(node.TableNodeKey);
             TreeState.Refresh(session, _view, parent);
             return true;
         }

@@ -140,6 +140,11 @@ namespace SqlAssist.Editor
                             AddTreeItems(items, ctx, schema);
                             AddGeneralItems(items, ctx, schema, columns: false);
                         }
+                        else if (ctx.IsSelectListWithFrom && AddPickerItems(items, ctx, schema, session))
+                        {
+                            // "SELECT | FROM t x": the column picker, then keywords and snippets for anything else.
+                            AddGeneralItems(items, ctx, schema, columns: false);
+                        }
                         else AddGeneralItems(items, ctx, schema);
                         AddVariableItems(items, variables, "2");
                         break;
@@ -226,6 +231,31 @@ namespace SqlAssist.Editor
                 items.Add(TreeTableItem(schema, o, noAlias, "1!"));
             foreach (var o in schema.Objects)
                 items.Add(TreeTableItem(schema, o, noAlias, "1"));
+        }
+
+        // Column picker: the query block's tables in query order, by the name the query uses ("p", "pp"), already
+        // expanded. False when none of them is known, so the plain column list is used instead.
+        private bool AddPickerItems(List<CompletionItem> items, CaretContext ctx, SchemaModel schema, IAsyncCompletionSession session)
+        {
+            var tables = ctx.SiblingTables.Select(r => (r, o: schema.Find(r))).Where(x => x.o != null && x.o.Columns.Count > 0).ToList();
+            if (tables.Count == 0) return false;
+
+            var tree = TreeState.For(session);
+            tree.Schema = schema;
+            tree.IsPicker = true;
+            tree.Qualify = tables.Count > 1 || tables.Any(x => x.r.Alias != null);
+            int order = 0;
+            foreach (var (r, o) in tables)
+            {
+                var node = new TreeNode(o, null, r.RefName);
+                string description = $"{o} ({o.Kind.ToLowerInvariant()}, {o.Columns.Count} columns)";
+                var item = WithTable(Item(r.RefName, o.IsView ? Icons.View : Icons.Table, r.RefName, "1" + order++.ToString("D2"),
+                    r.RefName, r.Alias != null ? SchemaModel.DisplayName(o) : null, description), schema, o);
+                item.Properties.AddProperty(typeof(TreeNode), node);
+                tree.Expanded.Add(node.Key);
+                items.Add(item);
+            }
+            return true;
         }
 
         private CompletionItem TreeTableItem(SchemaModel schema, DbObject o, CaretContext ctx, string group)

@@ -322,10 +322,13 @@ namespace SqlAssist.Editor
             e.Handled = true;
             try
             {
-                var tree = TreeState.For(_session);
-                if ((fe.Tag as string) == "expand") tree.ToggleExpanded(row.Node);
-                else if ((fe.Tag as string) == "check") tree.ToggleCheck(row.Node);
-                else return;
+                if ((fe.Tag as string) == "check")
+                {
+                    TreeState.Toggle(_session, _view, row.Item, row.Node);
+                    return;
+                }
+                if ((fe.Tag as string) != "expand") return;
+                TreeState.For(_session).ToggleExpanded(row.Node);
                 TreeState.Refresh(_session, _view, row.Item);
             }
             catch (Exception ex)

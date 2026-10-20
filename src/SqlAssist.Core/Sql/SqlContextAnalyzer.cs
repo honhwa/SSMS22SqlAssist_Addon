@@ -74,7 +74,11 @@ namespace SqlAssist.Core.Sql
         /// <summary>In a SELECT list whose query block has no FROM yet ("SELECT |"): the completion list offers tables
         /// to expand and pick columns from, and the pick writes the FROM too.</summary>
         public bool IsSelectListWithoutFrom { get; internal set; }
-        /// <summary>Directly after SELECT / DISTINCT, so typing the space there opens the table tree.</summary>
+        /// <summary>In a SELECT list whose query block already has tables ("SELECT | FROM t x JOIN ..."): the completion list
+        /// is a column picker — the block's tables with their columns ticked straight into the list.</summary>
+        public bool IsSelectListWithFrom { get; internal set; }
+        /// <summary>Directly after SELECT / DISTINCT (or, with a FROM, after a comma of the list), so typing the space
+        /// there opens the table tree / column picker.</summary>
         public bool IsRightAfterSelect { get; internal set; }
         /// <summary>The CTEs defined by the statement's WITH clause, in order.</summary>
         public IReadOnlyList<DerivedTable> CommonTableExpressions { get; internal set; } = new DerivedTable[0];
@@ -175,6 +179,13 @@ namespace SqlAssist.Core.Sql
                     !stmt.Tables.Any(t => t.Group == stmt.CaretGroup && t.Segment == stmt.CaretSegment);
                 ctx.IsRightAfterSelect = ctx.IsSelectListWithoutFrom && ctx.TypedText.Length == 0 &&
                     (sig[p].IsWord("SELECT") || sig[p].IsWord("DISTINCT"));
+            }
+            else if (ctx.Kind == CaretContextKind.General)
+            {
+                int clause = stmt.ClauseIndexOf(p + 1);
+                ctx.IsSelectListWithFrom = clause >= 0 && sig[clause].IsWord("SELECT");
+                ctx.IsRightAfterSelect = ctx.IsSelectListWithFrom && ctx.TypedText.Length == 0 &&
+                    (sig[p].IsWord("SELECT") || sig[p].IsWord("DISTINCT") || sig[p].IsSymbol(','));
             }
             return ctx;
         }

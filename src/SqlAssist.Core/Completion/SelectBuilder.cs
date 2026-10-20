@@ -66,6 +66,16 @@ namespace SqlAssist.Core.Completion
             return sb.ToString();
         }
 
+        /// <summary>The column picker's text: columns in tick order, "alias.Column" when <paramref name="qualify"/>, in
+        /// the same leading-comma layout as <see cref="Build"/>.</summary>
+        /// <param name="linePrefix">Text of the line before the insertion point ("SELECT "), for comma alignment.</param>
+        public static string ColumnList(IEnumerable<(string refName, string column)> picks, bool qualify, string linePrefix, string newLine)
+        {
+            var columns = picks.Select(p => (qualify && !string.IsNullOrEmpty(p.refName) ? SqlIdentifier.QuoteIfNeeded(p.refName) + "." : "") +
+                                            SqlIdentifier.QuoteIfNeeded(p.column));
+            return string.Join(newLine + Indent(linePrefix, dropLast: true) + ",", columns);
+        }
+
         // Joins table i to an earlier pick: a foreign key either way (whole key), else one shared id-like column.
         private static string JoinPredicate(SchemaModel schema, IReadOnlyList<PickedTable> picks, IReadOnlyList<string> aliases, int i)
         {

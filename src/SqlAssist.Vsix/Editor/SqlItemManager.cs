@@ -33,7 +33,10 @@ namespace SqlAssist.Editor
         public Task<FilteredCompletionModel> UpdateCompletionListAsync(IAsyncCompletionSession session,
             AsyncCompletionSessionDataSnapshot data, CancellationToken token)
         {
-            string typed = session.ApplicableToSpan.GetText(data.Snapshot).TrimStart('[');
+            session.Properties.TryGetProperty(typeof(TreeState), out TreeState picker);
+            if (picker != null && !picker.IsPicker) picker = null;
+            // The picker's span also covers the columns it has written; only what follows them filters.
+            string typed = (picker != null ? picker.TypedAfterPicks(session, data.Snapshot) : session.ApplicableToSpan.GetText(data.Snapshot)).TrimStart('[');
 
             List<CompletionItem> items;
             if (typed.Length == 0)
@@ -43,7 +46,11 @@ namespace SqlAssist.Editor
             }
             else
             {
-                items = data.InitialSortedItemList
+                // Picker: "fir" finds p.FirstName itself, not just tables whose name matches.
+                var candidates = picker == null ? data.InitialSortedItemList.ToList() : data.InitialSortedItemList
+                    .SelectMany(i => TreeState.NodeOf(i) is TreeNode n && n.IsTable ? new[] { i }.Concat(picker.ChildrenOf(i, n)) : new[] { i })
+                    .ToList();
+                items = candidates
                     .Select((item, index) => (item, index, score: FuzzyMatcher.Score(typed, item.FilterText)))
                     .Where(x => x.score > 0)
                     .OrderByDescending(x => x.score)
@@ -57,7 +64,7 @@ namespace SqlAssist.Editor
             if (items.Any(i => TreeState.NodeOf(i) != null))
             {
                 var tree = TreeState.For(session);
-                items = WithExpandedColumns(items, tree);
+                if (picker == null || typed.Length == 0) items = WithExpandedColumns(items, tree); // else the columns matched one by one
                 if (tree.SelectAfterUpdate != null)
                 {
                     selected = Math.Max(0, items.IndexOf(tree.SelectAfterUpdate));

@@ -70,7 +70,7 @@ namespace SqlAssist.Core.Tests
         [InlineData("SELECT MAS_|", true, false)]
         [InlineData("SELECT a, |", true, false)]
         [InlineData("WITH c AS (SELECT 1 x)\nSELECT |", true, true)]
-        [InlineData("SELECT | FROM Customers c", false, false)]
+        [InlineData("SELECT | FROM Customers c", false, true)]
         [InlineData("SELECT * FROM Customers c WHERE |", false, false)]
         [InlineData("SELECT * FROM Customers c WHERE x IN (SELECT |)", true, true)]
         public void SelectListWithoutFrom(string sql, bool withoutFrom, bool rightAfterSelect)
@@ -79,6 +79,32 @@ namespace SqlAssist.Core.Tests
             var ctx = Sql.SqlContextAnalyzer.Analyze(sql.Remove(caret, 1), caret);
             Assert.Equal((withoutFrom, rightAfterSelect), (ctx.IsSelectListWithoutFrom, ctx.IsRightAfterSelect));
         }
+
+        [Theory]
+        [InlineData("SELECT | FROM Customers c JOIN Orders o ON o.CustomerID = c.CustomerID", true, true)]
+        [InlineData("SELECT DISTINCT | FROM Customers c", true, true)]
+        [InlineData("SELECT c.Name, | FROM Customers c", true, true)]
+        [InlineData("SELECT Na| FROM Customers c", true, false)]
+        [InlineData("SELECT c.| FROM Customers c", false, false)] // "c." lists c's columns as before
+        [InlineData("SELECT * FROM Customers c WHERE |", false, false)]
+        [InlineData("SELECT * FROM Customers c ORDER BY |", false, false)]
+        [InlineData("SELECT |", false, true)]
+        public void SelectListWithFrom(string sql, bool withFrom, bool rightAfterSelect)
+        {
+            int caret = sql.IndexOf('|');
+            var ctx = Sql.SqlContextAnalyzer.Analyze(sql.Remove(caret, 1), caret);
+            Assert.Equal((withFrom, rightAfterSelect), (ctx.IsSelectListWithFrom, ctx.IsRightAfterSelect));
+        }
+
+        [Fact]
+        public void ColumnList_QualifiedLeadingCommas() =>
+            Assert.Equal("p.PersonType\n      ,p.FirstName\n      ,pp.PhoneNumber",
+                SelectBuilder.ColumnList(new[] { ("p", "PersonType"), ("p", "FirstName"), ("pp", "PhoneNumber") }, true, "SELECT ", "\n"));
+
+        [Fact]
+        public void ColumnList_SingleTableUnqualified_QuotesOddNames() =>
+            Assert.Equal("Name\n\t      ,[Order Date]",
+                SelectBuilder.ColumnList(new[] { ("c", "Name"), ("c", "Order Date") }, false, "\tSELECT ", "\n"));
 
         [Fact]
         public void AliasesAvoidTakenOnesAndSchemaIsKept() =>

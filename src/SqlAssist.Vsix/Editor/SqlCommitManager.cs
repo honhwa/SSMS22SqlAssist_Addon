@@ -45,6 +45,20 @@ namespace SqlAssist.Editor
             try
             {
                 var span = session.ApplicableToSpan.GetSpan(buffer.CurrentSnapshot);
+                // In the column picker the session's span also covers the columns already written; a keyword or
+                // snippet replaces only what was typed after them.
+                if (TreeState.NodeOf(item) == null && session.Properties.TryGetProperty(typeof(TreeState), out TreeState picker) && picker.IsPicker)
+                {
+                    span = picker.TypedSpanAfterPicks(session, buffer.CurrentSnapshot);
+                    if (!item.Properties.ContainsProperty(ItemProps.Snippet))
+                    {
+                        // Same rule as below: Enter commits only a fully typed word, and still starts the new line.
+                        bool enterKey = typedChar == '\n' || typedChar == '\r';
+                        if (!enterKey || string.Equals(span.GetText().TrimStart('['), item.FilterText, StringComparison.OrdinalIgnoreCase))
+                            buffer.Replace(span, item.InsertText);
+                        return new CommitResult(true, enterKey ? CommitBehavior.RaiseFurtherReturnKeyAndTabKeyCommandHandlers : CommitBehavior.None);
+                    }
+                }
 
                 if (item.Properties.TryGetProperty(ItemProps.Snippet, out Snippet snippet))
                 {
@@ -57,6 +71,9 @@ namespace SqlAssist.Editor
                 var node = TreeState.NodeOf(item);
                 if (node != null && session.Properties.TryGetProperty(typeof(TreeState), out TreeState tree))
                 {
+                    // Column picker ("SELECT | FROM t x"): the ticks are already in the select list.
+                    if (tree.CommitPicker(session, _view, node)) return new CommitResult(true, CommitBehavior.None);
+
                     var line = span.Start.GetContainingLine();
                     string linePrefix = span.Snapshot.GetText(line.Start, span.Start - line.Start);
                     string newLine = line.GetLineBreakText();
