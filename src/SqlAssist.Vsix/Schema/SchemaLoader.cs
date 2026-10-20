@@ -6,7 +6,8 @@ using SqlAssist.Core.Schema;
 
 namespace SqlAssist.Schema
 {
-    /// <summary>Reads tables, views, their columns and foreign keys of one database in a single round trip.</summary>
+    /// <summary>Reads tables, views, their columns, foreign keys and procedure/function parameters of one database in a
+    /// single round trip.</summary>
     internal static class SchemaLoader
     {
         private const string Sql = @"
@@ -22,7 +23,7 @@ WITH pk AS (
 )
 SELECT s.name, o.name, o.type, c.name, t.name, c.max_length, c.precision, c.scale,
        c.is_nullable, c.is_identity, CAST(CASE WHEN pk.column_id IS NULL THEN 0 ELSE 1 END AS bit), rc.row_count,
-       CAST(cd.value AS nvarchar(2000)), CAST(td.value AS nvarchar(2000))
+       CAST(cd.value AS nvarchar(2000)), CAST(td.value AS nvarchar(2000)), c.is_computed
 FROM sys.objects o
 JOIN sys.schemas s ON s.schema_id = o.schema_id
 JOIN sys.columns c ON c.object_id = o.object_id
@@ -44,13 +45,23 @@ JOIN sys.columns pc ON pc.object_id = fkc.parent_object_id AND pc.column_id = fk
 JOIN sys.objects rt ON rt.object_id = fkc.referenced_object_id
 JOIN sys.schemas rs ON rs.schema_id = rt.schema_id
 JOIN sys.columns rc ON rc.object_id = fkc.referenced_object_id AND rc.column_id = fkc.referenced_column_id
-ORDER BY fk.object_id, fkc.constraint_column_id;";
+ORDER BY fk.object_id, fkc.constraint_column_id;
+
+-- Procedures and functions with their parameters, for EXEC templates (a routine without parameters has one NULL row).
+SELECT s.name, o.name, o.type, p.name, t.name, p.max_length, p.precision, p.scale, p.is_output, p.is_readonly
+FROM sys.objects o
+JOIN sys.schemas s ON s.schema_id = o.schema_id
+LEFT JOIN sys.parameters p ON p.object_id = o.object_id AND p.parameter_id > 0
+LEFT JOIN sys.types t ON t.user_type_id = p.user_type_id
+WHERE o.type IN ('P', 'PC', 'FN', 'IF', 'TF', 'FS', 'FT') AND o.is_ms_shipped = 0
+ORDER BY s.name, o.name, p.parameter_id;";
 
         public static async Task<SchemaModel> LoadAsync(string connectionString, CancellationToken token)
         {
             var objects = new List<DbObject>();
             var byKey = new Dictionary<string, DbObject>(System.StringComparer.OrdinalIgnoreCase);
             var fks = new List<ForeignKey>();
+            var routines = new List<DbRoutine>();
 
             using (var conn = new SqlConnection(connectionString))
             {
@@ -87,7 +98,8 @@ ORDER BY fk.object_id, fkc.constraint_column_id;";
                             isNullable: reader.GetBoolean(8),
                             isIdentity: reader.GetBoolean(9),
                             isPrimaryKey: reader.GetBoolean(10),
-                            description: reader.IsDBNull(12) ? null : reader.GetString(12)));
+                            description: reader.IsDBNull(12) ? null : reader.GetString(12),
+                            isComputed: reader.GetBoolean(14)));
                     }
                     FlushObject();
 
@@ -114,9 +126,38 @@ ORDER BY fk.object_id, fkc.constraint_column_id;";
                         pairs.Add((reader.GetString(5), reader.GetString(6)));
                     }
                     FlushKey();
+
+                    await reader.NextResultAsync(token).ConfigureAwait(false);
+                    string rSchema = null, rName = null;
+                    bool rProc = false;
+                    var parameters = new List<DbParameter>();
+                    void FlushRoutine()
+                    {
+                        if (rName != null) routines.Add(new DbRoutine(rSchema, rName, rProc, parameters.ToArray()));
+                    }
+
+                    while (await reader.ReadAsync(token).ConfigureAwait(false))
+                    {
+                        string schema = reader.GetString(0), name = reader.GetString(1);
+                        if (schema != rSchema || name != rName)
+                        {
+                            FlushRoutine();
+                            rSchema = schema; rName = name;
+                            string type = reader.GetString(2).Trim();
+                            rProc = type == "P" || type == "PC";
+                            parameters.Clear();
+                        }
+                        if (reader.IsDBNull(3)) continue;
+                        parameters.Add(new DbParameter(
+                            reader.GetString(3),
+                            SqlTypeFormatter.Format(reader.GetString(4), reader.GetInt16(5), reader.GetByte(6), reader.GetByte(7)),
+                            isOutput: reader.GetBoolean(8),
+                            isReadOnly: reader.GetBoolean(9)));
+                    }
+                    FlushRoutine();
                 }
             }
-            return new SchemaModel(objects, fks);
+            return new SchemaModel(objects, fks, routines);
         }
     }
 }

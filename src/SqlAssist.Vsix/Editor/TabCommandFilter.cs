@@ -48,6 +48,7 @@ namespace SqlAssist.Editor
     internal sealed class TabCommandFilter : IOleCommandTarget
     {
         private static readonly TimeSpan StarSchemaWait = TimeSpan.FromSeconds(5);
+        private static readonly TimeSpan DefinitionWait = TimeSpan.FromSeconds(10);
 
         private readonly IWpfTextView _view;
         private readonly IAsyncCompletionBroker _broker;
@@ -207,8 +208,91 @@ namespace SqlAssist.Editor
             }
 
             // 3. SELECT *| → column list.
-            return ExpandStar(caret, window);
+            if (ExpandStar(caret, window)) return true;
+
+            // 4. INSERT INTO t| / UPDATE t| / EXEC p| / ALTER PROCEDURE p| → the full statement.
+            return ExpandStatement(caret, window);
         }
+
+        private bool ExpandStatement(SnapshotPoint caret, TextWindow window)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var found = StatementExpander.Find(window.Text, window.Caret);
+            if (found == null) return false;
+
+            var target = ActiveConnection.TryGet();
+            if (target == null)
+            {
+                Log.Info("Statement expansion skipped: no connected query window");
+                return false;
+            }
+
+            var snapshot = caret.Snapshot;
+            int statementStart = window.Offset + found.StatementStart;
+            var line = snapshot.GetLineFromPosition(statementStart);
+            string indent = LeadingWhitespace(snapshot.GetText(line.Start, statementStart - line.Start));
+            string newLine = line.GetLineBreakText();
+            if (string.IsNullOrEmpty(newLine)) newLine = _view.Options.GetOptionValue(DefaultOptions.NewLineCharacterOptionId);
+
+            if (found.Kind == ExpansionKind.Alter)
+            {
+                string definition;
+                try
+                {
+                    using (var cts = new CancellationTokenSource(DefinitionWait))
+                        definition = ThreadHelper.JoinableTaskFactory.Run(() => DefinitionLoader.LoadAsync(target.ConnectionString, found.Schema, found.Name, cts.Token));
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("ALTER expansion: reading the definition of " + found.Name, ex);
+                    return false;
+                }
+                string script = StatementExpander.AlterScript(definition);
+                if (script == null)
+                {
+                    Log.Info("ALTER expansion skipped: no readable definition for " + found.Name);
+                    return false;
+                }
+                var replace = new SnapshotSpan(snapshot, statementStart, caret.Position - statementStart);
+                snapshot.TextBuffer.Replace(replace, script);
+                _view.Caret.MoveTo(new SnapshotPoint(_view.TextBuffer.CurrentSnapshot, statementStart));
+                return true;
+            }
+
+            var schema = ThreadHelper.JoinableTaskFactory.Run(() => SchemaCache.Instance.GetAsync(target, StarSchemaWait, CancellationToken.None));
+            Expansion expansion = null;
+            if (found.Kind == ExpansionKind.Exec)
+            {
+                var routine = schema.FindRoutine(found.Schema, found.Name);
+                if (routine != null && routine.IsProcedure)
+                    expansion = StatementExpander.BuildExec(routine, snapshot.GetText(line.Start, caret.Position - line.Start), indent, newLine);
+                else if (routine == null) SchemaCache.Instance.RefreshIfOlderThanThrottle(target);
+            }
+            else
+            {
+                var table = schema.Find(found.Schema, found.Name);
+                if (table == null) SchemaCache.Instance.RefreshIfOlderThanThrottle(target);
+                else if (found.Kind == ExpansionKind.Insert) expansion = StatementExpander.BuildInsert(table, indent, newLine);
+                else expansion = StatementExpander.BuildUpdate(table, indent, newLine);
+            }
+            if (expansion == null)
+            {
+                Log.Info($"{found.Kind} expansion skipped: {found.Name} not found (or nothing to fill in) in {target}");
+                return false;
+            }
+
+            // One edit, so a single Undo takes the whole template back.
+            using (var edit = snapshot.TextBuffer.CreateEdit())
+            {
+                edit.Insert(caret.Position, expansion.Text);
+                if (expansion.Prefix.Length > 0) edit.Insert(statementStart, expansion.Prefix);
+                edit.Apply();
+            }
+            _view.Caret.MoveTo(new SnapshotPoint(_view.TextBuffer.CurrentSnapshot, caret.Position + expansion.Prefix.Length + expansion.CaretOffset));
+            return true;
+        }
+
+        private static string LeadingWhitespace(string s) => s.Substring(0, s.Length - s.TrimStart().Length);
 
         private bool ExpandStar(SnapshotPoint caret, TextWindow window)
         {

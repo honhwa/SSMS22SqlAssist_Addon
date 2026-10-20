@@ -8,11 +8,13 @@ namespace SqlAssist.Core.Schema
     public sealed class DbColumn
     {
         public DbColumn(string name, string typeName, bool isNullable = true, bool isIdentity = false, bool isPrimaryKey = false,
-            string description = null, DbObject origin = null, string originColumn = null)
+            string description = null, DbObject origin = null, string originColumn = null, bool isComputed = false)
         {
             Name = name; TypeName = typeName; IsNullable = isNullable; IsIdentity = isIdentity; IsPrimaryKey = isPrimaryKey;
-            Description = description; Origin = origin; OriginColumn = originColumn;
+            Description = description; Origin = origin; OriginColumn = originColumn; IsComputed = isComputed;
         }
+        /// <summary>A computed column: INSERT and UPDATE templates leave it out.</summary>
+        public bool IsComputed { get; }
         public string Name { get; }
         /// <summary>Declared type (nvarchar(50)); empty when unknown, e.g. a CTE column computed by an expression.</summary>
         public string TypeName { get; }
@@ -49,6 +51,35 @@ namespace SqlAssist.Core.Schema
         public override string ToString() => Schema == null ? Name : Schema + "." + Name;
     }
 
+    /// <summary>A stored procedure or function parameter.</summary>
+    public sealed class DbParameter
+    {
+        public DbParameter(string name, string typeName, bool isOutput = false, bool isReadOnly = false)
+        {
+            Name = name; TypeName = typeName; IsOutput = isOutput; IsReadOnly = isReadOnly;
+        }
+        /// <summary>With the leading '@'.</summary>
+        public string Name { get; }
+        public string TypeName { get; }
+        public bool IsOutput { get; }
+        /// <summary>A table-valued parameter.</summary>
+        public bool IsReadOnly { get; }
+    }
+
+    /// <summary>A stored procedure or function, for EXEC templates.</summary>
+    public sealed class DbRoutine
+    {
+        public DbRoutine(string schema, string name, bool isProcedure, IReadOnlyList<DbParameter> parameters)
+        {
+            Schema = schema; Name = name; IsProcedure = isProcedure; Parameters = parameters;
+        }
+        public string Schema { get; }
+        public string Name { get; }
+        public bool IsProcedure { get; }
+        public IReadOnlyList<DbParameter> Parameters { get; }
+        public override string ToString() => Schema + "." + Name;
+    }
+
     public sealed class ForeignKey
     {
         public ForeignKey(string name, DbObject from, DbObject to, IReadOnlyList<(string from, string to)> columns)
@@ -72,10 +103,11 @@ namespace SqlAssist.Core.Schema
         private readonly Dictionary<DbObject, List<ForeignKey>> _from = new Dictionary<DbObject, List<ForeignKey>>();
         private readonly Dictionary<DbObject, List<ForeignKey>> _to = new Dictionary<DbObject, List<ForeignKey>>();
 
-        public SchemaModel(IReadOnlyList<DbObject> objects, IReadOnlyList<ForeignKey> foreignKeys)
+        public SchemaModel(IReadOnlyList<DbObject> objects, IReadOnlyList<ForeignKey> foreignKeys, IReadOnlyList<DbRoutine> routines = null)
         {
             Objects = objects;
             ForeignKeys = foreignKeys;
+            Routines = routines ?? new DbRoutine[0];
             foreach (var o in objects)
             {
                 if (!_byName.TryGetValue(o.Name, out var list)) _byName[o.Name] = list = new List<DbObject>();
@@ -92,6 +124,17 @@ namespace SqlAssist.Core.Schema
 
         public IReadOnlyList<DbObject> Objects { get; }
         public IReadOnlyList<ForeignKey> ForeignKeys { get; }
+
+        public IReadOnlyList<DbRoutine> Routines { get; }
+
+        /// <summary>Finds a procedure or function, with the same schema rule as <see cref="Find(string, string)"/>.</summary>
+        public DbRoutine FindRoutine(string schema, string name)
+        {
+            var list = Routines.Where(r => string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (schema != null) return list.FirstOrDefault(r => string.Equals(r.Schema, schema, StringComparison.OrdinalIgnoreCase));
+            return list.FirstOrDefault(r => string.Equals(r.Schema, DefaultSchema, StringComparison.OrdinalIgnoreCase))
+                ?? (list.Count == 1 ? list[0] : null);
+        }
 
         public IEnumerable<string> Schemas => Objects.Select(o => o.Schema).Distinct(StringComparer.OrdinalIgnoreCase);
 
