@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Microsoft.VisualStudio.Imaging;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
@@ -9,7 +10,7 @@ namespace SqlAssist.Update
     /// <summary>The yellow bar across the top of the SSMS main window that says a new SqlAssist is out.</summary>
     internal sealed class UpdateInfoBar : IVsInfoBarUIEvents
     {
-        private const string Install = "install", Notes = "notes", Skip = "skip", Never = "never";
+        private const string Install = "install", InstallOnExit = "onexit", Notes = "notes", Skip = "skip", Never = "never";
         private static UpdateInfoBar _current;
 
         private readonly AsyncPackage _package;
@@ -36,15 +37,21 @@ namespace SqlAssist.Update
                     !(Package.GetGlobalService(typeof(SVsInfoBarUIFactory)) is IVsInfoBarUIFactory factory))
                     return false;
 
+                var actions = new List<IVsInfoBarActionItem>();
+                if (release.SetupUrl != null)
+                {
+                    // Download now, install by itself once SSMS is closed: no setup window to come back to.
+                    actions.Add(new InfoBarButton("Install when SSMS closes", InstallOnExit));
+                    actions.Add(new InfoBarButton("Install now", Install));
+                }
+                else actions.Add(new InfoBarButton("Open download page", Install));
+                actions.Add(new InfoBarHyperlink("What's new", Notes));
+                actions.Add(new InfoBarHyperlink("Skip this version", Skip));
+                actions.Add(new InfoBarHyperlink("Don't check automatically", Never));
+
                 var model = new InfoBarModel(
                     new[] { new InfoBarTextSpan("SqlAssist " + release.Version + " is available (installed: " + SqlAssistPackage.Version + ").  ") },
-                    new IVsInfoBarActionItem[]
-                    {
-                        new InfoBarButton(release.SetupUrl != null ? "Download and install" : "Open download page", Install),
-                        new InfoBarHyperlink("What's new", Notes),
-                        new InfoBarHyperlink("Skip this version", Skip),
-                        new InfoBarHyperlink("Don't check automatically", Never),
-                    },
+                    actions,
                     KnownMonikers.StatusInformation,
                     isCloseButtonVisible: true);
 
@@ -72,6 +79,11 @@ namespace SqlAssist.Update
                         Close();
                         _package.JoinableTaskFactory.RunAsync(() => UpdateService.DownloadAndRunAsync(_package, _release))
                             .FileAndForget("SqlAssist/DownloadUpdate");
+                        break;
+                    case InstallOnExit:
+                        Close();
+                        _package.JoinableTaskFactory.RunAsync(() => UpdateService.DownloadAndInstallOnExitAsync(_package, _release))
+                            .FileAndForget("SqlAssist/DownloadUpdateOnExit");
                         break;
                     case Notes:
                         UpdateService.OpenUrl(_release.PageUrl);

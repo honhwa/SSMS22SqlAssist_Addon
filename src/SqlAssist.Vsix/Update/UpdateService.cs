@@ -15,8 +15,9 @@ using Task = System.Threading.Tasks.Task;
 namespace SqlAssist.Update
 {
     /// <summary>Checks GitHub Releases for a newer SqlAssist, shows an InfoBar about it, and on request downloads the
-    /// setup exe and starts it. Installing is left to the setup window: VSIXInstaller can't run while SSMS is open,
-    /// and the window waits for the user to close SSMS before its Install button works.</summary>
+    /// setup exe. VSIXInstaller can't run while SSMS is open, so either the setup window is started (it waits for the
+    /// user to close SSMS before its Install button works), or — "Install when SSMS closes" — a windowless
+    /// SqlAssistSetup /installonexit waits for every SSMS to exit and installs then.</summary>
     internal static class UpdateService
     {
         private static readonly string StatePath = Path.Combine(Log.Directory, "update.txt");
@@ -32,6 +33,7 @@ namespace SqlAssist.Update
         {
             try
             {
+                await ResumeInstallOnExitAsync(package);
                 if (!UpdatePolicy.ShouldAutoCheck(LoadState(), DateTime.UtcNow)) return;
                 // Let SSMS finish starting before going to the network.
                 await Task.Delay(TimeSpan.FromSeconds(20), cancellationToken);
@@ -63,7 +65,14 @@ namespace SqlAssist.Update
                 return;
             }
 
-            if (UpdatePolicy.ShouldNotify(CurrentVersion, release, LoadState(), manual))
+            var state = LoadState();
+            if (manual && release != null && state.PendingVersion != null && !UpdatePolicy.IsNewer(state.PendingVersion, release.Version) &&
+                UpdatePolicy.IsNewer(CurrentVersion, release.Version))
+            {
+                await ShowMessageAsync(package, "SqlAssist " + state.PendingVersion + " is downloaded and will be installed when SSMS closes.", OLEMSGICON.OLEMSGICON_INFO);
+                return;
+            }
+            if (UpdatePolicy.ShouldNotify(CurrentVersion, release, state, manual))
             {
                 await package.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
                 if (!UpdateInfoBar.Show(package, release) && manual)
@@ -123,6 +132,98 @@ namespace SqlAssist.Update
             {
                 Interlocked.Exchange(ref _busy, 0);
             }
+        }
+
+        /// <summary>Downloads and verifies the setup exe now, then leaves it waiting in the background
+        /// (SqlAssistSetup /installonexit): it installs once every SSMS window is closed.</summary>
+        public static async Task DownloadAndInstallOnExitAsync(AsyncPackage package, ReleaseInfo release)
+        {
+            if (release.SetupUrl == null || release.SetupFileName == null || release.SetupSha256 == null)
+            {
+                Log.Info("Update " + release.Tag + ": no verifiable setup exe, opening the release page");
+                OpenUrl(release.PageUrl);
+                return;
+            }
+            if (Interlocked.Exchange(ref _busy, 1) == 1) return;
+            try
+            {
+                await SetStatusAsync(package, "SqlAssist: downloading " + release.SetupFileName + "...");
+                await TaskScheduler.Default;
+                string exe = await DownloadAsync(release, package.DisposalToken);
+                StartWaiter(exe);
+                ChangeState(s => { s.PendingVersion = release.Version; s.PendingSetup = exe; });
+                await SetStatusAsync(package, "SqlAssist " + release.Version + " will be installed when SSMS closes");
+                await ShowMessageAsync(package,
+                    "SqlAssist " + release.Version + " is downloaded.\n\nIt will be installed automatically after you close SSMS " +
+                    "(all SSMS windows). The new version is active the next time SSMS starts.",
+                    OLEMSGICON.OLEMSGICON_INFO);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Update download (install on exit)", ex);
+                await SetStatusAsync(package, "");
+                await ShowMessageAsync(package,
+                    "Could not download the update:\n" + ex.Message + "\n\nThe release page will open so you can download it yourself.",
+                    OLEMSGICON.OLEMSGICON_WARNING);
+                OpenUrl(release.PageUrl);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _busy, 0);
+            }
+        }
+
+        // The waiter is a windowless setup process; it keeps running after SSMS exits and is single-instance.
+        private static void StartWaiter(string exe)
+        {
+            Process.Start(new ProcessStartInfo(exe, "/installonexit")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = Path.GetDirectoryName(exe),
+            });
+            Log.Info("Update: " + exe + " /installonexit is waiting for SSMS to close");
+        }
+
+        /// <summary>At startup: report how the install-on-exit went, and restart the waiter if it never got to run
+        /// (Windows restarted while SSMS was open).</summary>
+        private static async Task ResumeInstallOnExitAsync(AsyncPackage package)
+        {
+            string resultPath = Path.Combine(Log.Directory, "update-result.txt");
+            InstallResult result = null;
+            try
+            {
+                if (File.Exists(resultPath))
+                {
+                    result = InstallResult.Parse(File.ReadAllText(resultPath));
+                    File.Delete(resultPath);
+                }
+            }
+            catch (Exception ex) { Log.Error("Read " + resultPath, ex); }
+
+            var state = LoadState();
+            switch (UpdatePolicy.ResumePending(CurrentVersion, state, state.PendingSetup != null && File.Exists(state.PendingSetup)))
+            {
+                case PendingAction.Clear:
+                    string setup = state.PendingSetup;
+                    ChangeState(s => { s.PendingVersion = null; s.PendingSetup = null; });
+                    try { if (setup != null && File.Exists(setup)) File.Delete(setup); } catch { /* still in use; next time */ }
+                    break;
+                case PendingAction.Restart:
+                    try { StartWaiter(state.PendingSetup); }
+                    catch (Exception ex) { Log.Error("Restart update waiter", ex); }
+                    break;
+            }
+
+            if (result == null) return;
+            Log.Info("Install on exit: " + result.Version + (result.Ok ? " installed" : " failed: " + result.Error));
+            if (result.Ok)
+                await SetStatusAsync(package, "SqlAssist updated to " + result.Version);
+            else
+                await ShowMessageAsync(package,
+                    "SqlAssist " + result.Version + " could not be installed when SSMS closed:\n" + result.Error +
+                    "\n\nUse Tools > SqlAssist > Check for Updates to try again.",
+                    OLEMSGICON.OLEMSGICON_WARNING);
         }
 
         private static async Task<string> DownloadAsync(ReleaseInfo release, CancellationToken cancellationToken)

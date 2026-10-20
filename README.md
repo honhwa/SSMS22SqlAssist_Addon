@@ -44,7 +44,8 @@ add-on ขนาดเล็กสำหรับ SQL Server Management Studio 2
 - ตอนเปิด SSMS ระบบจะเช็ก [GitHub Releases](https://github.com/kriangdet/SSMS22SqlAssist_Addon/releases) วันละครั้ง ถ้ามีเวอร์ชันใหม่จะขึ้นแถบแจ้งเตือนด้านบนหน้าต่าง SSMS
 - เช็กเองได้ที่ **Tools › SqlAssist › Check for Updates...**
 - ในแถบแจ้งเตือนมีปุ่มให้เลือก:
-  - **Download and install** — ดาวน์โหลดตัวติดตั้งไว้ที่ `%LOCALAPPDATA%\SqlAssist\updates\` แล้วตรวจ SHA-256 กับค่าที่ GitHub ให้มา จากนั้นจะเปิดหน้าต่างติดตั้งขึ้นมา ให้ **ปิด SSMS แล้วกดอัปเดต**
+  - **Install when SSMS closes** (ตั้งแต่ 1.3.3) — ดาวน์โหลดและตรวจ SHA-256 ไว้ก่อน แล้วรอเงียบ ๆ อยู่เบื้องหลัง พอปิด SSMS ครบทุกหน้าต่างจะติดตั้งให้เอง เปิด SSMS ครั้งถัดไปก็ได้เวอร์ชันใหม่ (แถบสถานะขึ้น "SqlAssist updated to ...") ถ้าติดตั้งไม่สำเร็จจะแจ้งตอนเปิด SSMS ถ้า restart เครื่องก่อนได้ปิด SSMS ระบบจะตั้งรอใหม่ให้ตอนเปิด SSMS
+  - **Install now** — ดาวน์โหลดตัวติดตั้งไว้ที่ `%LOCALAPPDATA%\SqlAssist\updates\` แล้วตรวจ SHA-256 กับค่าที่ GitHub ให้มา จากนั้นจะเปิดหน้าต่างติดตั้งขึ้นมา ให้ **ปิด SSMS แล้วกดอัปเดต**
   - **What's new** — เปิดหน้า release เพื่อดูว่ามีอะไรใหม่
   - **Skip this version** — ไม่ต้องเตือนเวอร์ชันนี้อีก
   - **Don't check automatically** — ปิดการเช็กอัตโนมัติ (เมนู Check for Updates ยังใช้ได้ตามปกติ) ถ้าอยากเปิดกลับ ให้ลบไฟล์ `%LOCALAPPDATA%\SqlAssist\update.txt`
