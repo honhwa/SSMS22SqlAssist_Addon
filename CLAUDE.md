@@ -32,6 +32,11 @@ dotnet build src\SqlAssist.Vsix -c Release      # -> src\SqlAssist.Vsix\bin\Rele
 - **Version lives only in `Directory.Build.props`.** It flows to assemblies, the .vsix manifest (the
   `StampVsixVersion` target in `SqlAssist.Vsix.csproj` overwrites the placeholder in the merged manifest and fails
   the build on mismatch) and the setup exe name. Bump it for every release.
+- **Every change gets a `CHANGELOG.md` entry** (Thai, user-facing: เพิ่ม / เปลี่ยน / แก้ไข) under `## [Unreleased]`;
+  when bumping the version, rename that heading to `## [x.y.z] - YYYY-MM-DD` and open a new `[Unreleased]`.
+  `publish-release.ps1` refuses to publish without the version's section and uses it (plus any unreleased versions
+  since the previous release) as the text on the GitHub Releases page; `-UpdateNotes [-ForVersion x.y.z]` rewrites
+  an existing release's text.
 - Building needs no SSMS installed. Debugging: SSMS 22 has no experimental instance — install the extension first,
   then F5 (start program is `Ssms.exe /log`) or attach.
 - Runtime log: `%LOCALAPPDATA%\SqlAssist\SqlAssist.log` (Tools › SqlAssist › Open Log). User files:
@@ -66,7 +71,9 @@ Three projects (`SqlAssist.sln`) plus tests:
     `UpdateInfoBar`, and on request downloads the release's `SqlAssistSetup-*.exe` (SHA-256 checked against the
     asset's GitHub digest) and starts it — the setup window then waits for SSMS to close. Version/asset parsing and
     the check/skip policy live in Core `Update/`. State: `%LOCALAPPDATA%\SqlAssist\update.txt`.
-    Releases are published with `.\publish-release.ps1` (needs `$env:GITHUB_TOKEN`).
+    Releases are published with `.\publish-release.ps1` (needs `$env:GITHUB_TOKEN`; text from `CHANGELOG.md`).
+    "Install when SSMS closes" starts the downloaded setup with `/installonexit`, which waits for every SSMS to exit,
+    installs and leaves `update-result.txt` for the next start to report.
   - `SqlAssistPackage.cs` + `SqlAssistPackage.vsct` — the AsyncPackage, Tools-menu commands, Ctrl+Shift+R refresh.
 - **`src/SqlAssist.Setup`** (net48 WinForms) — `SqlAssistSetup.exe`. Its build depends on the Vsix project and
   embeds `SqlAssist.vsix` as a resource (`EmbedVsix` target); `SetupEngine` detects SSMS 22, the installed version

@@ -49,7 +49,8 @@ add-on ขนาดเล็กสำหรับ SQL Server Management Studio 2
   - **What's new** — เปิดหน้า release เพื่อดูว่ามีอะไรใหม่
   - **Skip this version** — ไม่ต้องเตือนเวอร์ชันนี้อีก
   - **Don't check automatically** — ปิดการเช็กอัตโนมัติ (เมนู Check for Updates ยังใช้ได้ตามปกติ) ถ้าอยากเปิดกลับ ให้ลบไฟล์ `%LOCALAPPDATA%\SqlAssist\update.txt`
-- ออกเวอร์ชันใหม่ (สำหรับนักพัฒนา): แก้เวอร์ชัน → `.\build-setup.ps1` → commit แล้ว push → ตั้งค่า `$env:GITHUB_TOKEN` → `.\publish-release.ps1`
+- ดูว่าแต่ละเวอร์ชันเพิ่มหรือแก้อะไรได้ที่ [CHANGELOG.md](CHANGELOG.md) หรือหน้า [Releases](https://github.com/kriangdet/SSMS22SqlAssist_Addon/releases) (ลิงก์ **What's new** ในแถบแจ้งเตือน)
+- ออกเวอร์ชันใหม่ (สำหรับนักพัฒนา): เขียนสิ่งที่เปลี่ยนลง `CHANGELOG.md` → แก้เวอร์ชัน → `.\build-setup.ps1` → commit แล้ว push → ตั้งค่า `$env:GITHUB_TOKEN` → `.\publish-release.ps1` (ข้อความใน release มาจาก CHANGELOG ของเวอร์ชันนั้น)
 
 - ไฟล์ exe ไฟล์เดียวมี add-on อยู่ข้างในแล้ว จะก๊อปไปเครื่องอื่นที่มี SSMS 22 ก็ใช้ได้เลย ไม่ต้องลงโปรแกรมเพิ่ม
 - ติดตั้งแบบ per-user ไม่ต้องใช้สิทธิ์ admin ถ้า SSMS ยังเปิดอยู่จะขอให้ปิดก่อน
