@@ -27,6 +27,7 @@ namespace SqlAssist.Snippets
                     try
                     {
                         EnsureFileExists();
+                        if (_store == null) UpgradeDefaults();
                         var writeTime = File.GetLastWriteTimeUtc(FilePath);
                         if (_store == null || writeTime != _loadedWriteTime)
                         {
@@ -68,6 +69,22 @@ namespace SqlAssist.Snippets
             if (File.Exists(FilePath)) return;
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
             File.WriteAllText(FilePath, SnippetStore.DefaultXml);
+        }
+
+        // Once per session: new default snippets reach users whose snippets.xml predates them.
+        private static void UpgradeDefaults()
+        {
+            try
+            {
+                string upgraded = SnippetStore.UpgradeDefaults(File.ReadAllText(FilePath));
+                if (upgraded == null) return;
+                File.WriteAllText(FilePath, upgraded, new System.Text.UTF8Encoding(false));
+                Log.Info("Added new default snippets to " + FilePath);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Upgrading default snippets in " + FilePath, ex);
+            }
         }
 
         private static DateTime SafeWriteTime()

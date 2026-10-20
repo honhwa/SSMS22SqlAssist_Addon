@@ -68,6 +68,8 @@ namespace SqlAssist.Core.Snippets
         public static string ToXml(IEnumerable<Snippet> snippets)
         {
             var root = new XElement("snippets",
+                // The saved set is what the user chose, so defaults they removed must not come back.
+                new XAttribute(DefaultsAttribute, DefaultsRevision),
                 snippets.Select(s => new XElement("snippet",
                     new XAttribute("key", s.Key),
                     string.IsNullOrEmpty(s.Description) ? null : new XAttribute("description", s.Description),
@@ -77,6 +79,45 @@ namespace SqlAssist.Core.Snippets
             using (var writer = new Utf8StringWriter())
             {
                 doc.Save(writer);
+                return writer.ToString();
+            }
+        }
+
+        /// <summary>Bump when adding a default snippet, and list it in <see cref="DefaultsAddedIn"/>.</summary>
+        public const int DefaultsRevision = 1;
+        private const string DefaultsAttribute = "defaults";
+
+        // Defaults added after snippets.xml files already existed, with the revision that added them.
+        // Files without a "defaults" attribute are revision 0.
+        private static readonly Dictionary<string, int> DefaultsAddedIn =
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["case"] = 1 };
+
+        /// <summary>Adds default snippets introduced since the user's file was written (unless the user already
+        /// has that key), then stamps the file with the current revision so removed defaults stay removed.
+        /// Returns null when the file is already up to date.</summary>
+        public static string UpgradeDefaults(string xml)
+        {
+            var doc = XDocument.Parse(xml, LoadOptions.PreserveWhitespace);
+            var root = doc.Root;
+            if (root == null) return null;
+            int.TryParse((string)root.Attribute(DefaultsAttribute), out int fileRevision);
+            if (fileRevision >= DefaultsRevision) return null;
+
+            var existing = new HashSet<string>(
+                root.Elements("snippet").Select(e => ((string)e.Attribute("key") ?? "").Trim()),
+                StringComparer.OrdinalIgnoreCase);
+            var defaults = XDocument.Parse(DefaultXml, LoadOptions.PreserveWhitespace).Root.Elements("snippet");
+            foreach (var e in defaults)
+            {
+                string key = (string)e.Attribute("key");
+                if (DefaultsAddedIn.TryGetValue(key, out int addedIn) && addedIn > fileRevision && existing.Add(key))
+                    root.Add("  ", new XElement(e), "\n");
+            }
+            root.SetAttributeValue(DefaultsAttribute, DefaultsRevision);
+
+            using (var writer = new Utf8StringWriter())
+            {
+                doc.Save(writer, SaveOptions.DisableFormatting);
                 return writer.ToString();
             }
         }
@@ -131,7 +172,7 @@ namespace SqlAssist.Core.Snippets
   Multi-line snippets can be written on their own lines; common indentation is removed.
   Saved changes take effect on the next Tab - no restart needed.
 -->
-<snippets>
+<snippets defaults=""1"">
   <snippet key=""ssf"" description=""SELECT * FROM"">SELECT * FROM $CARET$</snippet>
   <snippet key=""st100"" description=""SELECT TOP 100 * FROM"">SELECT TOP 100 * FROM $CARET$</snippet>
   <snippet key=""scf"" description=""SELECT COUNT(*) FROM"">SELECT COUNT(*) FROM $CARET$</snippet>
@@ -169,7 +210,7 @@ WHERE </snippet>
 
     END
   </snippet>
-  <snippet key=""cw"" description=""CASE WHEN ... THEN ... ELSE ... END"">
+  <snippet key=""case"" description=""CASE WHEN ... THEN ... ELSE ... END"">
     CASE
         WHEN $CARET$ THEN
         ELSE

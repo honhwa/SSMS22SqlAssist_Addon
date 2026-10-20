@@ -31,6 +31,38 @@ namespace SqlAssist.Core.Tests
         }
 
         [Fact]
+        public void UpgradeDefaults_AddsNewDefaultsToOldFileAndKeepsUserSnippets()
+        {
+            const string old = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<snippets>\n  <snippet key=\"my\">SELECT 1</snippet>\n</snippets>";
+            string upgraded = SnippetStore.UpgradeDefaults(old);
+
+            var store = SnippetStore.Parse(upgraded);
+            Assert.True(store.TryGet("my", out _));
+            Assert.True(store.TryGet("case", out var c));
+            Assert.StartsWith("CASE", c.Body);
+            Assert.False(store.TryGet("ssf", out _)); // only defaults newer than the file are added
+            Assert.Null(SnippetStore.UpgradeDefaults(upgraded));
+        }
+
+        [Fact]
+        public void UpgradeDefaults_KeepsUsersOwnSnippetWithTheSameKey()
+        {
+            const string old = "<snippets><snippet key=\"CASE\">mine</snippet></snippets>";
+            var store = SnippetStore.Parse(SnippetStore.UpgradeDefaults(old));
+            Assert.Single(store.All);
+            Assert.True(store.TryGet("case", out var c));
+            Assert.Equal("mine", c.Body);
+        }
+
+        [Fact]
+        public void UpgradeDefaults_LeavesCurrentFilesAlone()
+        {
+            Assert.Null(SnippetStore.UpgradeDefaults(SnippetStore.DefaultXml));
+            // A file saved by the Snippets Manager without "case" means the user removed it.
+            Assert.Null(SnippetStore.UpgradeDefaults(SnippetStore.ToXml(new[] { new Snippet("ssf", "SELECT", null) })));
+        }
+
+        [Fact]
         public void Render_ReplacesLiteralsAndFindsCaretMarker()
         {
             var s = new Snippet("hdr", "-- $USER$ $date$ $DB$@$SERVER$\nSELECT $CARET$", null);
