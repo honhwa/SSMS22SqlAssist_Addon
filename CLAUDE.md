@@ -39,7 +39,7 @@ dotnet build src\SqlAssist.Vsix -c Release      # -> src\SqlAssist.Vsix\bin\Rele
   an existing release's text.
 - Building needs no SSMS installed. Debugging: SSMS 22 has no experimental instance — install the extension first,
   then F5 (start program is `Ssms.exe /log`) or attach.
-- Runtime log: `%LOCALAPPDATA%\SqlAssist\SqlAssist.log` (Tools › SqlAssist › Open Log). User files:
+- Runtime log: `%LOCALAPPDATA%\SqlAssist\SqlAssist.log` (Tools › SqlAssist › Options… › the Open Log button, which opens it in the default `.log` editor). User files:
   `%APPDATA%\SqlAssist\snippets.xml`.
 
 ## Architecture
@@ -48,9 +48,14 @@ Three projects (`SqlAssist.sln`) plus tests:
 
 - **`src/SqlAssist.Core`** (netstandard2.0) — pure logic, no VS/SSMS references: `Sql/` (tokenizer, context
   analyzer that figures out which tables/aliases are in scope and what kind of completion the caret wants),
-  `Completion/` (fuzzy matcher, alias generator, JOIN suggester, star expander), `Snippets/`, `Results/` (scripts from result-grid cells), `Schema/` (schema model,
+  `Completion/` (fuzzy matcher, alias generator, JOIN suggester, star expander), `Snippets/`, `Results/` (scripts from result-grid cells,
+  the UPDATE script builder, a cell cache), `Schema/` (schema model,
   SQL type formatting), `Search/` (search matcher with match-case/whole-word/wildcards, `CREATE TABLE` preview
-  builder). All unit tests target this layer; put testable logic here, not in the Vsix project.
+  builder), `Clipboard/` (Excel-style paste parser, strict typed cell parsing, IN / VALUES / #Temp builder),
+  `Formatting/` (the SQL formatter), `Risk/` (UPDATE/DELETE without WHERE, TRUNCATE, DROP TABLE analyzer) and `Settings/`
+  (`settings.xml`). `Sql/SqlStatementScanner` splits text into GO batches and statements (no grammar: a statement starts at a
+  statement keyword unless the word before it continues the current one); the formatter and the risk check both build on it.
+  All unit tests target this layer; put testable logic here, not in the Vsix project.
 - **`src/SqlAssist.Vsix`** (net48, WPF) — SSMS glue. It does **not** reference the Core assembly: Core's `.cs`
   files are compiled in via a linked `<Compile Include="..\SqlAssist.Core\**\*.cs">`, so the extension ships as one
   DLL. Pieces:
@@ -71,7 +76,26 @@ Three projects (`SqlAssist.sln`) plus tests:
     (`Microsoft.SqlServer.GridControl`'s GridControl: `SelectedCells`, `GridStorage` = SQLEditors' `QEResultSet`, whose
     storage column 0 is the row-number column). The submenu hangs off SSMS's grid context menu
     (`{33F13AC3-80BB-4ECB-85BC-225435603A5E}:0x70`). Ctrl+J,<key> is caught in `ComponentDispatcher.ThreadPreprocessMessage`
-    only while a grid has focus. Script text comes from Core `Results/ResultScriptBuilder`.
+    only while a grid has focus. Script text comes from Core `Results/ResultScriptBuilder`; UPDATE is the exception: it opens
+    `UpdateScriptWindow` (target table and key columns chosen by the user, never guessed) and uses `UpdateScriptBuilder`.
+    `ScriptDelivery` sends any generated text to a new query window, the clipboard or a file (never executes it).
+  - `ClipboardSql/` — Tools › SqlAssist › CSV to SQL (`ClipboardSqlWindow`, Core `Clipboard/`; the code kept its
+    original "Clipboard" names, only the user-facing name is CSV to SQL). Cell delimiter: Tab by default, comma / semicolon /
+    pipe by choice, never guessed from the text. The clipboard's content is never written to the log.
+  - `Formatting/` — `FormatSqlCommand` (Ctrl+K, Ctrl+Shift+F, the Tools menu, and a second command `cmdFormatSqlContext` on the
+    query editor's right-click menu: SSMS's `IDM_SQLWB_SQLSCRIPT_CONTEXT` = 0x50 in the same `{33F13AC3-…}` group as the grid's
+    0x70): formats the selection or the document in one edit (one Undo),
+    replacing only the differing stretch and mapping the caret with `SqlFormatter.MapOffset`. The formatter only changes
+    whitespace, keyword case and the end of a line a list comma sits at, and re-checks that on its own output
+    (`SqlFormatter.Compare`: same tokens, comments and GO structure) or leaves the text alone. Only reserved words and
+    positionally certain function/type words are re-cased (`KeywordCaser`), because a database may be case-sensitive.
+  - `Risk/` — Check SQL Risks (`RiskCheckCommand`, `RiskWindow`: click a row to jump) and the experimental
+    `ExecuteGuard`, a priority command target (off unless Options says so; nothing is registered while off) that asks before
+    `Query.Execute` runs a script with findings. Which commands count as Execute is looked up by name through DTE and logged;
+    it has not been confirmed against every way of executing, so never describe it as a guarantee.
+  - `Settings/` — `SettingsProvider` (`%APPDATA%\SqlAssist\settings.xml`, re-read when the file changes) and `OptionsWindow`.
+    `DialogHost` shows WPF windows owned by SSMS's main window; the windows are plain `Window`s so they can be rendered
+    outside SSMS to check their layout (keep `ThreadHelper.ThrowIfNotOnUIThread` out of their constructors).
   - `Update/` — online update: `UpdateService` reads GitHub's `releases/latest` for `kriangdet/SSMS22SqlAssist_Addon`
     (daily on startup via background `ProvideAutoLoad`, or Tools › SqlAssist › Check for Updates), shows
     `UpdateInfoBar`, and on request downloads the release's `SqlAssistSetup-*.exe` (SHA-256 checked against the
@@ -80,7 +104,9 @@ Three projects (`SqlAssist.sln`) plus tests:
     Releases are published with `.\publish-release.ps1` (needs `$env:GITHUB_TOKEN`; text from `CHANGELOG.md`).
     "Install when SSMS closes" starts the downloaded setup with `/installonexit`, which waits for every SSMS to exit,
     installs and leaves `update-result.txt` for the next start to report.
-  - `SqlAssistPackage.cs` + `SqlAssistPackage.vsct` — the AsyncPackage, Tools-menu commands, Ctrl+Shift+R refresh.
+  - `SqlAssistPackage.cs` + `SqlAssistPackage.vsct` — the AsyncPackage, Tools-menu commands, Ctrl+Shift+R refresh, the
+    Ctrl+K, Ctrl+Shift+F key binding (checked against VS's defaults, SSMS 22's own profile — its built-in Format SQL is
+    Ctrl+K, Ctrl+Q — and SqlAssist's keys). Bump `ProvideMenuResource` whenever the .vsct changes.
 - **`src/SqlAssist.Setup`** (net48 WinForms) — `SqlAssistSetup.exe`. Its build depends on the Vsix project and
   embeds `SqlAssist.vsix` as a resource (`EmbedVsix` target); `SetupEngine` detects SSMS 22, the installed version
   (per-user under `%LOCALAPPDATA%\Microsoft\SSMS\22.0_*\Extensions`), whether SSMS is running, and drives SSMS's own

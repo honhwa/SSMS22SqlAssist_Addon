@@ -12,18 +12,13 @@ using SqlAssist.Search;
 
 namespace SqlAssist.Results
 {
-    internal enum ScriptTarget
-    {
-        NewWindow = 0,
-        Clipboard = 1,
-        File = 2,
-    }
-
     /// <summary>Results grid › Generate Script As › INSERT / INSERT #tmpTable / WHERE IN() / WHERE AND OR / UPDATE ›
     /// New Query Window / Clipboard / File, plus the dbForge shortcuts Ctrl+J then I/T/W/O/U (to the clipboard) while
-    /// a results grid has focus.</summary>
+    /// a results grid has focus. UPDATE first opens <see cref="UpdateScriptWindow"/>; the menu item or shortcut only
+    /// picks where it starts out sending the script.</summary>
     internal static class GenerateScriptCommands
     {
+        private const string Title = "SqlAssist: Generate Script As";
         /// <summary>Command id = First + kind * 0x10 + target (see SqlAssistPackage.vsct).</summary>
         public const int First = 0x0200;
         /// <summary>More rows than this would make a script SSMS's editor struggles to open.</summary>
@@ -60,24 +55,26 @@ namespace SqlAssist.Results
                     return;
                 }
 
-                var needed = ResultScriptBuilder.RequiredColumns(kind, selection.Columns, selection.Selected);
-                var rows = selection.Rows.Select(r => selection.ReadRow(r, needed)).ToList();
-                string script = ResultScriptBuilder.Build(kind, selection.Columns, selection.Selected, rows);
-                string what = Describe(kind) + " script (" + rows.Count + (rows.Count == 1 ? " row)" : " rows)");
-
-                switch (target)
+                string script;
+                if (kind == ResultScriptKind.Update)
                 {
-                    case ScriptTarget.NewWindow:
-                        string error = SsmsNavigator.OpenQueryWindow(ActiveConnection.TryGet()?.UiConnectionInfo, script);
-                        if (error != null) Show(error);
-                        break;
-                    case ScriptTarget.Clipboard:
-                        if (CopyToClipboard(script)) Status("SqlAssist: " + what + " copied to the clipboard");
-                        break;
-                    case ScriptTarget.File:
-                        SaveToFile(script, what);
-                        break;
+                    // The dialog asks for the table and key columns, previews, and may change where the script goes.
+                    var cache = new ResultValueCache(selection.Columns.Count, selection.Rows.Count,
+                        (row, column) => selection.ReadRow(selection.Rows[row], new[] { column })[column]);
+                    var dialog = new UpdateScriptWindow(selection.Columns, selection.Selected, cache, target);
+                    if (DialogHost.ShowDialog(dialog) != true) return;
+                    script = dialog.Script;
+                    target = dialog.Target;
                 }
+                else
+                {
+                    var rows = selection.Rows.Select(r => selection.ReadRow(r, selection.Selected)).ToList();
+                    script = ResultScriptBuilder.Build(kind, selection.Columns, selection.Selected, rows);
+                }
+                int count = selection.Rows.Count;
+                string what = Describe(kind) + " script (" + count + (count == 1 ? " row)" : " rows)");
+
+                ScriptDelivery.Send(script, target, what, Title);
             }
             catch (Exception ex)
             {
@@ -109,7 +106,7 @@ namespace SqlAssist.Results
                 {
                     _chordPending = true;
                     handled = true;
-                    Status("SqlAssist: Ctrl+J, then I (INSERT), T (INSERT #tmpTable), W (WHERE IN), O (WHERE AND OR) or U (UPDATE)");
+                    Status("SqlAssist: Ctrl+J, then I (INSERT), T (INSERT #tmpTable), W (WHERE IN), O (WHERE AND OR) or U (UPDATE, asks for the table and key)");
                 }
             }
             catch (Exception ex)
@@ -144,45 +141,6 @@ namespace SqlAssist.Results
             }
         }
 
-        private static bool CopyToClipboard(string text)
-        {
-            ThreadHelper.ThrowIfNotOnUIThread();
-            // Another program can hold the clipboard open for a moment.
-            for (int attempt = 0; ; attempt++)
-            {
-                try
-                {
-                    System.Windows.Clipboard.SetText(text);
-                    return true;
-                }
-                catch (System.Runtime.InteropServices.COMException) when (attempt < 3)
-                {
-                    System.Threading.Thread.Sleep(50);
-                }
-                catch (Exception ex)
-                {
-                    Log.Error("Copy script", ex);
-                    Show("Could not copy to the clipboard: " + ex.Message);
-                    return false;
-                }
-            }
-        }
-
-        private static void SaveToFile(string script, string what)
-        {
-            ThreadHelper.ThrowIfNotOnUIThread();
-            var dialog = new Microsoft.Win32.SaveFileDialog
-            {
-                Title = "Save " + what,
-                Filter = "SQL files (*.sql)|*.sql|All files (*.*)|*.*",
-                DefaultExt = ".sql",
-                FileName = "Script.sql",
-            };
-            if (dialog.ShowDialog() != true) return;
-            File.WriteAllText(dialog.FileName, script, new UTF8Encoding(true));
-            Status("SqlAssist: " + what + " saved to " + dialog.FileName);
-        }
-
         private static bool IsDown(int virtualKey) => (GetKeyState(virtualKey) & 0x8000) != 0;
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -191,18 +149,13 @@ namespace SqlAssist.Results
         private static void Status(string text)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            if (Package.GetGlobalService(typeof(SVsStatusbar)) is IVsStatusbar status)
-            {
-                status.IsFrozen(out int frozen);
-                if (frozen == 0) status.SetText(text);
-            }
+            ScriptDelivery.Status(text);
         }
 
         private static void Show(string message)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider, message, "SqlAssist: Generate Script As",
-                OLEMSGICON.OLEMSGICON_INFO, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+            ScriptDelivery.Show(message, Title);
         }
     }
 }

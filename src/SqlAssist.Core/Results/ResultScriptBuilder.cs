@@ -20,17 +20,15 @@ namespace SqlAssist.Core.Results
     /// <summary>One data column of a result set (the grid's row-number column is not one).</summary>
     public sealed class ResultColumn
     {
-        public ResultColumn(string name, string typeName, bool isKey = false, string baseSchema = null, string baseTable = null)
+        public ResultColumn(string name, string typeName, string baseSchema = null, string baseTable = null)
         {
-            Name = name; TypeName = typeName; IsKey = isKey; BaseSchema = baseSchema; BaseTable = baseTable;
+            Name = name; TypeName = typeName; BaseSchema = baseSchema; BaseTable = baseTable;
         }
 
         /// <summary>As the grid shows it; may be empty ("(No column name)") or repeated.</summary>
         public string Name { get; }
         /// <summary>Formatted server type, e.g. nvarchar(25) or decimal(18,2); null when unknown.</summary>
         public string TypeName { get; }
-        /// <summary>Part of the source table's key, when the result set says so.</summary>
-        public bool IsKey { get; }
         public string BaseSchema { get; }
         public string BaseTable { get; }
     }
@@ -46,24 +44,17 @@ namespace SqlAssist.Core.Results
         /// <summary>SQL Server's limit on row value expressions in one INSERT ... VALUES.</summary>
         public const int MaxRowsPerInsert = 1000;
 
-        /// <summary>The columns <see cref="Build"/> reads for each row: the selected ones, plus for UPDATE the key
-        /// columns its WHERE clause needs.</summary>
-        public static IReadOnlyList<int> RequiredColumns(ResultScriptKind kind, IReadOnlyList<ResultColumn> columns, IReadOnlyList<int> selected)
-        {
-            var needed = new List<int>(selected);
-            if (kind == ResultScriptKind.Update)
-                foreach (int k in KeyColumns(columns))
-                    if (!needed.Contains(k)) needed.Add(k);
-            return needed;
-        }
-
         /// <param name="columns">Every data column of the result set.</param>
         /// <param name="selected">Indexes into <paramref name="columns"/>, in grid order.</param>
         /// <param name="rows">One array per selected row, indexed like <paramref name="columns"/>; only the
-        /// <see cref="RequiredColumns"/> entries are read.</param>
+        /// <paramref name="selected"/> entries are read.</param>
+        /// <exception cref="ArgumentException">For <see cref="ResultScriptKind.Update"/>, which needs a target table and
+        /// key columns the user chose: see <see cref="UpdateScriptBuilder"/>.</exception>
         public static string Build(ResultScriptKind kind, IReadOnlyList<ResultColumn> columns, IReadOnlyList<int> selected,
             IReadOnlyList<object[]> rows, string newline = "\r\n")
         {
+            if (kind == ResultScriptKind.Update)
+                throw new ArgumentException("UPDATE needs a target table and key columns; use UpdateScriptBuilder.", nameof(kind));
             if (selected.Count == 0 || rows.Count == 0) return "";
             var names = ColumnNames(columns);
             switch (kind)
@@ -72,13 +63,14 @@ namespace SqlAssist.Core.Results
                 case ResultScriptKind.InsertTempTable: return InsertTempTable(columns, names, selected, rows, newline);
                 case ResultScriptKind.WhereIn: return WhereIn(columns, names, selected, rows, newline);
                 case ResultScriptKind.WhereAndOr: return WhereAndOr(columns, names, selected, rows, newline);
-                case ResultScriptKind.Update: return Update(columns, names, selected, rows, newline);
                 default: throw new ArgumentOutOfRangeException(nameof(kind));
             }
         }
 
-        private static string Insert(string table, IReadOnlyList<ResultColumn> columns, string[] names, IReadOnlyList<int> selected,
-            IReadOnlyList<object[]> rows, string nl, bool header = true)
+        /// <param name="header">Starts with SET DATEFORMAT ymd, which the space-separated datetime literals rely on.</param>
+        /// <param name="languageNeutralDates">Writes datetime as ISO 8601 instead, so no header is needed.</param>
+        internal static string Insert(string table, IReadOnlyList<ResultColumn> columns, string[] names, IReadOnlyList<int> selected,
+            IReadOnlyList<object[]> rows, string nl, bool header = true, bool languageNeutralDates = false)
         {
             var sb = new StringBuilder();
             if (header) sb.Append("SET DATEFORMAT ymd").Append(nl).Append(nl);
@@ -87,15 +79,21 @@ namespace SqlAssist.Core.Results
             {
                 if (start > 0) sb.Append(nl);
                 sb.Append("INSERT INTO ").Append(table).Append(" (").Append(columnList).Append(") VALUES").Append(nl);
-                int end = Math.Min(rows.Count, start + MaxRowsPerInsert);
-                for (int r = start; r < end; r++)
-                {
-                    sb.Append('(').Append(string.Join(", ", selected.Select(i => SqlLiteral.Format(rows[r][i], columns[i].TypeName)))).Append(')');
-                    sb.Append(r + 1 < end ? "," : "").Append(nl);
-                }
+                AppendValueRows(sb, columns, selected, rows, start, Math.Min(rows.Count, start + MaxRowsPerInsert), nl, languageNeutralDates);
                 sb.Append("GO").Append(nl);
             }
             return sb.ToString();
+        }
+
+        /// <summary>The "(v1, v2)," lines of a VALUES list for rows [start, end), with a comma after every row but the last.</summary>
+        internal static void AppendValueRows(StringBuilder sb, IReadOnlyList<ResultColumn> columns, IReadOnlyList<int> selected,
+            IReadOnlyList<object[]> rows, int start, int end, string nl, bool languageNeutralDates = false)
+        {
+            for (int r = start; r < end; r++)
+            {
+                sb.Append('(').Append(string.Join(", ", selected.Select(i => SqlLiteral.Format(rows[r][i], columns[i].TypeName, languageNeutralDates)))).Append(')');
+                sb.Append(r + 1 < end ? "," : "").Append(nl);
+            }
         }
 
         private static string InsertTempTable(IReadOnlyList<ResultColumn> columns, string[] names, IReadOnlyList<int> selected,
@@ -146,38 +144,7 @@ namespace SqlAssist.Core.Results
             return "WHERE " + string.Join(" OR" + nl, groups) + nl;
         }
 
-        private static string Update(IReadOnlyList<ResultColumn> columns, string[] names, IReadOnlyList<int> selected,
-            IReadOnlyList<object[]> rows, string nl)
-        {
-            var keys = KeyColumns(columns);
-            var set = selected.Where(i => !keys.Contains(i)).ToList();
-            if (set.Count == 0) set = selected.ToList();
-            string table = TargetTable(columns, selected.Concat(keys).ToList());
-
-            var sb = new StringBuilder();
-            sb.Append("SET DATEFORMAT ymd").Append(nl).Append(nl);
-            foreach (var row in rows)
-            {
-                sb.Append("UPDATE ").Append(table).Append(" SET ");
-                sb.Append(string.Join(", ", set.Select(i => names[i] + " = " + SqlLiteral.Format(row[i], columns[i].TypeName))));
-                sb.Append(" WHERE ").Append(string.Join(" AND ", keys.Select(i => Condition(names[i], row[i], columns[i].TypeName))));
-                sb.Append(nl).Append("GO").Append(nl);
-            }
-            return sb.ToString();
-        }
-
-        /// <summary>The columns an UPDATE's WHERE uses: the result set's key columns when it reports them, otherwise
-        /// its first column (an ID by convention).</summary>
-        private static List<int> KeyColumns(IReadOnlyList<ResultColumn> columns)
-        {
-            var keys = new List<int>();
-            for (int i = 0; i < columns.Count; i++)
-                if (columns[i].IsKey) keys.Add(i);
-            if (keys.Count == 0 && columns.Count > 0) keys.Add(0);
-            return keys;
-        }
-
-        private static string Condition(string name, object value, string typeName) =>
+        internal static string Condition(string name, object value, string typeName) =>
             SqlLiteral.IsNull(value) ? name + " IS NULL" : name + " = " + SqlLiteral.Format(value, typeName);
 
         /// <summary>The source table when every column involved comes from the same one; otherwise [Table].</summary>
@@ -198,7 +165,7 @@ namespace SqlAssist.Core.Results
         }
 
         /// <summary>Script-ready column names: unnamed columns become Column1, Column2…, repeats get _2, _3….</summary>
-        private static string[] ColumnNames(IReadOnlyList<ResultColumn> columns)
+        internal static string[] ColumnNames(IReadOnlyList<ResultColumn> columns)
         {
             var result = new string[columns.Count];
             var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -249,7 +216,11 @@ namespace SqlAssist.Core.Results
             return t.Trim().Trim('[', ']').ToLowerInvariant();
         }
 
-        public static string Format(object value, string typeName)
+        public static string Format(object value, string typeName) => Format(value, typeName, false);
+
+        /// <param name="languageNeutralDates">Writes datetime and smalldatetime as ISO 8601 (yyyy-MM-ddTHH:mm:ss.fff), which
+        /// SET DATEFORMAT / SET LANGUAGE cannot misread; the default space-separated form needs SET DATEFORMAT ymd first.</param>
+        public static string Format(object value, string typeName, bool languageNeutralDates)
         {
             if (IsNull(value)) return "NULL";
             string type = BaseType(typeName);
@@ -257,7 +228,7 @@ namespace SqlAssist.Core.Results
             {
                 case bool b: return b ? "1" : "0";
                 case byte[] bytes: return Hex(bytes);
-                case DateTime dt: return "'" + FormatDateTime(dt, type) + "'";
+                case DateTime dt: return "'" + FormatDateTime(dt, type, languageNeutralDates) + "'";
                 case DateTimeOffset dto: return "'" + dto.ToString("yyyy-MM-dd HH:mm:ss.fffffff zzz", CultureInfo.InvariantCulture) + "'";
                 case TimeSpan ts: return "'" + ts.ToString(ts.Ticks % TimeSpan.TicksPerSecond == 0 ? @"hh\:mm\:ss" : @"hh\:mm\:ss\.fffffff", CultureInfo.InvariantCulture) + "'";
                 case Guid g: return "'" + g.ToString("D").ToUpperInvariant() + "'";
@@ -283,14 +254,14 @@ namespace SqlAssist.Core.Results
             return (Ansi.Contains(type) ? "'" : "N'") + text.Replace("'", "''") + "'";
         }
 
-        private static string FormatDateTime(DateTime dt, string type)
+        private static string FormatDateTime(DateTime dt, string type, bool languageNeutral)
         {
             switch (type)
             {
                 case "date": return dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-                case "smalldatetime": return dt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+                case "smalldatetime": return dt.ToString(languageNeutral ? "yyyy-MM-ddTHH:mm:ss" : "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
                 case "datetime2": return dt.ToString("yyyy-MM-dd HH:mm:ss.fffffff", CultureInfo.InvariantCulture);
-                default: return dt.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
+                default: return dt.ToString(languageNeutral ? "yyyy-MM-ddTHH:mm:ss.fff" : "yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
             }
         }
 

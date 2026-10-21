@@ -87,36 +87,6 @@ namespace SqlAssist.Core.Tests
         }
 
         [Fact]
-        public void Update_UsesFirstColumnAsKey()
-        {
-            Assert.Equal(new[] { 1, 0 }, ResultScriptBuilder.RequiredColumns(ResultScriptKind.Update, Product, new[] { 1 }));
-            Assert.Equal(
-                "SET DATEFORMAT ymd\n\n" +
-                "UPDATE [Table] SET ProductNumber = N'FR-R92B-58' WHERE ProductID = 680\nGO\n" +
-                "UPDATE [Table] SET ProductNumber = N'FR-R92R-58' WHERE ProductID = 706\nGO\n" +
-                "UPDATE [Table] SET ProductNumber = N'HL-U509-R' WHERE ProductID = 707\nGO\n",
-                Build(ResultScriptKind.Update, 1));
-            // The key column itself is not SET when other columns are selected with it.
-            Assert.StartsWith("SET DATEFORMAT ymd\n\nUPDATE [Table] SET Color = N'Black' WHERE ProductID = 680\n", Build(ResultScriptKind.Update, 0, 2));
-        }
-
-        [Fact]
-        public void Update_ReportedKeysAndBaseTable()
-        {
-            var columns = new[]
-            {
-                new ResultColumn("Name", "varchar(10)", false, "Sales", "Order Line"),
-                new ResultColumn("OrderId", "int", true, "Sales", "Order Line"),
-                new ResultColumn("LineNo", "int", true, "Sales", "Order Line"),
-            };
-            var rows = new[] { new object[] { "it's", 5, null } };
-            Assert.Equal(
-                "SET DATEFORMAT ymd\n\n" +
-                "UPDATE Sales.[Order Line] SET Name = 'it''s' WHERE OrderId = 5 AND [LineNo] IS NULL\nGO\n",
-                ResultScriptBuilder.Build(ResultScriptKind.Update, columns, new[] { 0 }, rows, "\n"));
-        }
-
-        [Fact]
         public void Insert_SplitsAfterThousandRows()
         {
             var rows = new object[1001][];

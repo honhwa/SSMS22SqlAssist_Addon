@@ -74,6 +74,9 @@
       <Group guid="guidSqlAssistCmdSet" id="GridContextGroup" priority="0x0600">
         <Parent guid="guidSqlEditorGroup" id="IDM_SQLWB_SQLRESGRID_CONTEXT" />
       </Group>
+      <Group guid="guidSqlAssistCmdSet" id="EditorContextGroup" priority="0x0600">
+        <Parent guid="guidSqlEditorGroup" id="IDM_SQLWB_SQLSCRIPT_CONTEXT" />
+      </Group>
       <Group guid="guidSqlAssistCmdSet" id="GenerateScriptGroup" priority="0x0100">
         <Parent guid="guidSqlAssistCmdSet" id="GenerateScriptMenu" />
       </Group>
@@ -108,12 +111,6 @@
           <ButtonText>Edit Snippets...</ButtonText>
         </Strings>
       </Button>
-      <Button guid="guidSqlAssistCmdSet" id="cmdOpenLog" priority="0x0102" type="Button">
-        <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
-        <Strings>
-          <ButtonText>Open Log</ButtonText>
-        </Strings>
-      </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdAbout" priority="0x0110" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
         <Strings>
@@ -124,6 +121,46 @@
         <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
         <Strings>
           <ButtonText>Check for Updates...</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdClipboardToSql" priority="0x009A" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
+        <Strings>
+          <ButtonText>CSV to SQL...</ButtonText>
+          <ToolTipText>Turn cells copied from Excel, or CSV text, into IN (...), VALUES (...) or a #Temp table with INSERT</ToolTipText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdFormatSql" priority="0x009B" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
+        <Strings>
+          <ButtonText>Format SQL</ButtonText>
+          <CommandName>SqlAssist.FormatSql</CommandName>
+          <ToolTipText>Format the selection, or the whole query window when nothing is selected (Ctrl+K, Ctrl+Shift+F)</ToolTipText>
+        </Strings>
+      </Button>
+      <!-- The query editor's right-click copy of Format SQL. A command has one ButtonText, so it is a second command with the
+           same handler; the text says SqlAssist because SSMS 22 has a Format SQL of its own (Ctrl+K, Ctrl+Q). -->
+      <Button guid="guidSqlAssistCmdSet" id="cmdFormatSqlContext" priority="0x0100" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="EditorContextGroup" />
+        <Strings>
+          <ButtonText>Format SQL (SqlAssist)</ButtonText>
+          <CommandName>SqlAssist.FormatSqlContext</CommandName>
+          <ToolTipText>Format the selection, or the whole query window when nothing is selected (Ctrl+K, Ctrl+Shift+F)</ToolTipText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdCheckRisks" priority="0x009C" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
+        <Strings>
+          <ButtonText>Check SQL Risks...</ButtonText>
+          <CommandName>SqlAssist.CheckSqlRisks</CommandName>
+          <ToolTipText>List UPDATE / DELETE without WHERE, TRUNCATE TABLE and DROP TABLE in the selection (or the whole query window); nothing is changed or run</ToolTipText>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlAssistCmdSet" id="cmdOptions" priority="0x0105" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
+        <Strings>
+          <ButtonText>Options...</ButtonText>
+          <ToolTipText>SqlAssist settings: Format SQL and Check SQL Risks</ToolTipText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdSearch" priority="0x0099" type="Button">
@@ -230,14 +267,14 @@
       <Button guid="guidSqlAssistCmdSet" id="cmdScriptUpdateNewWindow" priority="0x0100" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="ScriptUpdateGroup" />
         <Strings>
-          <ButtonText>New Query Window</ButtonText>
+          <ButtonText>New Query Window...</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdScriptUpdateClipboard" priority="0x0101" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="ScriptUpdateGroup" />
         <Strings>
-          <ButtonText>Clipboard</ButtonText>
-          <ToolTipText>Copy the UPDATE script (Ctrl+J, U in the results grid)</ToolTipText>
+          <ButtonText>Clipboard...</ButtonText>
+          <ToolTipText>Choose the table and key columns, then copy the UPDATE script (Ctrl+J, U in the results grid)</ToolTipText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdScriptUpdateFile" priority="0x0102" type="Button">
@@ -256,6 +293,12 @@
     </CommandPlacement>
   </CommandPlacements>
 
+  <!-- Ctrl+K, Ctrl+Shift+F in text editors. Checked against Visual Studio's default shortcut list, SSMS 22's own profile
+       (its built-in Format SQL is Ctrl+K, Ctrl+Q; Copilot uses Ctrl+Alt+E/R/D/F) and SqlAssist's keys: nothing else uses it. -->
+  <KeyBindings>
+    <KeyBinding guid="guidSqlAssistCmdSet" id="cmdFormatSql" editor="guidTextEditorScope" key1="K" mod1="Control" key2="F" mod2="Control Shift" />
+  </KeyBindings>
+
   <Symbols>
     <GuidSymbol name="guidSqlAssistPackage" value="{9cc4aed8-f2ad-4120-ba6f-222b08aa04a0}" />
     <GuidSymbol name="guidSqlAssistCmdSet" value="{545a3b92-0849-4527-8c0a-effa65b4e0c1}">
@@ -266,11 +309,16 @@
       <IDSymbol name="SubmenuGroup" value="0x1022" />
       <IDSymbol name="cmdRefreshSchema" value="0x0100" />
       <IDSymbol name="cmdEditSnippets" value="0x0101" />
-      <IDSymbol name="cmdOpenLog" value="0x0102" />
       <IDSymbol name="cmdAbout" value="0x0103" />
       <IDSymbol name="cmdSearch" value="0x0104" />
       <IDSymbol name="cmdSearchToolbar" value="0x0105" />
       <IDSymbol name="cmdCheckUpdates" value="0x0106" />
+      <IDSymbol name="cmdClipboardToSql" value="0x0107" />
+      <IDSymbol name="cmdFormatSql" value="0x0108" />
+      <IDSymbol name="cmdOptions" value="0x0109" />
+      <IDSymbol name="cmdCheckRisks" value="0x010A" />
+      <IDSymbol name="cmdFormatSqlContext" value="0x010B" />
+      <IDSymbol name="EditorContextGroup" value="0x1043" />
       <IDSymbol name="GridContextGroup" value="0x1040" />
       <IDSymbol name="GenerateScriptMenu" value="0x1041" />
       <IDSymbol name="GenerateScriptGroup" value="0x1042" />
@@ -300,11 +348,14 @@
       <IDSymbol name="cmdScriptUpdateClipboard" value="0x0241" />
       <IDSymbol name="cmdScriptUpdateFile" value="0x0242" />
     </GuidSymbol>
-    <!-- SSMS's own results-grid context menu (SQLEditors' SQLWorkbenchCommands.GUID_SQLEditorGroup /
-         IDM_SQLWB_SQLRESGRID_CONTEXT). -->
+    <!-- SSMS's own results-grid and query-editor context menus (SQLEditors' SQLWorkbenchCommands.GUID_SQLEditorGroup /
+         IDM_SQLWB_SQLRESGRID_CONTEXT = 112 and IDM_SQLWB_SQLSCRIPT_CONTEXT = 80). -->
     <GuidSymbol name="guidSqlEditorGroup" value="{33F13AC3-80BB-4ECB-85BC-225435603A5E}">
       <IDSymbol name="IDM_SQLWB_SQLRESGRID_CONTEXT" value="0x0070" />
+      <IDSymbol name="IDM_SQLWB_SQLSCRIPT_CONTEXT" value="0x0050" />
     </GuidSymbol>
+    <!-- The "Text Editor" key-binding scope (the same GUID as Visual Studio's text editor command set). -->
+    <GuidSymbol name="guidTextEditorScope" value="{8B382828-6202-11D1-8870-0000F87579D2}" />
     <GuidSymbol name="guidSqlAssistImages" value="{b3f1c6e2-5a47-4d8e-9c21-7e4a0d9f3b58}">
       <!-- Same Guid and ID as in SqlAssist.imagemanifest. -->
       <IDSymbol name="bmpLogo" value="1" />

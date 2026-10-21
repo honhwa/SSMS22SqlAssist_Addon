@@ -136,7 +136,6 @@ namespace SqlAssist.Results
                 string type = Call(storage, "GetFormattedDataTypeName", i) as string;
                 var schema = Call(storage, "GetSchemaRow", i) as DataRow;
                 columns.Add(new ResultColumn(name, type,
-                    SchemaValue(schema, "IsKey") is bool key && key,
                     SchemaValue(schema, "BaseSchemaName") as string,
                     SchemaValue(schema, "BaseTableName") as string));
             }

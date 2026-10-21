@@ -4,7 +4,7 @@ using System.IO;
 namespace SqlAssist
 {
     /// <summary>Plain-text log under %LOCALAPPDATA%\SqlAssist. Every failure inside SSMS has to be swallowed,
-    /// so this is the only place they become visible (Tools > SqlAssist > Open Log).</summary>
+    /// so this is the only place they become visible (Tools > SqlAssist > Options... > the Open Log button).</summary>
     internal static class Log
     {
         private const long MaxBytes = 1024 * 1024;
