@@ -264,7 +264,7 @@ namespace SqlAssist.Editor
             if (found.Kind == ExpansionKind.Exec)
             {
                 var routine = schema.FindRoutine(found.Schema, found.Name);
-                if (routine != null && routine.IsProcedure)
+                if (StatementExpander.HasExecTemplate(routine))
                     expansion = StatementExpander.BuildExec(routine, snapshot.GetText(line.Start, caret.Position - line.Start), indent, newLine);
                 else if (routine == null) SchemaCache.Instance.RefreshIfOlderThanThrottle(target);
             }

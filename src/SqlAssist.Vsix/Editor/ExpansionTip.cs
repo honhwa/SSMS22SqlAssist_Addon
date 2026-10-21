@@ -18,20 +18,21 @@ using SqlAssist.Schema;
 namespace SqlAssist.Editor
 {
     [Export(typeof(IWpfTextViewCreationListener))]
-    [Name("SqlAssist star tip")]
+    [Name("SqlAssist expansion tip")]
     [ContentType(SqlContentType.Name)]
     [TextViewRole(PredefinedTextViewRoles.Editable)]
-    internal sealed class StarTipProvider : IWpfTextViewCreationListener
+    internal sealed class ExpansionTipProvider : IWpfTextViewCreationListener
     {
         [Import] internal IToolTipService ToolTips { get; set; }
         [Import] internal IAsyncCompletionBroker Broker { get; set; }
 
-        public void TextViewCreated(IWpfTextView textView) => new StarTip(textView, ToolTips, Broker);
+        public void TextViewCreated(IWpfTextView textView) => new ExpansionTip(textView, ToolTips, Broker);
     }
 
-    /// <summary>Shows "Press Tab to expand N columns" under a "*" that Tab would expand — and only then, so the hint
-    /// never promises an expansion that Tab will not do. Re-checked a moment after the caret settles.</summary>
-    internal sealed class StarTip
+    /// <summary>Shows "Press Tab to expand N columns" under a "*", or "Press Tab to insert list of parameters" under the
+    /// procedure name in "EXEC p" — only where Tab would do it, so the hint never promises an expansion that Tab will
+    /// not do. Re-checked a moment after the caret settles.</summary>
+    internal sealed class ExpansionTip
     {
         private readonly IWpfTextView _view;
         private readonly IToolTipService _toolTips;
@@ -41,7 +42,7 @@ namespace SqlAssist.Editor
         private int _shownAt = -1;
         private int _waitingForSchemaAt = -1;
 
-        public StarTip(IWpfTextView view, IToolTipService toolTips, IAsyncCompletionBroker broker)
+        public ExpansionTip(IWpfTextView view, IToolTipService toolTips, IAsyncCompletionBroker broker)
         {
             _view = view;
             _toolTips = toolTips;
@@ -87,7 +88,9 @@ namespace SqlAssist.Editor
                 var caret = _view.Caret.Position.BufferPosition;
                 var window = TextWindow.Around(caret.Snapshot, caret.Position);
                 var star = SqlContextAnalyzer.FindStar(window.Text, window.Caret);
-                var target = star == null ? null : ActiveConnection.TryGet();
+                var exec = star == null ? StatementExpander.Find(window.Text, window.Caret) : null;
+                if (exec != null && exec.Kind != ExpansionKind.Exec) exec = null;
+                var target = star == null && exec == null ? null : ActiveConnection.TryGet();
                 if (target == null)
                 {
                     Hide();
@@ -102,21 +105,41 @@ namespace SqlAssist.Editor
                     return;
                 }
 
-                int count = CountColumns(star, schema);
-                if (count == 0)
+                int start;
+                SnapshotSpan span;
+                string action;
+                if (star != null)
                 {
-                    Hide();
-                    return;
+                    int count = CountColumns(star, schema);
+                    if (count == 0)
+                    {
+                        Hide();
+                        return;
+                    }
+                    start = window.Offset + star.ReplaceStart;
+                    span = new SnapshotSpan(caret.Snapshot, start, star.ReplaceEnd - star.ReplaceStart);
+                    action = $"expand {count} column{(count == 1 ? "" : "s")}";
+                }
+                else
+                {
+                    // Mirrors the EXEC template: Tab only writes a parameter list for a procedure that has parameters.
+                    if (!StatementExpander.HasExecTemplate(schema.FindRoutine(exec.Schema, exec.Name)))
+                    {
+                        Hide();
+                        return;
+                    }
+                    start = window.Offset + exec.NameStart;
+                    span = new SnapshotSpan(caret.Snapshot, start, exec.NameEnd - exec.NameStart);
+                    action = "insert list of parameters";
                 }
 
-                int start = window.Offset + star.ReplaceStart;
-                if (_presenter != null && _shownAt == start) return; // already showing for this star
-                Show(new SnapshotSpan(caret.Snapshot, start, star.ReplaceEnd - star.ReplaceStart), count);
+                if (_presenter != null && _shownAt == start) return; // already showing here
+                Show(span, action);
                 _shownAt = start;
             }
             catch (Exception ex)
             {
-                Log.Error("Star tip", ex);
+                Log.Error("Expansion tip", ex);
                 Hide();
             }
         }
@@ -132,7 +155,7 @@ namespace SqlAssist.Editor
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 _waitingForSchemaAt = -1;
                 if (!_view.IsClosed && _view.Caret.Position.BufferPosition.Position == position) Evaluate();
-            }).FileAndForget("SqlAssist/StarTipWaitForSchema");
+            }).FileAndForget("SqlAssist/ExpansionTipWaitForSchema");
         }
 
         private static int CountColumns(StarContext star, SchemaModel schema)
@@ -142,7 +165,7 @@ namespace SqlAssist.Editor
             return tables.Any(t => t == null) ? 0 : tables.Sum(t => t.Columns.Count);
         }
 
-        private void Show(SnapshotSpan span, int count)
+        private void Show(SnapshotSpan span, string action)
         {
             Hide();
             _presenter = _toolTips.CreatePresenter(_view, new ToolTipParameters(trackMouse: false, ignoreBufferChange: false));
@@ -150,7 +173,7 @@ namespace SqlAssist.Editor
             var text = new ClassifiedTextElement(
                 new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, "Press "),
                 new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, "Tab", ClassifiedTextRunStyle.Bold),
-                new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, $" to expand {count} column{(count == 1 ? "" : "s")}"));
+                new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, " to " + action));
             _presenter.StartOrUpdate(span.Snapshot.CreateTrackingSpan(span, SpanTrackingMode.EdgeInclusive), new object[] { text });
         }
 

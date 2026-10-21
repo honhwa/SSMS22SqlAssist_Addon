@@ -102,8 +102,9 @@ Three projects (`SqlAssist.sln`) plus tests:
     asset's GitHub digest) and starts it — the setup window then waits for SSMS to close. Version/asset parsing and
     the check/skip policy live in Core `Update/`. State: `%LOCALAPPDATA%\SqlAssist\update.txt`.
     Releases are published with `.\publish-release.ps1` (needs `$env:GITHUB_TOKEN`; text from `CHANGELOG.md`).
-    "Install when SSMS closes" starts the downloaded setup with `/installonexit`, which waits for every SSMS to exit,
-    installs and leaves `update-result.txt` for the next start to report.
+    "Install when SSMS closes" starts the downloaded setup with `/installonexit`, which waits (windowless) for every SSMS
+    to exit, then installs behind a small `InstallOnExitForm` (progress, done / failed) and leaves `update-result.txt` for
+    the next start to report. The waiter logs its own steps to `SqlAssist.log` through `SetupLog`.
   - `SqlAssistPackage.cs` + `SqlAssistPackage.vsct` — the AsyncPackage, Tools-menu commands, Ctrl+Shift+R refresh, the
     Ctrl+K, Ctrl+Shift+F key binding (checked against VS's defaults, SSMS 22's own profile — its built-in Format SQL is
     Ctrl+K, Ctrl+Q — and SqlAssist's keys). Bump `ProvideMenuResource` whenever the .vsct changes.

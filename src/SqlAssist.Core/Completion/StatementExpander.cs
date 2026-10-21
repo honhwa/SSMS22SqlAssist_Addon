@@ -17,6 +17,8 @@ namespace SqlAssist.Core.Completion
         public string Name { get; internal set; }
         /// <summary>Text offset of the statement's first word (INSERT / UPDATE / EXEC / ALTER).</summary>
         public int StatementStart { get; internal set; }
+        /// <summary>Text offset where the name starts (its schema, when written, included).</summary>
+        public int NameStart { get; internal set; }
         /// <summary>Text offset just past the name (the caret).</summary>
         public int NameEnd { get; internal set; }
         /// <summary>For ALTER: PROCEDURE, FUNCTION, VIEW or TRIGGER as typed.</summary>
@@ -70,6 +72,7 @@ namespace SqlAssist.Core.Completion
             {
                 Name = parts[parts.Count - 1],
                 Schema = parts.Count >= 2 ? parts[parts.Count - 2] : null,
+                NameStart = sig[k].Start,
                 NameEnd = caret,
             };
             int b = k - 1;
@@ -148,6 +151,11 @@ namespace SqlAssist.Core.Completion
             }
             return new Expansion(sb.ToString(), caret);
         }
+
+        /// <summary>Whether Tab after "EXEC p" has a parameter list to write: a procedure (a function is not EXECuted)
+        /// with at least one parameter. The editor's hint and <see cref="BuildExec"/> go by the same answer.</summary>
+        public static bool HasExecTemplate(DbRoutine routine) =>
+            routine != null && routine.IsProcedure && routine.Parameters.Count > 0;
 
         /// <summary>One "@p = value" per parameter, aligned under the first. OUTPUT and table-valued parameters get a
         /// variable, DECLAREd in front of the EXEC. Null for a procedure without parameters.</summary>

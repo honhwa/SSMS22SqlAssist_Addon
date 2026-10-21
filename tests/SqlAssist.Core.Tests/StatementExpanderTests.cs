@@ -64,6 +64,26 @@ namespace SqlAssist.Core.Tests
             Assert.Equal(2, t.StatementStart);
         }
 
+        [Theory]
+        [InlineData("EXEC sp_who|", "sp_who")]
+        [InlineData("  EXEC @rc = dbo.p|", "dbo.p")]
+        [InlineData("GO\nexecute [Person].[sp_UpdatePerson]|", "[Person].[sp_UpdatePerson]")]
+        public void Find_ReportsTheNameSpan(string sqlWithCaret, string name)
+        {
+            string sql = sqlWithCaret.Replace("|", "");
+            var t = At(sqlWithCaret);
+            Assert.Equal(name, sql.Substring(t.NameStart, t.NameEnd - t.NameStart));
+        }
+
+        [Fact]
+        public void Exec_TemplateNeedsAProcedureWithParameters()
+        {
+            Assert.True(StatementExpander.HasExecTemplate(UpdatePerson));
+            Assert.False(StatementExpander.HasExecTemplate(new DbRoutine("dbo", "p", RoutineKind.Procedure, new DbParameter[0])));
+            Assert.False(StatementExpander.HasExecTemplate(new DbRoutine("dbo", "f", RoutineKind.ScalarFunction, new[] { new DbParameter("@x", "int") }, "int")));
+            Assert.False(StatementExpander.HasExecTemplate(null));
+        }
+
         [Fact]
         public void Insert_SkipsIdentityComputedAndRowversion()
         {
