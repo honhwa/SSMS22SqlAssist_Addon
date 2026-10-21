@@ -114,10 +114,8 @@ namespace SqlAssist.Update
                 string exe = await DownloadAsync(release, package.DisposalToken);
                 Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true, WorkingDirectory = DownloadDirectory });
                 Log.Info("Update " + release.Tag + ": started " + exe);
+                // The setup window itself is the confirmation: it says to close SSMS and unlocks its button when it's closed.
                 await SetStatusAsync(package, "");
-                await ShowMessageAsync(package,
-                    "SqlAssist Setup " + release.Version + " is open.\n\nClose SSMS, then click Install / Update in the setup window.",
-                    OLEMSGICON.OLEMSGICON_INFO);
             }
             catch (Exception ex)
             {
@@ -152,11 +150,8 @@ namespace SqlAssist.Update
                 string exe = await DownloadAsync(release, package.DisposalToken);
                 StartWaiter(exe);
                 ChangeState(s => { s.PendingVersion = release.Version; s.PendingSetup = exe; });
+                // Status bar only: the setup shows its own window once every SSMS has closed.
                 await SetStatusAsync(package, "SqlAssist " + release.Version + " will be installed when SSMS closes");
-                await ShowMessageAsync(package,
-                    "SqlAssist " + release.Version + " is downloaded.\n\nIt will be installed automatically after you close SSMS " +
-                    "(all SSMS windows). The new version is active the next time SSMS starts.",
-                    OLEMSGICON.OLEMSGICON_INFO);
             }
             catch (Exception ex)
             {
