@@ -26,7 +26,7 @@
       <Menu guid="guidSqlAssistCmdSet" id="GenerateScriptMenu" priority="0x0100" type="Menu">
         <Parent guid="guidSqlAssistCmdSet" id="GridContextGroup" />
         <Strings>
-          <ButtonText>Generate Script As</ButtonText>
+          <ButtonText>生成脚本</ButtonText>
           <CommandName>Generate Script As</CommandName>
         </Strings>
       </Menu>
@@ -102,40 +102,40 @@
         <Icon guid="ImageCatalogGuid" id="Refresh" />
         <CommandFlag>IconIsMoniker</CommandFlag>
         <Strings>
-          <ButtonText>Refresh Schema Cache</ButtonText>
+          <ButtonText>刷新架构缓存</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdEditSnippets" priority="0x0101" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
         <Strings>
-          <ButtonText>Edit Snippets...</ButtonText>
+          <ButtonText>编辑代码片段...</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdAbout" priority="0x0110" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
         <Strings>
-          <ButtonText>About...</ButtonText>
+          <ButtonText>关于...</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdCheckUpdates" priority="0x0103" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
         <Strings>
-          <ButtonText>Check for Updates...</ButtonText>
+          <ButtonText>检查更新...</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdClipboardToSql" priority="0x009A" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
         <Strings>
-          <ButtonText>CSV to SQL...</ButtonText>
-          <ToolTipText>Turn cells copied from Excel, or CSV text, into IN (...), VALUES (...) or a #Temp table with INSERT</ToolTipText>
+          <ButtonText>CSV 转 SQL...</ButtonText>
+          <ToolTipText>把从 Excel 复制的单元格或 CSV 文本转换为 IN (...)、VALUES (...) 或带 INSERT 的 #Temp 表</ToolTipText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdFormatSql" priority="0x009B" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
         <Strings>
-          <ButtonText>Format SQL</ButtonText>
+          <ButtonText>格式化 SQL</ButtonText>
           <CommandName>SqlAssist.FormatSql</CommandName>
-          <ToolTipText>Format the selection, or the whole query window when nothing is selected (Ctrl+K, Ctrl+Shift+F)</ToolTipText>
+          <ToolTipText>格式化所选内容；未选择任何内容时格式化整个查询窗口 (Ctrl+K, Ctrl+Shift+F)</ToolTipText>
         </Strings>
       </Button>
       <!-- The query editor's right-click copy of Format SQL. A command has one ButtonText, so it is a second command with the
@@ -143,24 +143,24 @@
       <Button guid="guidSqlAssistCmdSet" id="cmdFormatSqlContext" priority="0x0100" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="EditorContextGroup" />
         <Strings>
-          <ButtonText>Format SQL (SqlAssist)</ButtonText>
+          <ButtonText>格式化 SQL (SqlAssist)</ButtonText>
           <CommandName>SqlAssist.FormatSqlContext</CommandName>
-          <ToolTipText>Format the selection, or the whole query window when nothing is selected (Ctrl+K, Ctrl+Shift+F)</ToolTipText>
+          <ToolTipText>格式化所选内容；未选择任何内容时格式化整个查询窗口 (Ctrl+K, Ctrl+Shift+F)</ToolTipText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdCheckRisks" priority="0x009C" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
         <Strings>
-          <ButtonText>Check SQL Risks...</ButtonText>
+          <ButtonText>检查 SQL 风险...</ButtonText>
           <CommandName>SqlAssist.CheckSqlRisks</CommandName>
-          <ToolTipText>List UPDATE / DELETE without WHERE, TRUNCATE TABLE and DROP TABLE in the selection (or the whole query window); nothing is changed or run</ToolTipText>
+          <ToolTipText>列出所选内容（或整个查询窗口）中没有 WHERE 的 UPDATE / DELETE、TRUNCATE TABLE 和 DROP TABLE；不会修改或执行任何内容</ToolTipText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdOptions" priority="0x0105" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
         <Strings>
-          <ButtonText>Options...</ButtonText>
-          <ToolTipText>SqlAssist settings: Format SQL and Check SQL Risks</ToolTipText>
+          <ButtonText>选项...</ButtonText>
+          <ToolTipText>SqlAssist 设置：格式化 SQL 和检查 SQL 风险</ToolTipText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdSearch" priority="0x0099" type="Button">
@@ -170,8 +170,8 @@
         <!-- Icon and text on the toolbar; the menu shows the text either way. -->
         <CommandFlag>IconAndText</CommandFlag>
         <Strings>
-          <ButtonText>Search Objects...</ButtonText>
-          <ToolTipText>Search database objects (SqlAssist)</ToolTipText>
+          <ButtonText>搜索对象...</ButtonText>
+          <ToolTipText>搜索数据库对象 (SqlAssist)</ToolTipText>
         </Strings>
       </Button>
       <!-- The toolbar's own Search button: the SqlAssist logo and a short label. A command has one ButtonText,
@@ -185,102 +185,102 @@
         <CommandFlag>IconAndText</CommandFlag>
         <Strings>
           <ButtonText>SqlAssist</ButtonText>
-          <ToolTipText>SqlAssist: Search Objects</ToolTipText>
+          <ToolTipText>SqlAssist：搜索对象</ToolTipText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdScriptInsertNewWindow" priority="0x0100" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="ScriptInsertGroup" />
         <Strings>
-          <ButtonText>New Query Window</ButtonText>
+          <ButtonText>新建查询窗口</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdScriptInsertClipboard" priority="0x0101" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="ScriptInsertGroup" />
         <Strings>
-          <ButtonText>Clipboard</ButtonText>
-          <ToolTipText>Copy the INSERT script (Ctrl+J, I in the results grid)</ToolTipText>
+          <ButtonText>剪贴板</ButtonText>
+          <ToolTipText>复制 INSERT 脚本（在结果网格中按 Ctrl+J，然后 I）</ToolTipText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdScriptInsertFile" priority="0x0102" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="ScriptInsertGroup" />
         <Strings>
-          <ButtonText>File...</ButtonText>
+          <ButtonText>文件...</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdScriptInsertTempTableNewWindow" priority="0x0100" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="ScriptInsertTempTableGroup" />
         <Strings>
-          <ButtonText>New Query Window</ButtonText>
+          <ButtonText>新建查询窗口</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdScriptInsertTempTableClipboard" priority="0x0101" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="ScriptInsertTempTableGroup" />
         <Strings>
-          <ButtonText>Clipboard</ButtonText>
-          <ToolTipText>Copy the INSERT #tmpTable script (Ctrl+J, T in the results grid)</ToolTipText>
+          <ButtonText>剪贴板</ButtonText>
+          <ToolTipText>复制 INSERT #tmpTable 脚本（在结果网格中按 Ctrl+J，然后 T）</ToolTipText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdScriptInsertTempTableFile" priority="0x0102" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="ScriptInsertTempTableGroup" />
         <Strings>
-          <ButtonText>File...</ButtonText>
+          <ButtonText>文件...</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdScriptWhereInNewWindow" priority="0x0100" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="ScriptWhereInGroup" />
         <Strings>
-          <ButtonText>New Query Window</ButtonText>
+          <ButtonText>新建查询窗口</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdScriptWhereInClipboard" priority="0x0101" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="ScriptWhereInGroup" />
         <Strings>
-          <ButtonText>Clipboard</ButtonText>
-          <ToolTipText>Copy the WHERE IN() script (Ctrl+J, W in the results grid)</ToolTipText>
+          <ButtonText>剪贴板</ButtonText>
+          <ToolTipText>复制 WHERE IN() 脚本（在结果网格中按 Ctrl+J，然后 W）</ToolTipText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdScriptWhereInFile" priority="0x0102" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="ScriptWhereInGroup" />
         <Strings>
-          <ButtonText>File...</ButtonText>
+          <ButtonText>文件...</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdScriptWhereAndOrNewWindow" priority="0x0100" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="ScriptWhereAndOrGroup" />
         <Strings>
-          <ButtonText>New Query Window</ButtonText>
+          <ButtonText>新建查询窗口</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdScriptWhereAndOrClipboard" priority="0x0101" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="ScriptWhereAndOrGroup" />
         <Strings>
-          <ButtonText>Clipboard</ButtonText>
-          <ToolTipText>Copy the WHERE AND OR script (Ctrl+J, O in the results grid)</ToolTipText>
+          <ButtonText>剪贴板</ButtonText>
+          <ToolTipText>复制 WHERE AND OR 脚本（在结果网格中按 Ctrl+J，然后 O）</ToolTipText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdScriptWhereAndOrFile" priority="0x0102" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="ScriptWhereAndOrGroup" />
         <Strings>
-          <ButtonText>File...</ButtonText>
+          <ButtonText>文件...</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdScriptUpdateNewWindow" priority="0x0100" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="ScriptUpdateGroup" />
         <Strings>
-          <ButtonText>New Query Window...</ButtonText>
+          <ButtonText>新建查询窗口...</ButtonText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdScriptUpdateClipboard" priority="0x0101" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="ScriptUpdateGroup" />
         <Strings>
-          <ButtonText>Clipboard...</ButtonText>
-          <ToolTipText>Choose the table and key columns, then copy the UPDATE script (Ctrl+J, U in the results grid)</ToolTipText>
+          <ButtonText>剪贴板...</ButtonText>
+          <ToolTipText>选择表和键列后复制 UPDATE 脚本（在结果网格中按 Ctrl+J，然后 U）</ToolTipText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdScriptUpdateFile" priority="0x0102" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="ScriptUpdateGroup" />
         <Strings>
-          <ButtonText>File...</ButtonText>
+          <ButtonText>文件...</ButtonText>
         </Strings>
       </Button>
     </Buttons>

@@ -117,19 +117,19 @@ namespace SqlAssist.Setup
             string vsix = Path.Combine(Path.GetTempPath(), "SqlAssist-" + Guid.NewGuid().ToString("N") + ".vsix");
             try
             {
-                progress?.Report(new Step(1, total, "เตรียมไฟล์ add-on"));
+                progress?.Report(new Step(1, total, "准备插件文件"));
                 using (var res = typeof(SetupEngine).Assembly.GetManifestResourceStream("SqlAssist.vsix"))
                 using (var file = File.Create(vsix))
                     res.CopyTo(file);
 
                 // Removing the old copy first makes updates and same-version reinstalls work,
                 // instead of VSIXInstaller refusing with "already installed".
-                progress?.Report(new Step(2, total, "ถอนเวอร์ชันเดิมออก (ถ้ามี)"));
+                progress?.Report(new Step(2, total, "卸载旧版本（如有）"));
                 RunInstaller(ide, "/quiet /uninstall:" + VsixId);
-                progress?.Report(new Step(3, total, "ติดตั้ง SqlAssist " + SetupVersion + " ลงใน SSMS"));
+                progress?.Report(new Step(3, total, "将 SqlAssist " + SetupVersion + " 安装到 SSMS"));
                 int code = RunInstaller(ide, "/quiet \"" + vsix + "\"");
                 if (code != 0) return InstallerError(code);
-                progress?.Report(new Step(4, total, "ล้าง cache ของ SSMS"));
+                progress?.Report(new Step(4, total, "清理 SSMS 缓存"));
                 ClearComponentCache();
                 RegisterUninstaller(ide);
                 return null;
@@ -143,10 +143,10 @@ namespace SqlAssist.Setup
         public static string Uninstall(string ide, IProgress<Step> progress = null)
         {
             const int total = 2;
-            progress?.Report(new Step(1, total, "ถอน SqlAssist ออกจาก SSMS"));
+            progress?.Report(new Step(1, total, "从 SSMS 中卸载 SqlAssist"));
             int code = RunInstaller(ide, "/quiet /uninstall:" + VsixId);
             if (code != 0) return InstallerError(code);
-            progress?.Report(new Step(2, total, "ล้าง cache ของ SSMS"));
+            progress?.Report(new Step(2, total, "清理 SSMS 缓存"));
             ClearComponentCache();
             UnregisterUninstaller();
             return null;
@@ -244,7 +244,7 @@ namespace SqlAssist.Setup
         }
 
         private static string InstallerError(int code) =>
-            $"VSIXInstaller exited with code {code}.\nดูรายละเอียดได้ที่ %TEMP%\\dd_VSIXInstaller_*.log";
+            $"VSIXInstaller 退出，代码 {code}。\n详细信息请查看 %TEMP%\\dd_VSIXInstaller_*.log";
 
         // SSMS's own VSIXInstaller: it targets the SSMS instance, where Visual Studio's would not.
         private static int RunInstaller(string ide, string arguments)

@@ -42,7 +42,7 @@ namespace SqlAssist.Search
                 token.ThrowIfCancellationRequested();
             }
             if (entry.Items != null) return entry.Items;
-            throw entry.LastError ?? new InvalidOperationException("Search index of " + database + " did not load");
+            throw entry.LastError ?? new InvalidOperationException("数据库 " + database + " 的搜索索引未能加载");
         }
 
         public void Clear()

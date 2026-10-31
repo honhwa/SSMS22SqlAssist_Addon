@@ -216,7 +216,7 @@ namespace SqlAssist.Core.Tests
             var report = RiskAnalyzer.Analyze("DELETE FROM t;\nUPDATE u SET a = 'unfinished", new RiskOptions());
             Assert.Contains(report.Findings, f => f.Rule == RiskRule.DeleteWithoutWhere);
             Assert.NotEmpty(report.Notes);
-            Assert.Contains("string", report.Notes[0]);
+            Assert.Contains("字符串", report.Notes[0]);
         }
 
         [Fact]
@@ -232,7 +232,7 @@ namespace SqlAssist.Core.Tests
         public void TheReportCarriesTheLimitsInsteadOfClaimingSafety()
         {
             Assert.Contains("WHERE", RiskAnalyzer.Disclaimer);
-            Assert.Contains("ปลอดภัย", RiskAnalyzer.Disclaimer);
+            Assert.Contains("安全", RiskAnalyzer.Disclaimer);
         }
     }
 }

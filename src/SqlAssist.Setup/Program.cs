@@ -31,7 +31,7 @@ namespace SqlAssist.Setup
             {
                 // Removed some other way (e.g. SSMS's Extension Manager): only the stale entry is left.
                 SetupEngine.UnregisterUninstaller();
-                MessageBox.Show("SqlAssist ไม่ได้ติดตั้งอยู่ใน SSMS 22 แล้ว\nนำรายการออกจาก Programs and Features เรียบร้อย",
+                MessageBox.Show("SqlAssist 已不再安装在 SSMS 22 中\n已从“程序和功能”中移除条目",
                     "SqlAssist Setup", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return 0;
             }

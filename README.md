@@ -1,249 +1,249 @@
-# SqlAssist — IntelliSense + Snippets สำหรับ SSMS 22
+# SqlAssist — 适用于 SSMS 22 的 IntelliSense + 代码片段
 
-add-on ขนาดเล็กสำหรับ SQL Server Management Studio 22 ทำแค่ 5 อย่างที่ใช้จริงจาก dbForge SQL Complete และมีหน้าต่างค้นหา object แบบ dbForge Search (ดู [ค้นหา object](#ค้นหา-object))
+一个面向 SQL Server Management Studio 22 的小型插件，只做从 dbForge SQL Complete 里真正常用的 5 件事，另带一个类似 dbForge Search 的对象搜索窗口（见 [搜索对象](#搜索对象)）。
 
-| ฟีเจอร์ | ใช้ยังไง |
+| 功能 | 用法 |
 |---|---|
-| ขยาย `*` เป็นรายชื่อคอลัมน์ | `SELECT *` แล้วกด **Tab** จะได้ `c.CustomerID, c.Name, ...` (หรือ `c.*` + Tab เพื่อขยายเฉพาะตาราง `c`) |
-| alias อัตโนมัติ | เลือกตารางหลัง `FROM`/`JOIN` จะได้ `Customers c`, `OrderDetails od` และถ้าซ้ำจะได้ `c2` |
-| JOIN ตาม Foreign Key | พิมพ์ `JOIN ` แล้วรายการจะเริ่มด้วย `Orders o ON o.CustomerID = c.CustomerID` |
-| ดูโครงสร้างตาราง | เลื่อนเลือกตาราง/วิวในรายการแนะนำค้างไว้ 1.5 วินาที จะมีกล่องข้าง ๆ แสดงคอลัมน์ ชนิดข้อมูล PK/FK, `IDENTITY` / `NOT NULL` และจำนวนแถวโดยประมาณ (Est. row count) |
-| ชี้เมาส์ดูตาราง | เอาเมาส์ชี้ชื่อตารางหรือ alias ใน query (เช่น `Work_InitialApproval`, `wia`, หรือ `wr` ใน `wr.ReqId`) จะขึ้นกล่องโครงสร้างตารางแบบเดียวกัน ชี้ที่ชื่อ procedure / function (หลัง `EXEC` หรือหน้า `(`) จะเห็น parameter และชี้ที่คอลัมน์ (`wr.ReqId` หรือ `ReqId`) จะเห็นชนิดข้อมูล key และคำอธิบาย ถ้าคอลัมน์ไม่ได้ระบุตาราง แล้วมีหลายตารางที่มีชื่อนี้ หรือ query มีตารางที่ SqlAssist ไม่รู้จัก (เช่น `#temp`, table variable) จะไม่แสดงอะไร เพราะบอกไม่ได้แน่ว่าเป็นของตารางไหน |
-| CTE / subquery | คอลัมน์ของ `WITH Sales_CTE AS (...)` และ `FROM (SELECT ...) d` ถูกแนะนำเหมือนตารางจริง ใช้กับ `*` + Tab, JOIN, การชี้เมาส์ได้ ถ้ายังไม่มี FROM (`SELECT |`) จะแนะนำคอลัมน์ของ CTE ให้เลย |
-| เลือกคอลัมน์แบบกิ่ง | ใน `SELECT |` ที่ยังไม่มี FROM รายการจะเป็นกิ่ง: CTE และทุกตาราง กด ▸ (หรือ → / ←) เพื่อขยายดูคอลัมน์ ติ๊ก ☐ (หรือ Shift+Space) ได้หลายตัว แล้ว Enter / Tab จะ gen `SELECT ... FROM ... JOIN ...` ให้ทั้งก้อน (JOIN ตาม FK หรือคอลัมน์ `...Id` ที่ชื่อตรงกัน) ไม่ติ๊กอะไร = ได้ทั้งตารางหรือคอลัมน์ที่เลือก |
-| ขยาย INSERT / UPDATE / EXEC / ALTER | พิมพ์ชื่อ object จนจบบรรทัดแล้วกด **Tab**: `INSERT INTO t` → รายชื่อคอลัมน์ + `VALUES` พร้อมค่าตั้งต้นตามชนิดข้อมูล (ข้าม IDENTITY / computed / rowversion) · `UPDATE t` → `SET` ทุกคอลัมน์ที่ไม่ใช่ PK + `WHERE` ตาม PK ด้วย `@parameter` (Composite Key เชื่อมด้วย `AND`, `DECLARE ... = NULL` ให้ด้านบน; ไม่มี PK = เหลือ `WHERE /* TODO */` ที่รันไม่ได้จนกว่าจะเขียนเงื่อนไขเอง) · `EXEC p` → `@param = ค่า` ครบทุกตัว เรียงตรงกัน (OUTPUT จะ `DECLARE` ตัวแปรให้ด้านบน) · `ALTER PROCEDURE / FUNCTION / VIEW / TRIGGER p` → ดึงโค้ดปัจจุบันจากฐานข้อมูลมาเป็น `ALTER ...` ทั้งก้อน ถ้ารายการแนะนำเปิดอยู่ Tab ครั้งแรกจะเลือกรายการก่อน กด Tab อีกครั้งเพื่อขยาย |
-| ไฮไลต์คอลัมน์ใน INSERT | วาง caret ที่ค่าใน `VALUES (…)` ชื่อคอลัมน์ใน `INSERT INTO t (a, b, …)` ที่ตำแหน่งเดียวกันจะถูกแรเงา และค่านั้นมีกรอบสีฟ้า (VALUES หลายแถวอ้างอิงแถวที่ caret อยู่) · caret ที่ชื่อคอลัมน์ = แรเงาค่าตำแหน่งเดียวกันในทุกแถว · จับคู่ตามลำดับตำแหน่งจากข้อความ ไม่ต่อฐานข้อมูล ใช้กับ INSERT ที่มีรายชื่อคอลัมน์ + `VALUES` เท่านั้น (ไม่รวม `INSERT … SELECT` / `EXEC`) · ปิดได้ที่ Options › Editor |
-| Column picker | ใน select list ที่มี FROM แล้ว (`SELECT | FROM Person.PersonPhone pp JOIN Person.Person p ...`) กด Space หลัง `SELECT` / `,` หรือ Ctrl+Space จะได้กิ่งของแต่ละตารางตาม alias (กางไว้แล้ว) ติ๊ก ☐ (หรือ Shift+Space) แล้ว `p.FirstName` ถูกเขียนลง select list ทันที (comma นำหน้าบรรทัดละคอลัมน์) เอาติ๊กออก = ลบออก พิมพ์เพื่อกรองชื่อคอลัมน์ได้ Enter / Tab / Esc ปิดรายการ |
-| Procedure / function | หลัง `EXEC ` (หรือ `EXEC dbo.`, `EXEC @rc = `) รายการจะเป็น stored procedure และ function (ไม่ใช่ตาราง) เลือกรายการแล้วจะเห็นข้อมูลด้านข้าง: `dbo.ufnGetProductDealerPrice (Function) returns MONEY` และ parameter ทุกตัวพร้อมชนิดข้อมูล INPUT / OUTPUT / READONLY และคำอธิบาย (MS_Description) · scalar function แนะนำในรายการทั่วไป (ใช้ใน expression) · table-valued function แนะนำหลัง `FROM` / `JOIN` |
-| ตัวแปร / parameter | พิมพ์ `@` จะแนะนำตัวแปรที่ `DECLARE` ไว้ด้านบน และ parameter ของ `CREATE/ALTER PROCEDURE / FUNCTION` พร้อมชนิดข้อมูล และ INPUT / OUTPUT (นับเฉพาะใน batch เดียวกัน คือหลัง `GO` ตัวล่าสุด) |
-| ข้อมูลคอลัมน์ | เลือกคอลัมน์ในรายการแนะนำ จะเห็นชนิดข้อมูล, PK / IDENTITY / NOT NULL, คำอธิบายจากฐานข้อมูล (MS_Description) และ Foreign key ไปตารางไหน |
-| เงื่อนไข ON อัตโนมัติ | พิมพ์ `JOIN Work_InitialApproval wia ON ` แล้วจะได้ `wr.ReqId = wia.ReqId` เรียงจาก Foreign Key ก่อน แล้วตามด้วยคอลัมน์ที่ชื่อตรงกัน (คอลัมน์ `...Id` ขึ้นก่อน) ใช้หลัง `AND` ได้ด้วย |
-| ค้นชื่อไม่ต้องตรงตัว | `custid` → `CustomerID`, `od` → `OrderDetails` |
-| Format SQL | **Tools › SqlAssist › Format SQL**, คลิกขวาใน query editor › **Format SQL (SqlAssist)** หรือ **Ctrl+K, Ctrl+Shift+F** จัดรูปแบบ SQL ที่เลือก (หรือทั้งหน้า query ถ้าไม่ได้เลือก) โดยรักษา comment, string, hint และ `GO` ปรับค่าได้ที่ **Tools › SqlAssist › Options...** ดูหัวข้อ [Format SQL](#format-sql) |
-| ตรวจจุดเสี่ยงใน SQL | **Tools › SqlAssist › Check SQL Risks...** ตรวจ `UPDATE` / `DELETE` ที่ไม่มี `WHERE`, `TRUNCATE TABLE`, `DROP TABLE` ในส่วนที่เลือก (หรือทั้งหน้า query) คลิกรายการเพื่อกระโดดไปที่คำสั่ง ไม่แก้และไม่รัน SQL ให้ ดูหัวข้อ [ตรวจจุดเสี่ยงใน SQL](#ตรวจจุดเสี่ยงใน-sql) |
-| CSV to SQL | **Tools › SqlAssist › CSV to SQL...** เปลี่ยนข้อมูลที่คัดลอกจาก Excel หรือข้อความ CSV เป็น `IN (...)`, `VALUES (...)` หรือ `CREATE TABLE #Temp` + `INSERT` ดูหัวข้อ [CSV to SQL](#csv-to-sql) |
-| Snippets | `ssf` + **Tab** → `SELECT * FROM ` แล้วรายชื่อตารางจะเด้งขึ้นมาให้เลือกต่อ |
+| 把 `*` 展开为列名列表 | 写 `SELECT *` 后按 **Tab**，得到 `c.CustomerID, c.Name, ...`（或 `c.*` + Tab，只展开表 `c`） |
+| 自动别名 | 在 `FROM`/`JOIN` 后选择表，会得到 `Customers c`、`OrderDetails od`，重名时得到 `c2` |
+| 按外键推荐 JOIN | 输入 `JOIN ` 后，列表开头就是 `Orders o ON o.CustomerID = c.CustomerID` |
+| 查看表结构 | 在补全列表中把某个表/视图停留 1.5 秒，旁边会出现浮框，显示列、数据类型、PK/FK、`IDENTITY` / `NOT NULL` 以及预估行数（Est. row count） |
+| 悬停查看表 | 把鼠标停在查询中的表名或别名上（例如 `Work_InitialApproval`、`wia`，或 `wr.ReqId` 中的 `wr`），会弹出同样的表结构浮框；停在存储过程/函数名上（`EXEC` 之后或 `(` 之前）可看到参数；停在列上（`wr.ReqId` 或 `ReqId`）可看到数据类型、键和说明。如果列没有限定表名，且有多张表含该列名，或查询中有 SqlAssist 不认识的表（例如 `#temp`、表变量），则不显示任何内容，因为无法确定属于哪张表 |
+| CTE / 子查询 | `WITH Sales_CTE AS (...)` 和 `FROM (SELECT ...) d` 的列会像真实表一样被补全，可用于 `*` + Tab、JOIN、悬停。若还没有 FROM（`SELECT |`），会直接推荐 CTE 的列 |
+| 树形选列 | 在没有 FROM 的 `SELECT |` 处，列表呈树形：CTE 和所有表。按 ▸（或 → / ←）展开查看列，按 ☐（或 Shift+Space）可多选，然后 Enter / Tab 会一次性生成 `SELECT ... FROM ... JOIN ...`（按外键或同名的 `...Id` 列生成 JOIN）。什么都不勾 = 整表或所选列 |
+| 展开 INSERT / UPDATE / EXEC / ALTER | 把对象名写到行尾后按 **Tab**：`INSERT INTO t` → 列名列表 + `VALUES`，并按数据类型给出默认值（跳过 IDENTITY / computed / rowversion）· `UPDATE t` → 所有非 PK 列的 `SET` + 按 PK 生成的 `WHERE`（用 `@parameter`，复合键用 `AND` 连接，并在上方 `DECLARE ... = NULL`；没有 PK 时只留 `WHERE /* TODO */`，在补上条件前无法执行）· `EXEC p` → 全部 `@param = 值`，顺序一一对应（OUTPUT 参数会在上方 `DECLARE` 变量）· `ALTER PROCEDURE / FUNCTION / VIEW / TRIGGER p` → 从数据库取出当前代码，整段变为 `ALTER ...`。如果补全列表正打开着，第一次按 Tab 会先选中列表项，再按一次 Tab 才会展开 |
+| INSERT 中的列高亮 | 把光标放在 `VALUES (…)` 的某个值上，`INSERT INTO t (a, b, …)` 中同位置的列名会加底纹，该值周围显示蓝色边框（多行 VALUES 时参照光标所在行）· 光标在列名上 = 为每一行中同位置的值加底纹 · 按文本位置顺序配对，不连接数据库，仅适用于带列名并使用 `VALUES` 的 INSERT（不含 `INSERT … SELECT` / `EXEC`）· 可在 选项 › 编辑器 中关闭 |
+| 列选择器 | 在已有 FROM 的 select 列表处（`SELECT | FROM Person.PersonPhone pp JOIN Person.Person p ...`），在 `SELECT` / `,` 之后或按 Ctrl+Space，会按别名列出各表的树（已展开）。按 ☐（或 Shift+Space）后，`p.FirstName` 会立即写入 select 列表（每行列一个，逗号在行首）。取消勾选 = 删除。可输入以筛选列名，Enter / Tab / Esc 关闭列表 |
+| 存储过程 / 函数 | 在 `EXEC ` 之后（或 `EXEC dbo.`、`EXEC @rc = `）列表会给出存储过程和函数（不是表）。选中后侧边显示：`dbo.ufnGetProductDealerPrice (Function) returns MONEY`，以及所有参数、数据类型、INPUT / OUTPUT / READONLY 和说明（MS_Description）· 标量函数在普通列表中推荐（用于表达式）· 表值函数在 `FROM` / `JOIN` 之后推荐 |
+| 变量 / 参数 | 输入 `@` 会推荐上方 `DECLARE` 的变量，以及 `CREATE/ALTER PROCEDURE / FUNCTION` 的参数，附带数据类型和 INPUT / OUTPUT（只统计同一批次内，即最后一个 `GO` 之后） |
+| 列信息 | 在补全列表中选择列，可看到数据类型、PK / IDENTITY / NOT NULL、数据库中的说明（MS_Description）以及指向哪张表的外键 |
+| 自动 ON 条件 | 输入 `JOIN Work_InitialApproval wia ON ` 会得到 `wr.ReqId = wia.ReqId`，先按外键排序，再按同名（`...Id` 列优先）。在 `AND` 之后同样可用 |
+| 模糊搜索 | `custid` → `CustomerID`，`od` → `OrderDetails` |
+| 格式化 SQL | **工具 › SqlAssist › 格式化 SQL**、在查询编辑器中右键 › **格式化 SQL (SqlAssist)**，或 **Ctrl+K, Ctrl+Shift+F**。格式化所选内容（未选择时格式化整个查询窗口），保留注释、字符串、提示和 `GO`。可在 **工具 › SqlAssist › 选项...** 中调整，见 [格式化 SQL](#格式化-sql) |
+| SQL 风险检查 | **工具 › SqlAssist › 检查 SQL 风险...** 在所选内容（或整个查询窗口）中检查没有 `WHERE` 的 `UPDATE` / `DELETE`、`TRUNCATE TABLE`、`DROP TABLE`。点击列表项可跳转到该语句，不会修改也不会执行 SQL。见 [SQL 风险检查](#sql-风险检查) |
+| CSV 转 SQL | **工具 › SqlAssist › CSV 转 SQL...** 把从 Excel 复制的数据或 CSV 文本转换为 `IN (...)`、`VALUES (...)` 或 `CREATE TABLE #Temp` + `INSERT`。见 [CSV 转 SQL](#csv-转-sql) |
+| 代码片段 | `ssf` + **Tab** → `SELECT * FROM `，随后弹出表名列表供继续选择 |
 
-## ก่อนติดตั้ง (ทำครั้งเดียว)
+## 安装前（只需做一次）
 
-1. **ปิด IntelliSense ของ SSMS**: Tools › Options › Text Editor › Transact-SQL › IntelliSense › เอาติ๊ก *Enable IntelliSense* ออก
-2. **Uninstall หรือปิด dbForge SQL Complete** เพราะมันดักปุ่ม Tab และ IntelliSense เหมือนกัน
+1. **关闭 SSMS 自带的 IntelliSense**：工具 › 选项 › 文本编辑器 › Transact-SQL › IntelliSense › 取消勾选 *启用 IntelliSense*
+2. **卸载或禁用 dbForge SQL Complete**，因为它同样会抢占 Tab 键和 IntelliSense
 
-## ติดตั้ง
+## 安装
 
-ดับเบิลคลิก **`dist\SqlAssistSetup-<version>.exe`** จะเปิดหน้าต่างติดตั้งขึ้นมา
+双击 **`dist\SqlAssistSetup-<version>.exe`**，会打开安装窗口。
 
-- **ยังไม่เคยติดตั้ง:** กดปุ่ม **ติดตั้ง**
-- **ติดตั้งไว้แล้ว:** เลือกได้ว่าจะ **อัปเดต** (หรือติดตั้งซ้ำถ้าเป็นเวอร์ชันเดียวกัน) หรือ **ถอนการติดตั้ง**
-- ถอนการติดตั้งจาก **Control Panel › Programs and Features** (หรือ Settings › Apps) ได้ด้วย: เลือก **SqlAssist for SSMS 22** แล้วกด Uninstall
-- **ถ้า SSMS เปิดอยู่:** จะขึ้นแถบเตือนสีเหลืองและกดปุ่มไม่ได้ พอปิด SSMS ครบทุกหน้าต่าง ปุ่มจะกดได้เองภายใน 1 วินาที
+- **从未安装过：** 点击 **安装** 按钮
+- **已安装：** 可选择 **更新**（版本相同时为重新安装）或 **卸载**
+- 也可以在 **控制面板 › 程序和功能**（或 设置 › 应用）中卸载：选择 **SqlAssist for SSMS 22** 后点击卸载
+- **如果 SSMS 正在运行：** 会显示黄色提示条且按钮不可用。关闭所有 SSMS 窗口后，按钮会在 1 秒内自动可用
 
-### ตรวจสอบเวอร์ชัน
-- ตัวติดตั้งจะแสดงเวอร์ชันที่ติดตั้งอยู่เทียบกับเวอร์ชันในตัวติดตั้ง และบอกว่ามีเวอร์ชันใหม่กว่าหรือเป็นล่าสุดแล้ว
-- ใน SSMS: **Tools › SqlAssist › About...**
-- ใน log (Tools › SqlAssist › Options... › เปิดไฟล์ Log) ทุกครั้งที่เปิดหน้า query จะมีบรรทัด `SqlAssist x.y.z attached`
-- ก่อนออกเวอร์ชันใหม่ ให้แก้เลขเวอร์ชันที่ `Directory.Build.props` ที่เดียว แล้วรัน `.\build-setup.ps1`
+### 检查版本
+- 安装程序会显示已安装版本与安装包版本的对比，并说明有新版本还是已是最新
+- 在 SSMS 中：**工具 › SqlAssist › 关于...**
+- 在日志中（工具 › SqlAssist › 选项... › 打开日志文件），每次打开查询窗口都会有一行 `SqlAssist x.y.z attached`
+- 发布新版本前，只需修改 `Directory.Build.props` 中的版本号，然后运行 `.\build-setup.ps1`
 
-### อัปเดตออนไลน์ (ตั้งแต่ 1.3.0)
-- ตอนเปิด SSMS ระบบจะเช็ก [GitHub Releases](https://github.com/kriangdet-chuaboonjun/SSMS22SqlAssist_Addon/releases) วันละครั้ง ถ้ามีเวอร์ชันใหม่จะขึ้นแถบแจ้งเตือนด้านบนหน้าต่าง SSMS
-- เช็กเองได้ที่ **Tools › SqlAssist › Check for Updates...**
-- ในแถบแจ้งเตือนมีปุ่มให้เลือก:
-  - **Install when SSMS closes** (ตั้งแต่ 1.3.3) — ดาวน์โหลดและตรวจ SHA-256 ไว้ก่อน แล้วรอเงียบ ๆ อยู่เบื้องหลัง พอปิด SSMS ครบทุกหน้าต่างจะติดตั้งให้เอง เปิด SSMS ครั้งถัดไปก็ได้เวอร์ชันใหม่ (แถบสถานะขึ้น "SqlAssist updated to ...") ถ้าติดตั้งไม่สำเร็จจะแจ้งตอนเปิด SSMS ถ้า restart เครื่องก่อนได้ปิด SSMS ระบบจะตั้งรอใหม่ให้ตอนเปิด SSMS
-  - **Install now** — ดาวน์โหลดตัวติดตั้งไว้ที่ `%LOCALAPPDATA%\SqlAssist\updates\` แล้วตรวจ SHA-256 กับค่าที่ GitHub ให้มา จากนั้นจะเปิดหน้าต่างติดตั้งขึ้นมา ให้ **ปิด SSMS แล้วกดอัปเดต**
-  - **What's new** — เปิดหน้า release เพื่อดูว่ามีอะไรใหม่
-  - **Skip this version** — ไม่ต้องเตือนเวอร์ชันนี้อีก
-  - **Don't check automatically** — ปิดการเช็กอัตโนมัติ (เมนู Check for Updates ยังใช้ได้ตามปกติ) ถ้าอยากเปิดกลับ ให้ลบไฟล์ `%LOCALAPPDATA%\SqlAssist\update.txt`
-- ดูว่าแต่ละเวอร์ชันเพิ่มหรือแก้อะไรได้ที่ [CHANGELOG.md](CHANGELOG.md) หรือหน้า [Releases](https://github.com/kriangdet-chuaboonjun/SSMS22SqlAssist_Addon/releases) (ลิงก์ **What's new** ในแถบแจ้งเตือน)
-- ออกเวอร์ชันใหม่ (สำหรับนักพัฒนา): เขียนสิ่งที่เปลี่ยนลง `CHANGELOG.md` → แก้เวอร์ชัน → `.\build-setup.ps1` → commit แล้ว push → ตั้งค่า `$env:GITHUB_TOKEN` → `.\publish-release.ps1` (ข้อความใน release มาจาก CHANGELOG ของเวอร์ชันนั้น)
+### 在线更新（自 1.3.0 起）
+- 启动 SSMS 时每天检查一次 [GitHub Releases](https://github.com/kriangdet-chuaboonjun/SSMS22SqlAssist_Addon/releases)，有新版本时会在 SSMS 窗口顶部显示提示条
+- 也可在 **工具 › SqlAssist › 检查更新...** 中手动检查
+- 提示条中的按钮：
+  - **关闭 SSMS 时安装**（自 1.3.3 起）—— 先下载并校验 SHA-256，然后静默等待；关闭所有 SSMS 窗口后自动安装，下次启动 SSMS 即为新版本（状态栏显示 “SqlAssist updated to ...”）。安装失败会在下次启动 SSMS 时提示。若在关闭 SSMS 前重启了电脑，会在下次启动 SSMS 时重新排队
+  - **立即安装** —— 把安装包下载到 `%LOCALAPPDATA%\SqlAssist\updates\`，并与 GitHub 提供的值校验 SHA-256，然后打开安装窗口，请 **关闭 SSMS 后点击更新**
+  - **更新内容** —— 打开 release 页面查看新内容
+  - **跳过此版本** —— 不再提示该版本
+  - **不再自动检查** —— 关闭自动检查（检查更新菜单仍可正常使用）。如需恢复，删除 `%LOCALAPPDATA%\SqlAssist\update.txt`
+- 各版本的新增与修复见 [CHANGELOG.md](CHANGELOG.md) 或 [Releases](https://github.com/kriangdet-chuaboonjun/SSMS22SqlAssist_Addon/releases) 页面（提示条中的 **更新内容** 链接）
+- 发布新版本（开发者）：把改动写进 `CHANGELOG.md` → 修改版本号 → `.\build-setup.ps1` → commit 并 push → 设置 `$env:GITHUB_TOKEN` → `.\publish-release.ps1`（release 说明取自该版本的 CHANGELOG）
 
-- ไฟล์ exe ไฟล์เดียวมี add-on อยู่ข้างในแล้ว จะก๊อปไปเครื่องอื่นที่มี SSMS 22 ก็ใช้ได้เลย ไม่ต้องลงโปรแกรมเพิ่ม
-- ติดตั้งแบบ per-user ไม่ต้องใช้สิทธิ์ admin ถ้า SSMS ยังเปิดอยู่จะขอให้ปิดก่อน
-- ติดตั้งซ้ำทับได้ (ใช้ตอนอัปเดตเวอร์ชัน)
-- ใช้ผ่าน command line โดยไม่เปิดหน้าต่างได้: `SqlAssistSetup-<version>.exe /install` หรือ `/uninstall` (exit code: 0 สำเร็จ, 1 ล้มเหลว, 2 SSMS เปิดอยู่, 3 ไม่พบ SSMS 22)
+- exe 中已内嵌插件，复制到其他装有 SSMS 22 的机器即可使用，无需额外安装
+- 按用户安装，无需管理员权限；若 SSMS 正在运行会先请求关闭
+- 可覆盖安装（用于升级版本）
+- 可用命令行无界面运行：`SqlAssistSetup-<version>.exe /install` 或 `/uninstall`（退出码：0 成功，1 失败，2 SSMS 正在运行，3 未找到 SSMS 22）
 
-พอเปิด SSMS ใหม่จะเห็นเมนู **Tools › SqlAssist: ...**
+重新打开 SSMS 后会看到 **工具 › SqlAssist: ...** 菜单
 
-สร้าง exe ใหม่หลังแก้โค้ดด้วย `.\build-setup.ps1` (รัน test → build → ได้ไฟล์ใน `dist\`)
-ถ้าไม่อยากใช้ exe ก็ใช้สคริปต์ `.\install.ps1` / `.\uninstall.ps1` แทนได้
+修改代码后可用 `.\build-setup.ps1` 重新生成 exe（运行测试 → 构建 → 输出到 `dist\`）
+如果不想用 exe，也可以改用 `.\install.ps1` / `.\uninstall.ps1` 脚本
 
-## ปุ่มลัด
+## 快捷键
 
-| ปุ่ม | ทำอะไร |
+| 按键 | 作用 |
 |---|---|
-| Tab | ขยาย snippet → ถ้ามีรายการแนะนำเปิดอยู่จะเลือกรายการนั้น → ขยาย `*` → ถ้าไม่เข้าข้อไหนเลยจะเป็น Tab ปกติ |
-| Enter | เลือกรายการแนะนำ ถ้าพิมพ์คำครบแล้ว (เช่น `from`) จะเลือกแล้วขึ้นบรรทัดใหม่ให้ด้วย |
-| Space, `,`, `(` ฯลฯ | ปิดรายการแนะนำโดย **ไม่** เลือกอะไร |
-| Ctrl+Space | เปิดรายการแนะนำเอง |
-| Ctrl+Shift+R | โหลด schema ใหม่ (หรือใช้ Tools › SqlAssist › Refresh Schema Cache) |
-| F12 | ไปที่ definition ของชื่อที่ caret อยู่ (หรือคลิกขวา › Go To Definition): ตารางจะเปิดใน Object Explorer ส่วน view / procedure / function จะเปิด script (`CREATE ...` ตามที่ SQL Server เก็บไว้) ในหน้าต่าง query ใหม่ ไม่รันให้ ใช้ได้เฉพาะ object ที่อยู่ใน schema ที่ SqlAssist โหลดไว้แล้ว (ตาราง, view, procedure, function ของ database นี้) ถ้าเป็นอย่างอื่น เช่น keyword, ตัวแปร, คอลัมน์, CTE, function ในตัว, `#temp`, ชื่อที่ระบุ database อื่น (`OtherDb.dbo.T`) หรือ schema ยังโหลดไม่เสร็จ จะส่งต่อให้ SSMS ตามปกติ |
-| Ctrl+K, Ctrl+Shift+F | จัดรูปแบบ SQL ที่เลือก (หรือทั้งหน้า query) ดูหัวข้อ Format SQL |
+| Tab | 展开代码片段 → 若补全列表已打开则选中该项 → 展开 `*` → 都不满足时为普通 Tab |
+| Enter | 选中补全列表项；若已输入完整关键字（如 `from`），选中后还会换行 |
+| Space、`,`、`(` 等 | 关闭补全列表，且 **不** 选中任何项 |
+| Ctrl+Space | 手动打开补全列表 |
+| Ctrl+Shift+R | 重新加载架构（或使用 工具 › SqlAssist › 刷新架构缓存） |
+| F12 | 跳转到光标处名称的定义（或右键 › 转到定义）：表会在对象资源管理器中打开，视图 / 存储过程 / 函数会在新的查询窗口中打开脚本（SQL Server 保存的 `CREATE ...`），不会执行。仅适用于 SqlAssist 已加载架构中的对象（当前数据库的表、视图、存储过程、函数）。其他情况，例如关键字、变量、列、CTE、内置函数、`#temp`、指定了其他数据库的名称（`OtherDb.dbo.T`）或架构尚未加载完成，会按原样交给 SSMS 处理 |
+| Ctrl+K, Ctrl+Shift+F | 格式化所选 SQL（或整个查询窗口），见 格式化 SQL |
 
-| Ctrl+J แล้ว I / T / W / O / U | (ใน results grid) copy script ของ cell ที่เลือกเป็น INSERT / INSERT #tmpTable / WHERE IN() / WHERE AND OR / UPDATE (UPDATE เปิดหน้าต่างเลือกตารางและ Key ก่อน) ดูหัวข้อ Generate Script As ด้านล่าง |
+| Ctrl+J 然后 I / T / W / O / U | （在结果网格中）把所选单元格复制为 INSERT / INSERT #tmpTable / WHERE IN() / WHERE AND OR / UPDATE 脚本（UPDATE 会先打开窗口选择表和 Key），见下方 生成脚本 |
 
-schema จะถูกโหลดครั้งแรกที่ใช้งานในแต่ละ database แล้ว cache ไว้ 10 นาที
-ถ้าใน query มีชื่อตารางที่ cache ยังไม่รู้จัก (เช่นเพิ่งสร้าง) ระบบจะโหลดใหม่เองโดยห่างกันอย่างน้อย 30 วินาที
+架构会在每个数据库首次使用时加载，然后缓存 10 分钟。
+若查询中出现缓存还不认识的表名（例如刚创建的），会自动重新加载，两次加载至少间隔 30 秒。
 
-## Generate Script As จาก results grid
+## 从结果网格生成脚本
 
-เลือก cell ในผลลัพธ์ของ query (ลากคลุมหลายแถว/หลายคอลัมน์ หรือกด Ctrl ค้างเพื่อเลือกหลายช่วงก็ได้) แล้วคลิกขวา ›
-**Generate Script As** › ชนิด statement › **New Query Window** (เปิดหน้าต่าง query ใหม่ที่ต่อ server เดียวกัน),
-**Clipboard** หรือ **File...** (บันทึกเป็น `.sql`)
+在查询结果中选择单元格（可拖动选择多行多列，或按住 Ctrl 选择多个区域），然后右键 ›
+**生成脚本** › 语句类型 › **新建查询窗口**（在相同服务器上打开新查询窗口）、
+**剪贴板** 或 **文件...**（保存为 `.sql`）
 
-| ชนิด | ได้อะไร |
+| 类型 | 生成内容 |
 |---|---|
-| INSERT | `INSERT INTO [Table] (คอลัมน์ที่เลือก) VALUES (...), (...)` แบ่ง statement ทุก 1,000 แถว |
-| INSERT #tmpTable | `CREATE TABLE #tmpTable` ตามชนิดข้อมูลของคอลัมน์ แล้ว INSERT, `SELECT * FROM #tmpTable` และ `DROP TABLE` |
-| WHERE IN() | `WHERE col IN(...)` ค่าไม่ซ้ำกัน ถ้าเลือกหลายคอลัมน์จะต่อกันด้วย `AND` |
-| WHERE AND OR | `WHERE (a = ... AND b = ...) OR (...)` หนึ่งวงเล็บต่อแถว |
-| UPDATE | เปิดหน้าต่างให้ระบุตารางปลายทางและเลือกคอลัมน์ SET / Key แล้วได้ `UPDATE ตาราง SET ... WHERE <Key> = ...` ทีละแถวตามด้วย `GO` (ดูหัวข้อ [UPDATE](#update-เลือกตารางและ-key) ด้านล่าง) |
+| INSERT | `INSERT INTO [Table] (所选列) VALUES (...), (...)`，每 1,000 行一条语句 |
+| INSERT #tmpTable | 按列的数据类型 `CREATE TABLE #tmpTable`，然后 INSERT、`SELECT * FROM #tmpTable` 和 `DROP TABLE` |
+| WHERE IN() | `WHERE col IN(...)`，值不重复；选择多列时用 `AND` 连接 |
+| WHERE AND OR | `WHERE (a = ... AND b = ...) OR (...)`，每行一个括号 |
+| UPDATE | 打开窗口指定目标表并选择 SET / Key 列，生成逐行的 `UPDATE 表 SET ... WHERE <Key> = ...` 后跟 `GO`（见下方 [UPDATE](#update选择表和-key)） |
 
-- ชื่อตารางของ INSERT เป็น `[Table]` ให้แก้เป็นชื่อจริงเอง (ผลลัพธ์ของ SSMS ไม่ได้บอกว่าคอลัมน์มาจากตารางไหน)
-- ค่า NULL เขียนเป็น `NULL` / `IS NULL`, ข้อความเป็น `N'...'` (หรือ `'...'` สำหรับ varchar), วันที่เป็น `'yyyy-MM-dd HH:mm:ss.fff'` (script ขึ้นต้นด้วย `SET DATEFORMAT ymd`), binary เป็น `0x...`
-- ทำได้ครั้งละไม่เกิน 100,000 แถว
-- ปุ่มลัด (copy ลง clipboard ทันที): คลิกใน grid แล้วกด **Ctrl+J** ตามด้วย **I** / **T** / **W** / **O** / **U** (ส่วน **U** จะเปิดหน้าต่าง UPDATE ให้เลือกตารางและ Key ก่อน โดยตั้งปลายทางเป็น Clipboard)
+- INSERT 的表名是 `[Table]`，请自行改成真实表名（SSMS 的结果集不会说明列来自哪张表）
+- NULL 值写成 `NULL` / `IS NULL`，文本写成 `N'...'`（varchar 为 `'...'`），日期写成 `'yyyy-MM-dd HH:mm:ss.fff'`（脚本开头带 `SET DATEFORMAT ymd`），二进制写成 `0x...`
+- 每次最多 100,000 行
+- 快捷键（直接复制到剪贴板）：在网格中点击后按 **Ctrl+J**，再按 **I** / **T** / **W** / **O** / **U**（**U** 会先打开 UPDATE 窗口选择表和 Key，目标默认为剪贴板）
 
-### UPDATE: เลือกตารางและ Key
+### UPDATE：选择表和 Key
 
-เมนู **UPDATE** (และ Ctrl+J แล้ว U) จะเปิดหน้าต่างให้กำหนดเอง SqlAssist **ไม่เดา**ชื่อตารางหรือ key จากผลลัพธ์:
+**UPDATE** 菜单（以及 Ctrl+J 然后 U）会打开窗口让你自行指定，SqlAssist **不会** 从结果集推测表名或 key：
 
-- **ชื่อตารางปลายทาง:** ช่องเริ่มต้นว่าง พิมพ์เช่น `dbo.Orders` หรือ `[Sales].[Order Line]` (ใส่ database นำหน้าได้ 3 ส่วน) ระบบตรวจชื่อและใส่ `[ ]` ให้เองเมื่อจำเป็น ชื่อที่มีช่องว่างหรืออักขระพิเศษโดยไม่ครอบด้วย `[ ]` จะถูกปฏิเสธ
-- **SET / Key:** แต่ละคอลัมน์ของผลลัพธ์ติ๊กได้ว่าเป็น SET (คอลัมน์ที่จะเปลี่ยนค่า) หรือ Key (คอลัมน์ที่ใช้หาแถวใน `WHERE`) คอลัมน์ที่เลือกใน grid เริ่มต้นเป็น SET ส่วน Key เริ่มต้นไม่มีเลย เมื่อติ๊กคอลัมน์เป็น Key ระบบจะเอาออกจาก SET ให้ก่อน แต่ติ๊ก SET กลับเองได้
-- **หลาย Key:** ต่อด้วย `AND` ถ้าค่าของ Key เป็น NULL จะเขียนเป็น `IS NULL`
-- **ตัวอย่าง:** แสดง 10 แถวแรกของ script ก่อนส่ง เลือกปลายทางได้ที่ New Query Window / Clipboard / File
-- **สร้างไม่ได้ถ้าข้อมูลไม่ครบ:** ต้องมีชื่อตารางที่ถูกต้อง อย่างน้อย 1 คอลัมน์ SET และอย่างน้อย 1 Key
-- **เตือน Key ซ้ำ:** ถ้าแถวที่เลือกมีค่า Key ซ้ำกัน จะแจ้งว่าหลายแถวใช้เงื่อนไข `WHERE` เดียวกัน (เทียบตามค่าที่จะเขียนใน script)
-- **Key ที่เลือกไม่รับประกันว่า unique ในฐานข้อมูลจริง:** SqlAssist ไม่ได้ตรวจกับตารางจริง ถ้า Key ซ้ำในตาราง UPDATE จะกระทบหลายแถว ตรวจ PRIMARY KEY / UNIQUE ก่อนรัน script
+- **目标表名称：** 输入框默认为空，例如输入 `dbo.Orders` 或 `[Sales].[Order Line]`（最多可加 database 前缀，共 3 段）。系统会校验名称并在需要时加上 `[ ]`。含空格或特殊字符却没有用 `[ ]` 括起来的名称会被拒绝
+- **SET / Key：** 结果集的每一列都可勾选为 SET（要修改的列）或 Key（`WHERE` 中用于定位行的列）。网格中选中的列默认为 SET，Key 默认为空。把某列勾为 Key 时会先从 SET 中移除，但可以再勾回 SET
+- **多个 Key：** 用 `AND` 连接；Key 值为 NULL 时写成 `IS NULL`
+- **预览：** 发送前显示脚本的前 10 行，目标可选 新建查询窗口 / 剪贴板 / 文件
+- **信息不完整时无法生成：** 必须有有效的表名、至少 1 个 SET 列和至少 1 个 Key
+- **重复 Key 警告：** 若所选行中存在相同的 Key 值，会提示多行使用相同的 `WHERE` 条件（按将要写入脚本的值比较）
+- **所选 Key 不保证在真实数据库中唯一：** SqlAssist 不会与真实表校验。若 Key 在表中重复，UPDATE 会影响多行，请在执行脚本前检查 PRIMARY KEY / UNIQUE
 
-## Format SQL
+## 格式化 SQL
 
-**Tools › SqlAssist › Format SQL** หรือ **Ctrl+K, Ctrl+Shift+F** ในหน้า query (คำสั่งเป็นสีเทาถ้าหน้าที่ใช้อยู่ไม่ใช่ T-SQL)
+**工具 › SqlAssist › 格式化 SQL** 或查询窗口中的 **Ctrl+K, Ctrl+Shift+F**（若当前窗口不是 T-SQL，命令会显示为灰色）
 
-- **ส่วนที่จัด:** มีข้อความที่เลือก → จัดเฉพาะส่วนนั้น (บรรทัดต่อ ๆ ไปย่อหน้าตามบรรทัดที่เลือกเริ่ม) ไม่ได้เลือกอะไร → จัดทั้งเอกสาร (ไม่รองรับการเลือกแบบ box)
-- **Undo:** กด **Ctrl+Z** ครั้งเดียวย้อนการจัดทั้งชุด เคอร์เซอร์หรือส่วนที่เลือกอยู่กับข้อความเดิม และเปลี่ยนเฉพาะช่วงที่ต่างกันจริง (bookmark/breakpoint ที่อื่นไม่หลุด)
-- **ที่จัดให้เต็มรูปแบบ:** SELECT (DISTINCT / TOP / INTO), JOIN ทุกชนิด และ CROSS / OUTER APPLY, WHERE / HAVING (AND / OR ขึ้นบรรทัดใหม่, `BETWEEN … AND` ไม่ถูกแยก), GROUP BY / ORDER BY / OFFSET … FETCH, UNION / EXCEPT / INTERSECT, CASE (ตั้งแต่ 2 WHEN ขึ้นไปแยกบรรทัด), subquery และ derived table, CTE (`WITH … AS (…)`), INSERT / UPDATE / DELETE / MERGE (รวม OUTPUT, OPTION) และ `IF / ELSE / WHILE / BEGIN … END / TRY … CATCH` ที่กำหนดย่อหน้าของ statement ข้างใน
-- **statement อื่น** (DECLARE, SET, EXEC, CREATE TABLE / PROCEDURE …): จัดช่องว่าง ย่อหน้า และตัวพิมพ์ของ keyword แต่คง **การขึ้นบรรทัดเดิม** ของคุณไว้
-- **รักษาไว้ไม่ให้เปลี่ยน:** comment (`--` และ `/* */`), ข้อความใน `'...'`, ชื่อใน `[...]` / `"..."`, hint (`WITH (NOLOCK)`, `OPTION (...)`), `GO` (บรรทัดละคำสั่ง) ตัวแปร `@x`, temp table `#t`, ตัวเลข / เงิน / hex จะมีแค่ **ช่องว่าง ตัวพิมพ์ของ keyword และเครื่องหมาย `,` ที่ย้ายไปอีกฝั่งของบรรทัด** เท่านั้นที่เปลี่ยน
-- **ตัวพิมพ์ของ keyword:** เปลี่ยนเฉพาะคำสงวนของ T-SQL และชื่อฟังก์ชัน/ชนิดข้อมูลที่ตำแหน่งบอกชัดว่าไม่ใช่ชื่อ (เช่น `COUNT(`, `CAST(x AS INT)`, `@a INT`, `OFFSET … ROWS`) ชื่อตาราง คอลัมน์ และ alias ไม่ถูกเปลี่ยนเด็ดขาด (database ที่แยกตัวพิมพ์ใหญ่เล็กจึงไม่พัง) คำหลังจุด เช่น `t.Key` ก็ไม่เปลี่ยน
-- **ตั้งค่า** ที่ **Tools › SqlAssist › Options...** (มีตัวอย่างที่เปลี่ยนตามตัวเลือก): ตัวพิมพ์ keyword (ใหญ่ / เล็ก / ตามที่พิมพ์), ย่อหน้า 2–8 ช่องว่าง, เครื่องหมาย `,` นำหน้าหรือท้ายบรรทัด ค่าเก็บที่ `%APPDATA%\SqlAssist\settings.xml`
-- **จัดซ้ำได้ผลเดิม:** รันกี่ครั้งก็ได้ข้อความเดียวกัน
-- **ถ้าจัดไม่ได้:** ถ้า SQL ไม่สมบูรณ์ (string `'`, `[`, `/*` หรือวงเล็บที่เปิดไว้แล้วไม่ปิด) จะแจ้งบรรทัดและคอลัมน์ที่เจอปัญหา และ **ไม่แก้ข้อความ** ทุกครั้งที่จัดเสร็จ ระบบตรวจซ้ำว่า token และ comment ทุกตัวยังอยู่ครบตามลำดับ (และการแบ่ง batch ด้วย `GO` เหมือนเดิม) ถ้าไม่ตรงจะไม่แก้ข้อความเช่นกัน
-- **ปุ่มลัด:** เลือก Ctrl+K, Ctrl+Shift+F เพราะตรวจแล้วไม่ชนกับ: ปุ่มลัดมาตรฐานของ Visual Studio (Ctrl+K, Ctrl+F / Ctrl+D ใช้ Format ของ Visual Studio), โปรไฟล์ของ SSMS 22 (Format SQL ในตัวของ SSMS คือ Ctrl+K, Ctrl+Q ซึ่งยังใช้ได้ตามเดิม, Copilot ใช้ Ctrl+Alt+E/R/D/F, Presenter Mode ใช้ Ctrl+Shift+F5), ไฟล์ตั้งค่าปุ่มลัดของเครื่องนี้ และปุ่มของ SqlAssist เอง (Tab, Ctrl+Space, Ctrl+Shift+R, Ctrl+J แล้ว I/T/W/O/U) ถ้าคุณมีส่วนเสริมอื่นที่ใช้ปุ่มนี้ เปลี่ยนได้ที่ Tools › Options › Environment › Keyboard (ค้น `SqlAssist.FormatSql`)
+- **格式化范围：** 有选中文本 → 只格式化该部分（后续行按选中起始行缩进）；没有选中 → 格式化整个文档（不支持列块选择）
+- **撤销：** 按一次 **Ctrl+Z** 即可撤销整批格式化，光标或选区保持在原文本上，且只改动真正不同的片段（其他位置的书签/断点不会丢失）
+- **完整格式化的语句：** SELECT（DISTINCT / TOP / INTO）、所有 JOIN 以及 CROSS / OUTER APPLY、WHERE / HAVING（AND / OR 换行，`BETWEEN … AND` 不会被拆开）、GROUP BY / ORDER BY / OFFSET … FETCH、UNION / EXCEPT / INTERSECT、CASE（2 个及以上 WHEN 时换行）、子查询和派生表、CTE（`WITH … AS (…)`）、INSERT / UPDATE / DELETE / MERGE（含 OUTPUT、OPTION），以及决定内部语句缩进的 `IF / ELSE / WHILE / BEGIN … END / TRY … CATCH`
+- **其他语句**（DECLARE、SET、EXEC、CREATE TABLE / PROCEDURE …）：只调整空格、缩进和关键字大小写，保留你原有的 **换行**
+- **保证不变的内容：** 注释（`--` 和 `/* */`）、`'...'` 中的文本、`[...]` / `"..."` 中的名称、提示（`WITH (NOLOCK)`、`OPTION (...)`）、`GO`（每行一条）、变量 `@x`、临时表 `#t`、数字 / 金额 / 十六进制。只有 **空白、关键字大小写，以及移到行另一侧的 `,`** 会改变
+- **关键字大小写：** 只改变 T-SQL 保留字，以及位置明确表明不是标识符的函数名/数据类型名（例如 `COUNT(`、`CAST(x AS INT)`、`@a INT`、`OFFSET … ROWS`）。表名、列名和别名绝不会被改动（因此区分大小写的数据库不会出问题）。点号后的名称，如 `t.Key`，也不会改
+- **设置** 位于 **工具 › SqlAssist › 选项...**（附随选项变化的示例）：关键字大小写（大写 / 小写 / 保持原样）、缩进 2–8 个空格、逗号放在行首或行尾。配置保存在 `%APPDATA%\SqlAssist\settings.xml`
+- **可重复：** 执行多少次结果都相同
+- **无法格式化时：** 若 SQL 不完整（`'`、`[`、`/*` 或括号未闭合），会提示出问题的行和列，并 **不修改文本**。每次格式化后都会校验所有标记和注释仍按原顺序存在（`GO` 分批也一致），不一致时同样不修改
+- **快捷键：** 选择 Ctrl+K, Ctrl+Shift+F，是因为已确认不冲突：Visual Studio 的默认快捷键（Ctrl+K, Ctrl+F / Ctrl+D 是 VS 的格式化）、SSMS 22 的配置文件（SSMS 自带的格式化 SQL 是 Ctrl+K, Ctrl+Q，仍可照常使用；Copilot 使用 Ctrl+Alt+E/R/D/F；演示者模式使用 Ctrl+Shift+F5）、本机快捷键设置文件，以及 SqlAssist 自身的按键（Tab、Ctrl+Space、Ctrl+Shift+R、Ctrl+J 然后 I/T/W/O/U）。如果你有其他扩展使用了该组合，可在 工具 › 选项 › 环境 › 键盘 中修改（搜索 `SqlAssist.FormatSql`）
 
-## ตรวจจุดเสี่ยงใน SQL
+## SQL 风险检查
 
-**Tools › SqlAssist › Check SQL Risks...** (ในหน้า query T-SQL) ตรวจส่วนที่เลือก หรือทั้งหน้า query ถ้าไม่ได้เลือกอะไร แล้วแสดงรายการใน **หน้าต่างผลตรวจ** ที่ไม่ปิดบัง editor: กฎที่เจอ ตำแหน่ง (บรรทัด, คอลัมน์) คำสั่ง และเหตุผล **คลิกแถว** (หรือกด Enter) เพื่อเลือกคำสั่งนั้นใน editor ตำแหน่งจะตามไปเองแม้แก้ข้อความหลังตรวจ
+**工具 › SqlAssist › 检查 SQL 风险...**（在 T-SQL 查询窗口中）检查所选内容，或未选择时的整个查询窗口，并在 **结果窗口** 中列出结果，且不会遮挡编辑器：命中的规则、位置（行、列）、语句和原因。**点击某行**（或按 Enter）即可在编辑器中选中该语句，位置会随之更新，即使检查后修改了文本
 
-| กฎ | เมื่อไหร่ |
+| 规则 | 触发条件 |
 |---|---|
-| UPDATE ไม่มี WHERE | `UPDATE` ที่ไม่มี `WHERE` ของตัวเอง (รวมรูปแบบ `UPDATE a SET … FROM t a JOIN …`) |
-| DELETE ไม่มี WHERE | `DELETE` ที่ไม่มี `WHERE` ของตัวเอง (รวม `DELETE a FROM t a JOIN …` และ `DELETE TOP (n)`) |
-| TRUNCATE TABLE | ทุกคำสั่ง `TRUNCATE TABLE` |
-| DROP TABLE | ทุกคำสั่ง `DROP TABLE` (รวม `IF EXISTS` และหลายตาราง) ไม่รวม `DROP VIEW / INDEX / PROCEDURE` และ `ALTER TABLE … DROP COLUMN` |
+| UPDATE 无 WHERE | 自身没有 `WHERE` 的 `UPDATE`（含 `UPDATE a SET … FROM t a JOIN …` 形式） |
+| DELETE 无 WHERE | 自身没有 `WHERE` 的 `DELETE`（含 `DELETE a FROM t a JOIN …` 和 `DELETE TOP (n)`） |
+| TRUNCATE TABLE | 所有 `TRUNCATE TABLE` 语句 |
+| DROP TABLE | 所有 `DROP TABLE` 语句（含 `IF EXISTS` 和多表），不含 `DROP VIEW / INDEX / PROCEDURE` 和 `ALTER TABLE … DROP COLUMN` |
 
-- **อ่านเป็นคำสั่ง ไม่ใช่ค้นคำ:** `WHERE` ใน subquery, CTE, ข้อความ `'...'`, comment หรือชื่อ `[where]` ไม่ถูกนับเป็น `WHERE` ของคำสั่งด้านนอก คำสั่งใน `IF`, `BEGIN … END`, `TRY … CATCH` ถูกตรวจด้วย `GO` แบ่ง batch
-- **ไม่แก้ SQL และไม่เติม WHERE ให้** และไม่รันอะไร
-- **การมี WHERE ไม่ได้รับประกันว่าคำสั่งปลอดภัย** (WHERE อาจกว้างเกินไปหรือผิดเงื่อนไข) และการไม่พบรายการก็ไม่ได้แปลว่าปลอดภัย ข้อความนี้แสดงในหน้าต่างผลตรวจเสมอ
-- **ตรวจไม่ได้:** SQL ที่ประกอบเป็นข้อความใน `EXEC (...)` / `sp_executesql`, stored procedure ที่ถูกเรียก, trigger, view, และ `MERGE` ถ้า SQL ไม่สมบูรณ์ (string, comment, วงเล็บไม่ปิด) จะตรวจเท่าที่อ่านออกและมีหมายเหตุบอกจุดที่อ่านไม่ได้
-- **ตั้งค่า** ที่ **Tools › SqlAssist › Options... › ตรวจจุดเสี่ยง:** เปิด/ปิดได้ทีละกฎ และเลือกให้ข้ามตาราง temp (`#t`, `##t`) กับ table variable (`@t`) (ค่าเริ่มต้นตรวจทุกอย่าง)
+- **按语句解析，而不是搜关键字：** 子查询、CTE、`'...'` 文本、注释或 `[where]` 名称中的 `WHERE` 不会被算作外层语句的 `WHERE`。`IF`、`BEGIN … END`、`TRY … CATCH` 中的语句会按 `GO` 分批检查
+- **不会修改 SQL，也不会补上 WHERE**，更不会执行任何内容
+- **有 WHERE 不代表语句安全**（WHERE 可能范围过大或条件写错），未发现问题也不代表安全。该说明始终显示在结果窗口中
+- **无法检查的内容：** 在 `EXEC (...)` / `sp_executesql` 中拼接的 SQL、被调用的存储过程、触发器、视图，以及 `MERGE`。若 SQL 不完整（字符串、注释、括号未闭合），会检查到可解析的位置并注明
+- **设置** 位于 **工具 › SqlAssist › 选项... › 风险检查：** 可逐条启用/禁用规则，并选择跳过临时表（`#t`、`##t`）和表变量（`@t`）（默认全部检查）
 
-### เตือนก่อนกด Execute (ทดลอง ปิดอยู่เป็นค่าเริ่มต้น)
+### 执行前提示（实验性，默认关闭）
 
-เปิดได้ที่ **Options › ตรวจจุดเสี่ยง › เตือนก่อนกด Execute** เมื่อเปิดแล้ว ทุกครั้งที่สั่ง Execute และ script ที่จะรัน (ส่วนที่เลือก หรือทั้งหน้า query) มีรายการตามกฎ จะขึ้นหน้าต่างแสดง **Server, Database** และคำสั่งเสี่ยง พร้อมปุ่ม **ยกเลิก** (ค่าเริ่มต้น: Enter, Esc และปิดหน้าต่างล้วนยกเลิก) กับ **รันต่อ** ถ้าไม่มีรายการจะรันตามปกติโดยไม่ถามอะไร และ **Cancel Query ไม่ถูกแตะต้อง**
+在 **选项 › 风险检查 › 执行前提示** 中开启。开启后，每次执行时若将要运行的脚本（所选内容或整个查询窗口）命中规则，会弹出窗口显示 **服务器、数据库** 和风险语句，并提供 **取消**（默认：Enter、Esc 和关闭窗口都会取消）和 **仍然执行**。没有命中时照常运行，不做询问，且 **取消查询不受影响**
 
-- **กลไก:** ลงทะเบียนเป็น priority command target ของ SSMS ซึ่งได้รับทุกคำสั่งก่อนปลายทางจริง ชื่อคำสั่ง Execute ถูกค้นหาตอนเปิดใช้ (ลองชื่อ `Query.Execute`, `Query.ExecuteQuery`, `Query.ExecuteSelection`) และบันทึกลง log (Tools › SqlAssist › Options... › เปิดไฟล์ Log บรรทัด `Execute guard hooked: …`; ใน SSMS 22 ที่ลองพบ `Query.Execute` อย่างเดียว) ถ้าหาไม่พบจะบอกที่หน้า Options ว่ายังไม่ได้ดัก
-- **ข้อจำกัดที่ต้องรู้:** ยังเป็นของทดลอง ลองแล้วใน SSMS 22 (เครื่องทดสอบ, server SQL Express, ใช้ temp table เท่านั้น) กับ F5, Ctrl+E, ปุ่ม Execute บน toolbar, เมนู Query › Execute และการรันเฉพาะ selection ทุกช่องทางขึ้นหน้าต่างเตือน ปุ่มยกเลิก/Enter/Esc ไม่รันอะไร ปุ่ม รันต่อ รันครั้งเดียว และ Cancel Query ยังใช้ได้ปกติ แต่ **ยังไม่ได้ลองทุกช่องทางที่รัน query ใน SSMS** และไม่ใช่การรับประกันว่าจะไม่มีคำสั่งเสี่ยงหลุดไปรัน ถ้าต้องการความแน่ใจให้ใช้ Check SQL Risks ตรวจก่อนรันเอง ไม่แก้ปุ่มลัดของ SSMS เลย และถ้าปิดตัวเลือกนี้จะไม่มีอะไรถูกลงทะเบียน (ไม่มีผลต่อความเร็ว)
-- **ลองยืนยันเอง (โดยไม่แตะข้อมูลจริง):** เปิดตัวเลือก แล้วในหน้า query ที่ต่อ server ทดสอบ พิมพ์ `CREATE TABLE #t (a INT); DELETE FROM #t; DROP TABLE #t;` แล้วสั่ง Execute ด้วยทุกช่องทาง — **F5**, **Ctrl+E**, ปุ่ม **Execute** บน toolbar, เมนู **Query › Execute** — ทั้งแบบไม่เลือกอะไรและแบบเลือกเฉพาะ `DELETE FROM #t` ทุกครั้งต้องขึ้นหน้าต่างเตือน และกด **ยกเลิก** แล้วต้องไม่มีอะไรรัน (ตารางนี้เป็น temp table ของ session เท่านั้น)
+- **机制：** 注册为 SSMS 的优先级命令目标，从而先于实际目标收到所有命令。执行命令的名称在启用时探测（尝试 `Query.Execute`、`Query.ExecuteQuery`、`Query.ExecuteSelection`），并记录到日志（工具 › SqlAssist › 选项... › 打开日志文件，行 `Execute guard hooked: …`；在测试过的 SSMS 22 中只找到 `Query.Execute`）。若找不到，会在选项页面说明尚未拦截
+- **已知限制：** 仍属实验性。已在 SSMS 22 中测试（测试机、SQL Express 服务器、仅使用临时表），对 F5、Ctrl+E、工具栏 Execute 按钮、查询 › 执行 菜单以及仅执行选区，都会弹出提示；取消/Enter/Esc 不会执行任何内容，仍然执行只运行一次，取消查询仍正常。但 **尚未验证 SSMS 中所有执行查询的入口**，也不能保证没有风险语句被漏过。若需要确定性，请先用 检查 SQL 风险 自行检查。它完全不修改 SSMS 的快捷键，关闭该选项后不会注册任何内容（不影响性能）
+- **自行验证（不触碰真实数据）：** 开启该选项后，在连接到测试服务器的查询窗口中输入 `CREATE TABLE #t (a INT); DELETE FROM #t; DROP TABLE #t;`，然后用所有方式执行 —— **F5**、**Ctrl+E**、工具栏 **Execute** 按钮、**查询 › 执行** 菜单 —— 分别在不选择和只选中 `DELETE FROM #t` 的情况下测试。每次都应弹出提示，点击 **取消** 后不应有任何执行（该表仅为会话级临时表）
 
-## CSV to SQL
+## CSV 转 SQL
 
-เปิดจาก **Tools › SqlAssist › CSV to SQL...** เพื่อเปลี่ยนข้อมูลที่คัดลอกจาก Excel หรือข้อความ CSV ให้เป็น SQL
+通过 **工具 › SqlAssist › CSV 转 SQL...** 打开，把从 Excel 复制的数据或 CSV 文本转换为 SQL
 
-- **ช่องข้อความ:** ตอนเปิดหน้าต่างจะวางข้อความจาก Clipboard ให้ (ปุ่ม **วางจาก Clipboard** อ่านซ้ำได้) แก้ไขในช่องนี้ได้ แล้วตัวอย่างจะอัปเดตเอง รองรับ cell ที่ครอบด้วย `"` ตามแบบ Excel/CSV (มีตัวคั่น, ขึ้นบรรทัดใหม่ หรือ `""` อยู่ข้างใน)
-- **ตัวคั่น cell:** ค่าเริ่มต้นเป็น **Tab** (สิ่งที่ Excel ใส่ใน Clipboard) ถ้าเป็นข้อความ CSV เลือก **คอมมา `,`**, **เซมิโคลอน `;`** หรือ **ไปป์ `|`** เอง ระบบไม่เดาตัวคั่นจากข้อความ เพราะคอลัมน์เดียวที่มี `,` ในข้อความ (เช่น `Smith, John`) จะถูกแยกผิด ตัวเลขที่ใช้ `,` เป็นทศนิยม (CSV แบบยุโรป) อ่านไม่ได้ตามกติกาด้านล่างและจะแจ้งเป็น error
-- **แถวแรกเป็นชื่อคอลัมน์:** ติ๊กเองได้ ถ้าไม่ติ๊กทุกแถวเป็นข้อมูลและคอลัมน์ชื่อ `Column1`, `Column2`, ...
-- **ผลลัพธ์ 3 แบบ**
+- **文本框：** 打开窗口时会粘贴剪贴板中的内容（**从剪贴板粘贴** 按钮可再次读取），可在此框中修改，预览会自动更新。支持按 Excel/CSV 规则用 `"` 包裹的单元格（内含分隔符、换行或 `""`）
+- **单元格分隔符：** 默认为 **Tab**（Excel 放入剪贴板的内容）。若是 CSV 文本，请自行选择 **逗号 `,`**、**分号 `;`** 或 **竖线 `|`**。系统不会从文本推测分隔符，因为只有一列且文本中含 `,`（例如 `Smith, John`）时会被错误拆分。使用 `,` 作小数点的数字（欧洲式 CSV）按下列规则无法读取，会报错
+- **首行为列名：** 需自行勾选。不勾选时所有行都是数据，列名为 `Column1`、`Column2`、...
+- **三种输出形式**
 
-  | แบบ | ได้อะไร |
+  | 形式 | 生成内容 |
   |---|---|
-  | `IN (...)` | `IN (N'00123', N'00456')` ของคอลัมน์เดียวที่เลือก ติ๊ก **ตัดค่าซ้ำ** ได้ ค่า NULL จะถูกข้าม (IN จับ NULL ไม่ได้) และแจ้งจำนวนที่ข้าม ถ้ามีเกิน 10 ค่าจะขึ้นบรรทัดใหม่ทุก 10 ค่า |
-  | `VALUES (...), (...)` | `VALUES` ตามด้วยแถวละบรรทัด แบ่งเป็นก้อนละไม่เกิน 1,000 แถวตามข้อจำกัดของ SQL Server |
-  | `CREATE TABLE #Temp + INSERT` | สร้าง `#Temp` (ตั้งชื่อ `#...` / `##...` เองได้) ตามชนิดข้อมูลที่เลือก ขนาด `nvarchar(n)` / `decimal(p,s)` คำนวณจากข้อมูลจริง แล้ว `INSERT` แบ่งทุก 1,000 แถว (ใช้ตัวเขียน INSERT เดียวกับ Generate Script As) |
+  | `IN (...)` | 所选单列的 `IN (N'00123', N'00456')`。可勾选 **去除重复值**。NULL 值会被跳过（IN 无法匹配 NULL）并提示跳过数量。超过 10 个值时每 10 个换行 |
+  | `VALUES (...), (...)` | `VALUES` 后每行一条，按 SQL Server 限制每批不超过 1,000 行 |
+  | `CREATE TABLE #Temp + INSERT` | 按所选数据类型创建 `#Temp`（可自行命名为 `#...` / `##...`），`nvarchar(n)` / `decimal(p,s)` 的大小按实际数据计算，然后 `INSERT`，每 1,000 行一批（复用 生成脚本 的 INSERT 写入器） |
 
-- **ชนิดข้อมูลของแต่ละคอลัมน์:** ค่าเริ่มต้นเป็น *ข้อความ (nvarchar)* ทุกคอลัมน์ เพื่อให้รหัสอย่าง `00123` ไม่กลายเป็น `123` เลือก varchar, int, bigint, decimal, float, bit, date, datetime, datetime2, uniqueidentifier ได้ ถ้าข้อมูลไม่เข้ากับชนิดที่เลือกจะแจ้ง **แถวที่ N คอลัมน์ M** พร้อมค่าที่ผิด (แถวนับรวมแถวหัวตาราง) และจะไม่สร้าง SQL จนกว่าจะแก้ ไม่มีการแปลงผิดแบบเงียบ ๆ
-- **กติกา NULL (แยกเป็น 3 อย่างชัดเจน):**
-  - *cell ว่าง* (ไม่มีอะไรระหว่างตัวคั่น) → เลือกได้ว่าเป็น `NULL` (ค่าเริ่มต้น) หรือสตริงว่าง `''`
-  - *ข้อความ NULL* (ตัวพิมพ์ใหญ่ `NULL` ตรงตัว เช่น ที่ SSMS ใช้แสดงค่า NULL ตอน copy จาก grid) → เลือกได้ว่าเป็น `NULL` (ค่าเริ่มต้น) หรือข้อความ `'NULL'` ส่วน `Null`, `null`, ` NULL` ถือเป็นข้อความธรรมดาเสมอ (กันชื่อคนอย่าง Null)
-  - ถ้าเลือกให้เก็บเป็นสตริงว่าง/ข้อความ `NULL` แต่คอลัมน์เป็นตัวเลขหรือวันที่ ซึ่งเก็บไม่ได้ จะแจ้งเป็น error
-- **ตัวเลขและวันที่ไม่ขึ้นกับ regional settings ของเครื่อง:** ตัวเลขต้องเป็นเลขอารบิกและใช้จุด `.` เป็นทศนิยม (ไม่มี `,` คั่นหลัก, ไม่มี `1e5` ใน decimal) วันที่ต้องตรงรูปแบบที่เลือก (`yyyy-MM-dd`, `dd/MM/yyyy` หรือ `MM/dd/yyyy`) และ `date` ต้องไม่มีเวลา, `datetime` ละเอียดไม่เกิน 3 หลัก (เกินให้ใช้ `datetime2`) ปีที่ดูเหมือนปี พ.ศ. (2400-2700) จะมีคำเตือน วันที่ในผลลัพธ์เขียนเป็น ISO (`'2024-01-31T13:05:09.000'`) จึงไม่ต้องใช้ `SET DATEFORMAT`
-- **ตัวอย่างและการส่งออก:** ตัวอย่างแสดง 50 แถวแรก (แต่ตรวจข้อมูลครบทุกแถวแล้ว) ส่งไปที่ **Clipboard** หรือ **New Query Window** ได้ SqlAssist ไม่รัน SQL ให้
-- **ขีดจำกัด (กัน SSMS ค้าง):** ข้อความไม่เกิน 2,000,000 ตัวอักษร, 100,000 แถว, 256 คอลัมน์ และทุกแถวต้องมีจำนวนคอลัมน์เท่าแถวแรก (ไม่เติมช่องว่างให้เอง)
-- **ความเป็นส่วนตัว:** เนื้อหาใน Clipboard ไม่ถูกบันทึกลง log
+- **各列的数据类型：** 默认全部为 *文本 (nvarchar)*，以免 `00123` 变成 `123`。可选择 varchar、int、bigint、decimal、float、bit、date、datetime、datetime2、uniqueidentifier。若数据与所选类型不符，会提示 **第 N 行，第 M 列** 及错误的值（行号包含表头行），并在修正前不生成 SQL，绝不会静默转换
+- **NULL 规则（明确分为三种）：**
+  - *空单元格*（分隔符之间没有任何内容）→ 可选择为 `NULL`（默认）或空字符串 `''`
+  - *文本 NULL*（全大写的 `NULL`，例如 SSMS 从网格复制时显示的 NULL）→ 可选择为 `NULL`（默认）或文本 `'NULL'`。`Null`、`null`、` NULL` 一律视为普通文本（避免把 Null 这样的人名当成 NULL）
+  - 若选择存为空字符串/文本 `NULL`，但该列是数字或日期类型而无法存储，会报错
+- **数字和日期不受本机区域设置影响：** 数字必须是阿拉伯数字并用 `.` 作小数点（不能有千分位 `,`，decimal 中不能用 `1e5`）。日期必须符合所选格式（`yyyy-MM-dd`、`dd/MM/yyyy` 或 `MM/dd/yyyy`），且 `date` 不能带时间，`datetime` 小数位不超过 3 位（超过请用 `datetime2`）。看起来像佛历年份（2400–2700）的值会给出警告。结果中的日期写成 ISO 格式（`'2024-01-31T13:05:09.000'`），因此不需要 `SET DATEFORMAT`
+- **预览与输出：** 预览显示前 50 行（但已校验所有行），可发送到 **剪贴板** 或 **新建查询窗口**。SqlAssist 不会执行 SQL
+- **限制（避免 SSMS 卡死）：** 文本不超过 2,000,000 个字符、100,000 行、256 列，且每行的列数必须与首行相同（不会自动补齐）
+- **隐私：** 剪贴板内容不会被写入日志
 
-## ค้นหา object
+## 搜索对象
 
-เปิดจาก **Tools › SqlAssist › Search Objects...** หรือปุ่ม **SqlAssist** (โลโก้ SqlAssist) บน toolbar **SqlAssist** (ถ้าไม่เห็น toolbar ให้คลิกขวาที่แถบ toolbar แล้วติ๊ก SqlAssist หรือไปที่ View › Toolbars) หน้าต่างจะ dock เป็นแท็บข้าง Output และลากไปวางที่อื่นได้
+通过 **工具 › SqlAssist › 搜索对象...** 或工具栏 **SqlAssist** 上的 **SqlAssist** 按钮（Logo）打开（若看不到工具栏，右键工具栏区域勾选 SqlAssist，或前往 视图 › 工具栏）。窗口会停靠在输出窗口旁成为标签页，也可拖到别处
 
-- **ค้นขณะพิมพ์:** พิมพ์อย่างน้อย 2 ตัวอักษรแล้วผลจะขึ้นเอง (กด Enter เพื่อค้นทันที หรือกด ↓ เพื่อไปที่ตารางผลลัพธ์)
-- **ค้นจากอะไร:** ชื่อ object และข้อความใน definition ของ view / procedure / function / trigger ส่วนชื่อตารางและคอลัมน์จะค้นจากชื่ออย่างเดียว
-- **ชนิด object (dropdown "All object types"):** ติ๊กเลือก Schema, Table, View, Procedure, Function, Trigger, Column, Index, Constraint (primary key, unique, foreign key, check, default) และ User-defined type (alias type และ table type) ซึ่ง 3 ชนิดหลังค้นจากชื่ออย่างเดียว และ preview เป็น script แบบย่อ (`CREATE INDEX`, `ALTER TABLE ... ADD CONSTRAINT`, `CREATE TYPE`)
-- **ตัวเลือกการค้น (ปุ่ม ⚙):** Match case, Match whole word และ Use wildcards (`*` = อักษรกี่ตัวก็ได้ในบรรทัดเดียวกัน, `?` = อักษร 1 ตัว) ถ้าไม่ติ๊กอะไรเลยจะค้นแบบ "มีคำนี้อยู่" และไม่สนตัวพิมพ์เล็กใหญ่
-- **Database (dropdown):** ค่าเริ่มต้นคือ database ปัจจุบัน เลือกได้หลายตัวหรือเลือก **All databases** (ไม่รวม system database) ระบบจะโหลดทีละ database และแสดงผลทันทีที่เจอ ส่วน database ที่ offline หรือไม่มีสิทธิ์จะถูกข้ามและบันทึกไว้ใน log
-- **Server (dropdown):** ค่าเริ่มต้นคือ "Active query window" (ใช้ server ของหน้าต่าง query ที่ active อยู่) หรือเลือก server อื่นที่เคยต่อในรอบนี้ก็ได้ ถ้าหน้าต่าง query ที่ active เปลี่ยนไปต่อ server อื่น ระบบจะกลับไปใช้ server ของหน้าต่างนั้นเอง
-- **กระโดดไปที่ object:** ดับเบิลคลิกหรือกด **Enter** ที่ผลลัพธ์ แล้ว Object Explorer จะกาง tree ไปที่ object นั้นและเลือกไว้ให้ (ถ้า Object Explorer ยังไม่ได้ต่อ server นั้น ระบบจะต่อให้เอง) ส่วน **Ctrl+Enter** จะเปิด query window ใหม่ที่มี `USE [db]` ตามด้วย definition และเลือกคำที่เจอไว้ คลิกขวาที่ผลลัพธ์จะมีเมนู Locate in Object Explorer, Open in new query window และ Copy name (Ctrl+C)
-- **ผลลัพธ์:** ตารางคอลัมน์ Name, Schema, Type, Parent, Database, Matched in คลิกที่หัวคอลัมน์เพื่อเรียงได้ แสดงสูงสุด 5,000 รายการ
-- **Preview:** แสดง definition และ highlight คำที่เจอ ถ้าเป็นตารางจะแสดง `CREATE TABLE` แบบย่อ (คอลัมน์, type, NULL/NOT NULL, primary key) ส่วนคอลัมน์จะแสดงของตาราง/view ที่คอลัมน์นั้นอยู่
+- **边输边搜：** 输入至少 2 个字符后自动出结果（按 Enter 立即搜索，按 ↓ 跳到结果表格）
+- **搜索范围：** 对象名称，以及视图 / 存储过程 / 函数 / 触发器的定义文本；表名和列名只按名称搜索
+- **对象类型（下拉框 “所有对象类型”）：** 可勾选 Schema、Table、View、Procedure、Function、Trigger、Column、Index、Constraint（primary key、unique、foreign key、check、default）和 User-defined type（别名类型和表类型）。后三种只按名称搜索，预览为简化脚本（`CREATE INDEX`、`ALTER TABLE ... ADD CONSTRAINT`、`CREATE TYPE`）
+- **搜索选项（⚙ 按钮）：** 区分大小写、全字匹配、使用通配符（`*` = 同一行内任意多个字符，`?` = 单个字符）。全部不勾选时为“包含该词”，且不区分大小写
+- **数据库（下拉框）：** 默认为当前数据库。可选择多个，或选择 **所有数据库**（不含系统数据库）。系统逐个数据库加载，一有结果就显示；离线或无权限的数据库会被跳过并记入日志
+- **服务器（下拉框）：** 默认为“当前查询窗口”（使用活动查询窗口的服务器），也可选择本会话中连接过的其他服务器。若活动查询窗口切换到其他服务器，会自动改回使用该窗口的服务器
+- **跳转到对象：** 双击或按 **Enter**，对象资源管理器会展开到该对象并选中它（若尚未连接该服务器会自动连接）。**Ctrl+Enter** 会打开新查询窗口，包含 `USE [db]` 和定义，并选中匹配的词。右键结果有 在对象资源管理器中定位、在新查询窗口中打开 和 复制名称（Ctrl+C）
+- **结果：** 表格列为 名称、架构、类型、所属对象、数据库、匹配位置。点击列头可排序，最多显示 5,000 条
+- **预览：** 显示定义并高亮匹配词。表会显示简化的 `CREATE TABLE`（列、类型、NULL/NOT NULL、主键）；列会显示其所在表/视图的内容
 
-ข้อมูลที่ใช้ค้นจะถูกโหลดมาเก็บไว้ใน memory ทีละ database แล้ว cache ไว้ 10 นาที (เกิน 10 นาทีจะโหลดใหม่เบื้องหลัง) ถ้าต้องการโหลดใหม่ทันทีให้กดปุ่ม **Refresh** ในหน้าต่าง หรือกด Ctrl+Shift+R / **Tools › SqlAssist › Refresh Schema Cache**
+用于搜索的数据按数据库加载到内存并缓存 10 分钟（超过 10 分钟后在后台重新加载）。如需立即重新加载，点击窗口中的 **刷新** 按钮，或按 Ctrl+Shift+R / **工具 › SqlAssist › 刷新架构缓存**
 
-ทุกครั้งที่เปิด SSMS ใหม่ หน้าต่าง Search จะเริ่มจากค่าเริ่มต้นเสมอ (ทุกชนิด object, ไม่ติ๊กตัวเลือกการค้น, database ปัจจุบัน) ค่าที่เลือกไว้จะใช้ได้จนกว่าจะปิด SSMS
+每次重新启动 SSMS，搜索窗口都会回到默认状态（所有对象类型、不勾选搜索选项、当前数据库）。所选设置仅在本次 SSMS 会话中有效
 
-## แก้ไข Snippets
+## 编辑代码片段
 
-ไปที่ **Tools › SqlAssist › Edit Snippets...** จะเปิดหน้าต่าง **Snippets Manager**
+前往 **工具 › SqlAssist › 编辑代码片段...**，会打开 **代码片段管理器**
 
-- **รายการด้านซ้าย:** มีช่องค้นหา และเลือกเรียงตาม Shortcut หรือตามคำอธิบายได้
-- **ด้านขวา:** แก้ **Shortcut** (คำที่พิมพ์แล้วกด Tab), **คำอธิบาย** และ **ข้อความ** ของ snippet
-- **Literals:** ดับเบิลคลิกเพื่อแทรกลงในข้อความ ค่าเหล่านี้จะถูกแทนตอนขยาย snippet
+- **左侧列表：** 有搜索框，可按快捷键或按说明排序
+- **右侧：** 编辑代码片段的 **快捷键**（输入后按 Tab 的词）、**说明** 和 **内容**
+- **占位符：** 双击可插入到内容中，展开代码片段时会被替换
 
-  | Literal | ได้อะไร |
+  | 占位符 | 替换为 |
   |---|---|
-  | `$CARET$` | ตำแหน่งเคอร์เซอร์หลังขยาย snippet |
-  | `$DATE$` / `$TIME$` | วันที่ / เวลาปัจจุบัน |
-  | `$USER$` | ชื่อผู้ใช้ Windows |
-  | `$DB$` / `$SERVER$` | database / server ของหน้า query |
+  | `$CARET$` | 展开代码片段后的光标位置 |
+  | `$DATE$` / `$TIME$` | 当前日期 / 时间 |
+  | `$USER$` | Windows 用户名 |
+  | `$DB$` / `$SERVER$` | 查询窗口的数据库 / 服务器 |
 
-- **ปุ่มด้านบน:** Snippet ใหม่, ลบ, บันทึก (Ctrl+S), ยกเลิกการแก้ไข (โหลดจากไฟล์ใหม่) และเปิดโฟลเดอร์
-- **การตรวจตอนบันทึก:** Shortcut ห้ามว่าง ห้ามซ้ำ และห้ามมีช่องว่าง ส่วนข้อความห้ามว่าง
-- **มีผลทันที:** บันทึกแล้วใช้ได้เลย ไม่ต้องเปิด SSMS ใหม่
-- **ถ้าปิดหน้าต่างโดยยังไม่ได้บันทึก:** จะถามก่อนว่าจะบันทึกไหม
+- **顶部按钮：** 新建代码片段、删除、保存 (Ctrl+S)、撤销修改（重新从文件加载）和 打开文件夹
+- **保存时的校验：** 快捷键不能为空、不能重复、不能含空格；内容不能为空
+- **立即生效：** 保存后即可使用，无需重启 SSMS
+- **未保存就关闭窗口：** 会先询问是否保存
 
-snippet เก็บอยู่ที่ไฟล์ `%APPDATA%\SqlAssist\snippets.xml` จะแก้ไฟล์นี้ด้วยมือก็ได้ ไฟล์เก่าที่ใช้ `$end$` ยังใช้ได้เหมือนเดิม (มีความหมายเดียวกับ `$CARET$`) snippet แบบหลายบรรทัดจะเยื้องตามบรรทัดที่พิมพ์คำย่อ
+代码片段保存在 `%APPDATA%\SqlAssist\snippets.xml`，也可以手动编辑该文件。使用 `$end$` 的旧文件仍然可用（含义与 `$CARET$` 相同）。多行代码片段会按输入快捷键的那一行缩进
 
-## ข้อจำกัด (v1)
+## 限制（v1）
 
-- รองรับแค่ Windows auth กับ SQL auth ยังไม่รองรับ Entra ID / Azure AD
-- database ที่ใช้มาจาก connection ของหน้าต่าง query (`AdvancedOptions["DATABASE"]` ของ SSMS) ถ้าในสคริปต์มี `USE ชื่อdb` อยู่เหนือ caret จะใช้ database นั้นแทน (ตัวล่าสุดที่อยู่เหนือ caret) แต่มองเห็นแค่ `USE` ที่อยู่ไม่เกินประมาณ 20,000 ตัวอักษรเหนือ caret ถ้าอยู่ไกลกว่านั้นจะกลับไปใช้ database ของหน้าต่าง
-- แบ่ง statement ด้วย `;`, `GO` หรือบรรทัดว่าง ถ้าเขียนหลาย query ติดกันโดยไม่มีตัวคั่น ตารางของ query อื่นอาจโผล่มาในรายการด้วย
-- คอลัมน์ของ table-valued function มาจาก function ใน database เท่านั้น function ในตัวของ SQL Server (`STRING_SPLIT`, `OPENJSON` ฯลฯ) ยังไม่รู้จัก และ TVF ที่เพิ่งสร้างใหม่ต้องกด **Ctrl+Shift+R** ก่อน
-- คอลัมน์ของ CTE ที่คำนวณจาก expression (เช่น `YEAR(OrderDate) AS SalesYear`) จะไม่มีชนิดข้อมูล รู้ชนิดเฉพาะคอลัมน์ที่ดึงมาจากตารางตรง ๆ
-- Search: ยังไม่ค้นข้อมูลในตาราง (data search) ยังไม่รวม columnstore / XML / spatial index ส่วน constraint ค้นจากชื่อ ไม่ได้ค้นจากเงื่อนไขข้างใน และ preview หรือ script ของตารางเป็น `CREATE TABLE` แบบย่อ ไม่ใช่ script เต็มแบบของ SSMS ส่วน definition ที่เปิดใน query window เป็นข้อความ `CREATE` ตามที่ SQL Server เก็บไว้ ถ้าจะแก้ต้องเปลี่ยนเป็น `ALTER` เอง
-- Search: ถ้าไม่มีหน้าต่าง query ที่ active อยู่ จะใช้ connection ล่าสุดที่เคยเห็น
+- 仅支持 Windows 身份验证和 SQL 身份验证，尚不支持 Entra ID / Azure AD
+- 数据库取自查询窗口的连接（SSMS 的 `AdvancedOptions["DATABASE"]`）。若脚本中光标上方有 `USE 数据库名`，则改用该数据库（光标上方最近的一个），但只能识别距光标约 20,000 个字符以内的 `USE`，更远时会回到窗口的数据库
+- 按 `;`、`GO` 或空行分隔语句。若多个查询连写且没有分隔符，其他查询的表也可能出现在列表中
+- 表值函数的列仅来自数据库中的函数。SQL Server 的内置函数（`STRING_SPLIT`、`OPENJSON` 等）尚不支持，新建的 TVF 需要先按 **Ctrl+Shift+R**
+- 由表达式计算出的 CTE 列（例如 `YEAR(OrderDate) AS SalesYear`）没有数据类型，只有直接从表取出的列才有类型
+- 搜索：尚不支持表内数据搜索，也不含 columnstore / XML / spatial 索引。约束按名称搜索，不搜索内部条件；表和约束的预览/脚本是简化的 `CREATE TABLE`，不是 SSMS 的完整脚本。在查询窗口中打开的定义是 SQL Server 保存的 `CREATE` 原文，如需修改请自行改成 `ALTER`
+- 搜索：若没有活动查询窗口，会使用最近一次见到的连接
 
-## เมื่อมีปัญหา
+## 遇到问题时
 
-- **Tools › SqlAssist › Options... › เปิดไฟล์ Log** จะเปิด `%LOCALAPPDATA%\SqlAssist\SqlAssist.log` ซึ่งเก็บ error ทุกตัวไว้ (ใน SSMS ต้องกลืน error ทั้งหมดไม่ให้ editor ล่ม)
-- ถ้าไม่เห็นเมนู SqlAssist ให้ปิด SSMS แล้วรัน `.\clear-ssms-cache.ps1`
+- **工具 › SqlAssist › 选项... › 打开日志文件** 会打开 `%LOCALAPPDATA%\SqlAssist\SqlAssist.log`，其中记录所有错误（在 SSMS 中必须吞掉所有错误，以免编辑器崩溃）
+- 若看不到 SqlAssist 菜单，请关闭 SSMS 后运行 `.\clear-ssms-cache.ps1`
 
-## สำหรับนักพัฒนา
+## 开发者
 
 ```
-src/SqlAssist.Core     logic ล้วน (netstandard2.0) ไม่พึ่ง VS: tokenizer, context, statement scanner, SQL formatter, clipboard → SQL, fuzzy, alias, JOIN, *, snippets, search matcher, CREATE TABLE preview, settings, update policy
-src/SqlAssist.Vsix     ส่วนที่เชื่อมกับ SSMS (net48): completion source, item/commit manager, Tab filter, schema cache, Search tool window + index cache, update check
-tests/                 xUnit ของ Core
+src/SqlAssist.Core     纯逻辑（netstandard2.0），不依赖 VS：tokenizer、上下文、语句扫描、SQL 格式化、剪贴板 → SQL、模糊匹配、别名、JOIN、*、代码片段、搜索匹配、CREATE TABLE 预览、设置、更新策略
+src/SqlAssist.Vsix     与 SSMS 集成的部分（net48）：补全源、项/提交管理器、Tab 过滤器、架构缓存、搜索工具窗口 + 索引缓存、更新检查
+tests/                 Core 的 xUnit 测试
 ```
 
 - `dotnet test tests\SqlAssist.Core.Tests`
-- `dotnet build src\SqlAssist.Vsix -c Release` จะได้ `src\SqlAssist.Vsix\bin\Release\net48\SqlAssist.vsix`
-- Debug: ตั้ง start program เป็น `Ssms.exe` ไว้แล้ว (SSMS 22 ไม่มี experimental instance จึงต้องติดตั้งก่อนแล้วค่อย attach หรือ F5)
-- ตอน build ไม่ต้องมี SSMS เพราะ connection ของ SSMS อ่านผ่าน reflection เข้า `SQLEditors.dll` ตอน runtime เท่านั้น จึงไม่มี DLL ของ SSMS ถูกอ้างอิงตอน build
-- เชื่อมต่อฐานข้อมูลด้วย `System.Data.SqlClient` ที่มากับ .NET Framework จึงไม่ต้องแนบ DLL เพิ่มใน VSIX
+- `dotnet build src\SqlAssist.Vsix -c Release` 会生成 `src\SqlAssist.Vsix\bin\Release\net48\SqlAssist.vsix`
+- 调试：启动程序已设为 `Ssms.exe`（SSMS 22 没有实验实例，因此需先安装再附加调试或按 F5）
+- 构建时不需要 SSMS：SSMS 的连接是通过反射读取 `SQLEditors.dll`，仅在运行时需要，因此构建时不引用 SSMS 的 DLL
+- 数据库连接使用 .NET Framework 自带的 `System.Data.SqlClient`，无需在 VSIX 中附带额外 DLL

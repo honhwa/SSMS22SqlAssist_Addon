@@ -31,7 +31,10 @@ namespace SqlAssist.Search
             Type = SearchControl.TypeLabel(item);
             Parent = item.Parent ?? "";
             Database = item.Database;
-            MatchedIn = match.Location == (MatchLocation.Name | MatchLocation.Definition) ? "Name, Definition" : match.Location.ToString();
+            MatchedIn = match.Location == (MatchLocation.Name | MatchLocation.Definition) ? "名称、定义"
+                : match.Location == MatchLocation.Name ? "名称"
+                : match.Location == MatchLocation.Definition ? "定义"
+                : "";
         }
 
         public SearchMatch Match { get; }
@@ -54,10 +57,10 @@ namespace SqlAssist.Search
 
         private static readonly (SearchObjectType type, string label)[] TypeChoices =
         {
-            (SearchObjectType.Schema, "Schema"), (SearchObjectType.Table, "Table"), (SearchObjectType.View, "View"),
-            (SearchObjectType.Procedure, "Procedure"), (SearchObjectType.Function, "Function"),
-            (SearchObjectType.Trigger, "Trigger"), (SearchObjectType.Column, "Column"), (SearchObjectType.Index, "Index"),
-            (SearchObjectType.Constraint, "Constraint"), (SearchObjectType.UserDefinedType, "User-defined type"),
+            (SearchObjectType.Schema, "架构"), (SearchObjectType.Table, "表"), (SearchObjectType.View, "视图"),
+            (SearchObjectType.Procedure, "存储过程"), (SearchObjectType.Function, "函数"),
+            (SearchObjectType.Trigger, "触发器"), (SearchObjectType.Column, "列"), (SearchObjectType.Index, "索引"),
+            (SearchObjectType.Constraint, "约束"), (SearchObjectType.UserDefinedType, "用户定义类型"),
         };
 
         /// <summary>The Type column's text: "User-defined type", "Constraint (Check)".</summary>
@@ -106,15 +109,15 @@ namespace SqlAssist.Search
             _searchBox.TextChanged += (s, e) => Schedule();
             _searchBox.PreviewKeyDown += OnSearchKey;
 
-            var optionsButton = new DropDownButton(46, "Match options") { Text = "⚙", Margin = new Thickness(0, 0, 6, 0) };
+            var optionsButton = new DropDownButton(46, "匹配选项") { Text = "⚙", Margin = new Thickness(0, 0, 6, 0) };
             optionsButton.Click += (s, e) => ShowOptionsMenu(optionsButton);
-            _typesButton = new DropDownButton(150, "Object types to search") { Margin = new Thickness(0, 0, 6, 0) };
+            _typesButton = new DropDownButton(150, "要搜索的对象类型") { Margin = new Thickness(0, 0, 6, 0) };
             _typesButton.Click += (s, e) => ShowTypesMenu();
-            _databasesButton = new DropDownButton(170, "Databases to search") { Margin = new Thickness(0, 0, 6, 0) };
+            _databasesButton = new DropDownButton(170, "要搜索的数据库") { Margin = new Thickness(0, 0, 6, 0) };
             _databasesButton.Click += (s, e) => ThreadHelper.JoinableTaskFactory.RunAsync(ShowDatabaseMenuAsync).FileAndForget("SqlAssist/Search/Databases");
-            _serverButton = new DropDownButton(170, "Server: the active query window's, or one used earlier this session") { Margin = new Thickness(0, 0, 6, 0) };
+            _serverButton = new DropDownButton(170, "服务器：当前查询窗口所用的，或本会话中之前用过的") { Margin = new Thickness(0, 0, 6, 0) };
             _serverButton.Click += (s, e) => ShowServerMenu();
-            var refresh = new Button { Content = "Refresh", Padding = new Thickness(8, 1, 8, 1), ToolTip = "Reload the search index from the server" };
+            var refresh = new Button { Content = "刷新", Padding = new Thickness(8, 1, 8, 1), ToolTip = "从服务器重新加载搜索索引" };
             refresh.Click += (s, e) => { SearchIndexCache.Instance.Clear(); _databases = null; StartSearch(); };
             UpdateTypesButton();
 
@@ -165,7 +168,7 @@ namespace SqlAssist.Search
             Children.Add(_status);
             Children.Add(split);
 
-            SetStatus("Type at least " + SearchQuery.MinLength + " characters to search.");
+            SetStatus("至少输入 " + SearchQuery.MinLength + " 个字符才能搜索。");
             Loaded += (s, e) =>
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
@@ -205,16 +208,16 @@ namespace SqlAssist.Search
                 };
                 menu.Items.Add(item);
             }
-            Add("Match case", _settings.MatchCase, on => _settings.MatchCase = on);
-            Add("Match whole word", _settings.WholeWord, on => _settings.WholeWord = on);
-            Add("Use wildcards (* ?)", _settings.UseWildcards, on => _settings.UseWildcards = on);
+            Add("区分大小写", _settings.MatchCase, on => _settings.MatchCase = on);
+            Add("全字匹配", _settings.WholeWord, on => _settings.WholeWord = on);
+            Add("使用通配符 (* ?)", _settings.UseWildcards, on => _settings.UseWildcards = on);
             menu.IsOpen = true;
         }
 
         private void ShowTypesMenu()
         {
             var menu = MenuFor(_typesButton);
-            var all = Checkable("All object types", _settings.Types == SearchObjectType.All);
+            var all = Checkable("所有对象类型", _settings.Types == SearchObjectType.All);
             menu.Items.Add(all);
             menu.Items.Add(new Separator());
             var typeItems = new List<(MenuItem item, SearchObjectType type)>();
@@ -248,28 +251,28 @@ namespace SqlAssist.Search
         private void UpdateTypesButton()
         {
             var chosen = TypeChoices.Where(c => (_settings.Types & c.type) != 0).Select(c => c.label).ToList();
-            _typesButton.Text = chosen.Count == TypeChoices.Length ? "All object types"
-                : chosen.Count == 0 ? "No object types"
+            _typesButton.Text = chosen.Count == TypeChoices.Length ? "所有对象类型"
+                : chosen.Count == 0 ? "未选择对象类型"
                 : chosen.Count <= 2 ? string.Join(", ", chosen)
-                : chosen.Count + " object types";
+                : chosen.Count + " 种对象类型";
         }
 
         private void ShowServerMenu()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             var menu = MenuFor(_serverButton);
-            var follow = Checkable("Active query window", _pinnedServerKey == null);
+            var follow = Checkable("当前查询窗口", _pinnedServerKey == null);
             follow.StaysOpenOnClick = false;
             follow.Click += (s, e) => { _pinnedServerKey = null; StartSearch(); };
             menu.Items.Add(follow);
             menu.Items.Add(new Separator());
             var seen = ActiveConnection.SeenServers;
-            if (seen.Count == 0) menu.Items.Add(new MenuItem { Header = "(no connection yet)", IsEnabled = false });
+            if (seen.Count == 0) menu.Items.Add(new MenuItem { Header = "（尚未连接）", IsEnabled = false });
             foreach (var target in seen)
             {
                 var item = Checkable(target.Server, _server != null && target.ServerKey == _server.ServerKey);
                 item.StaysOpenOnClick = false;
-                item.ToolTip = target.ServerKey.Contains("|windows") ? "Windows authentication" : "SQL login";
+                item.ToolTip = target.ServerKey.Contains("|windows") ? "Windows 身份验证" : "SQL 登录";
                 string key = target.ServerKey;
                 item.Click += (s, e) => { _pinnedServerKey = key; StartSearch(); };
                 menu.Items.Add(item);
@@ -304,8 +307,8 @@ namespace SqlAssist.Search
 
             foreach (var (title, path, width) in new[]
             {
-                ("Name", nameof(ResultRow.Name), 220.0), ("Schema", nameof(ResultRow.Schema), 90.0), ("Type", nameof(ResultRow.Type), 140.0),
-                ("Parent", nameof(ResultRow.Parent), 160.0), ("Database", nameof(ResultRow.Database), 130.0), ("Matched in", nameof(ResultRow.MatchedIn), 120.0),
+                ("名称", nameof(ResultRow.Name), 220.0), ("架构", nameof(ResultRow.Schema), 90.0), ("类型", nameof(ResultRow.Type), 140.0),
+                ("所属对象", nameof(ResultRow.Parent), 160.0), ("数据库", nameof(ResultRow.Database), 130.0), ("匹配位置", nameof(ResultRow.MatchedIn), 120.0),
             })
             {
                 grid.Columns.Add(new DataGridTextColumn { Header = title, Binding = new Binding(path), Width = new DataGridLength(width), SortMemberPath = path });
@@ -325,11 +328,11 @@ namespace SqlAssist.Search
                 e.Handled = true;
             };
             var rowMenu = new ContextMenu();
-            var locate = new MenuItem { Header = "Locate in Object Explorer", InputGestureText = "Enter / Double-click" };
+            var locate = new MenuItem { Header = "在对象资源管理器中定位", InputGestureText = "Enter / 双击" };
             locate.Click += (s, e) => Locate();
-            var open = new MenuItem { Header = "Open in new query window", InputGestureText = "Ctrl+Enter" };
+            var open = new MenuItem { Header = "在新查询窗口中打开", InputGestureText = "Ctrl+Enter" };
             open.Click += (s, e) => OpenScript();
-            var copy = new MenuItem { Header = "Copy name", InputGestureText = "Ctrl+C" };
+            var copy = new MenuItem { Header = "复制名称", InputGestureText = "Ctrl+C" };
             copy.Click += (s, e) => CopyName();
             rowMenu.Items.Add(locate);
             rowMenu.Items.Add(open);
@@ -357,12 +360,12 @@ namespace SqlAssist.Search
             var item = SelectedItem;
             var server = _server;
             if (item == null || server == null) return;
-            SetStatus("Locating " + item.Name + " in Object Explorer…");
+            SetStatus("正在对象资源管理器中定位 " + item.Name + "…");
             ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
             {
                 string problem = await SsmsNavigator.LocateAsync(server, item, CancellationToken.None);
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                SetStatus(problem ?? "Selected " + item.Name + " in Object Explorer.");
+                SetStatus(problem ?? "已在对象资源管理器中选中 " + item.Name + "。");
             }).FileAndForget("SqlAssist/Search/Locate");
         }
 
@@ -427,7 +430,7 @@ namespace SqlAssist.Search
                 : ActiveConnection.SeenServers.FirstOrDefault(t => t.ServerKey == _pinnedServerKey) ?? active;
             if (target == null)
             {
-                _serverButton.Text = "No connection";
+                _serverButton.Text = "无连接";
                 return null;
             }
             if (_server == null || _server.ServerKey != target.ServerKey)
@@ -450,10 +453,10 @@ namespace SqlAssist.Search
 
         private void UpdateDatabasesButton()
         {
-            _databasesButton.Text = _allDatabases ? "All databases"
+            _databasesButton.Text = _allDatabases ? "所有数据库"
                 : _selected.Count == 1 ? _selected.First()
-                : _selected.Count == 0 ? "Databases"
-                : _selected.Count + " databases";
+                : _selected.Count == 0 ? "数据库"
+                : _selected.Count + " 个数据库";
         }
 
         private async Task SearchAsync()
@@ -470,7 +473,7 @@ namespace SqlAssist.Search
                 var server = UpdateServer();
                 if (server == null)
                 {
-                    SetStatus("Open a query window connected to a server (Entra ID connections are not supported yet).");
+                    SetStatus("请打开一个已连接服务器的查询窗口（暂不支持 Entra ID 连接）。");
                     return;
                 }
 
@@ -483,8 +486,8 @@ namespace SqlAssist.Search
                     Types = _settings.Types,
                 });
                 _matcher = matcher;
-                if (_settings.Types == SearchObjectType.None) { SetStatus("Select at least one object type."); return; }
-                if (matcher.IsEmpty) { SetStatus("Type at least " + SearchQuery.MinLength + " characters to search."); return; }
+                if (_settings.Types == SearchObjectType.None) { SetStatus("请至少选择一种对象类型。"); return; }
+                if (matcher.IsEmpty) { SetStatus("至少输入 " + SearchQuery.MinLength + " 个字符才能搜索。"); return; }
 
                 if (_selected.Count == 0 && !_allDatabases)
                 {
@@ -510,7 +513,7 @@ namespace SqlAssist.Search
                 for (int i = 0; i < databases.Count && _results.Count < ResultLimit; i++)
                 {
                     string db = databases[i];
-                    SetStatus($"Searching {db} ({i + 1}/{databases.Count})… {_results.Count} found");
+                    SetStatus($"正在搜索 {db}（{i + 1}/{databases.Count}）… 已找到 {_results.Count} 个");
                     IReadOnlyList<SearchItem> items;
                     try
                     {
@@ -531,9 +534,9 @@ namespace SqlAssist.Search
                     searched++;
                 }
 
-                string summary = $"{_results.Count} result{(_results.Count == 1 ? "" : "s")} in {searched} database{(searched == 1 ? "" : "s")}";
-                if (_results.Count >= ResultLimit) summary += $" (first {ResultLimit} shown; narrow the search)";
-                if (skipped.Count > 0) summary += " · skipped (see log): " + string.Join(", ", skipped);
+                string summary = $"{_results.Count} 个结果，来自 {searched} 个数据库";
+                if (_results.Count >= ResultLimit) summary += $"（仅显示前 {ResultLimit} 个，请缩小搜索范围）";
+                if (skipped.Count > 0) summary += " · 已跳过（见日志）：" + string.Join(", ", skipped);
                 SetStatus(summary);
                 if (_results.Count > 0) _grid.SelectedIndex = 0;
             }
@@ -545,7 +548,7 @@ namespace SqlAssist.Search
             {
                 if (token.IsCancellationRequested) return;
                 Log.Error("Search", ex);
-                SetStatus("Search failed: " + ex.Message);
+                SetStatus("搜索失败：" + ex.Message);
             }
         }
 
@@ -553,7 +556,7 @@ namespace SqlAssist.Search
         {
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             var server = UpdateServer();
-            if (server == null) { SetStatus("Open a query window connected to a server first."); return; }
+            if (server == null) { SetStatus("请先打开一个已连接服务器的查询窗口。"); return; }
             var databases = _databases;
             if (databases == null)
             {
@@ -571,7 +574,7 @@ namespace SqlAssist.Search
             }
 
             var menu = MenuFor(_databasesButton);
-            var all = new MenuItem { Header = "All databases", IsCheckable = true, IsChecked = _allDatabases, StaysOpenOnClick = true };
+            var all = new MenuItem { Header = "所有数据库", IsCheckable = true, IsChecked = _allDatabases, StaysOpenOnClick = true };
             menu.Items.Add(all);
             menu.Items.Add(new Separator());
 
@@ -620,8 +623,8 @@ namespace SqlAssist.Search
             if (text == null)
             {
                 if (match != null) para.Inlines.Add(new Run(match.Item.Type == SearchObjectType.Schema
-                    ? "Schema " + match.Item.Name
-                    : "-- No definition available (encrypted or CLR object)") { FontStyle = FontStyles.Italic });
+                    ? "架构 " + match.Item.Name
+                    : "-- 无可用定义（已加密或为 CLR 对象）") { FontStyle = FontStyles.Italic });
                 return;
             }
 

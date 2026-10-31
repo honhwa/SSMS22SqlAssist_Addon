@@ -12,7 +12,7 @@ namespace SqlAssist.Search
 
         public SearchToolWindow() : base(null)
         {
-            Caption = "SqlAssist Search";
+            Caption = "SqlAssist 搜索";
             Content = _control;
         }
 

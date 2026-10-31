@@ -23,12 +23,12 @@ namespace SqlAssist.Core.Snippets
 
         public static readonly IReadOnlyList<SnippetLiteral> All = new[]
         {
-            new SnippetLiteral(Caret, "ตำแหน่งเคอร์เซอร์หลังขยาย snippet"),
-            new SnippetLiteral("DATE", "วันที่ปัจจุบัน (yyyy-MM-dd)"),
-            new SnippetLiteral("TIME", "เวลาปัจจุบัน (HH:mm:ss)"),
-            new SnippetLiteral("USER", "ชื่อผู้ใช้ Windows"),
-            new SnippetLiteral("DB", "database ของหน้า query"),
-            new SnippetLiteral("SERVER", "server ของหน้า query"),
+            new SnippetLiteral(Caret, "展开代码片段后的光标位置"),
+            new SnippetLiteral("DATE", "当前日期 (yyyy-MM-dd)"),
+            new SnippetLiteral("TIME", "当前时间 (HH:mm:ss)"),
+            new SnippetLiteral("USER", "Windows 用户名"),
+            new SnippetLiteral("DB", "查询窗口的数据库"),
+            new SnippetLiteral("SERVER", "查询窗口的服务器"),
         };
 
         /// <summary>Values for the literals at this moment. DB and SERVER come from the caller (the active connection).</summary>

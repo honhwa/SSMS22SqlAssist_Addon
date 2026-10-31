@@ -233,8 +233,8 @@ namespace SqlAssist.Core.Tests
         [Fact]
         public void ReportsWhatItCannotRead()
         {
-            Assert.Contains("string", SqlStatementScanner.Scan("SELECT 'abc").Problems.Single().Message);
-            Assert.Contains("comment", SqlStatementScanner.Scan("SELECT 1 /* abc").Problems.Single().Message);
+            Assert.Contains("字符串", SqlStatementScanner.Scan("SELECT 'abc").Problems.Single().Message);
+            Assert.Contains("注释", SqlStatementScanner.Scan("SELECT 1 /* abc").Problems.Single().Message);
             Assert.Contains("[", SqlStatementScanner.Scan("SELECT [abc").Problems.Single().Message);
             var open = SqlStatementScanner.Scan("SELECT (1 + 2");
             Assert.Single(open.Problems);

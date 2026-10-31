@@ -18,7 +18,7 @@ namespace SqlAssist.Results
     /// picks where it starts out sending the script.</summary>
     internal static class GenerateScriptCommands
     {
-        private const string Title = "SqlAssist: Generate Script As";
+        private const string Title = "SqlAssist：生成脚本";
         /// <summary>Command id = First + kind * 0x10 + target (see SqlAssistPackage.vsct).</summary>
         public const int First = 0x0200;
         /// <summary>More rows than this would make a script SSMS's editor struggles to open.</summary>
@@ -51,7 +51,7 @@ namespace SqlAssist.Results
                 if (selection == null) { Show(problem); return; }
                 if (selection.Rows.Count > MaxRows)
                 {
-                    Show("The selection has " + selection.Rows.Count.ToString("N0") + " rows; Generate Script As handles up to " + MaxRows.ToString("N0") + ".");
+                    Show("所选内容有 " + selection.Rows.Count.ToString("N0") + " 行；生成脚本最多支持 " + MaxRows.ToString("N0") + " 行。");
                     return;
                 }
 
@@ -72,14 +72,14 @@ namespace SqlAssist.Results
                     script = ResultScriptBuilder.Build(kind, selection.Columns, selection.Selected, rows);
                 }
                 int count = selection.Rows.Count;
-                string what = Describe(kind) + " script (" + count + (count == 1 ? " row)" : " rows)");
+                string what = Describe(kind) + " 脚本（" + count + " 行）";
 
                 ScriptDelivery.Send(script, target, what, Title);
             }
             catch (Exception ex)
             {
                 Log.Error("Generate script", ex);
-                Show("Generate Script As failed: " + ex.Message);
+                Show("生成脚本失败：" + ex.Message);
             }
         }
 
@@ -108,7 +108,7 @@ namespace SqlAssist.Results
                 {
                     _chordPending = true;
                     handled = true;
-                    Status("SqlAssist: Ctrl+J, then I (INSERT), T (INSERT #tmpTable), W (WHERE IN), O (WHERE AND OR) or U (UPDATE, asks for the table and key)");
+                    Status("SqlAssist：先按 Ctrl+J，再按 I (INSERT)、T (INSERT #tmpTable)、W (WHERE IN)、O (WHERE AND OR) 或 U (UPDATE，会询问表和键列)");
                 }
             }
             catch (Exception ex)

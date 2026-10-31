@@ -36,8 +36,8 @@ namespace SqlAssist.Core.Clipboard
         {
             text = text ?? "";
             if (text.Length > MaxChars)
-                return Fail("ข้อมูลใหญ่เกิน " + MaxChars.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) +
-                            " ตัวอักษร (วางมา " + text.Length.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + ") — แบ่งวางทีละส่วน");
+                return Fail("数据过大，超过 " + MaxChars.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) +
+                            " 个字符（已粘贴 " + text.Length.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + "）—— 请分批粘贴");
 
             var rows = new List<string[]>();
             var warnings = new List<string>();
@@ -53,7 +53,7 @@ namespace SqlAssist.Core.Clipboard
                 {
                     int rowNumber = rows.Count + 1;
                     if (!ReadQuoted(text, ref i, cell))
-                        return Fail("แถวที่ " + rowNumber + ": เปิด quote (\") แล้วไม่ปิด — ตรวจว่า cell ที่มี quote ใช้ \"\" แทน \" หรือไม่");
+                        return Fail("第 " + rowNumber + " 行：引号 (\") 已打开但未闭合 —— 请检查含引号的单元格是否用 \"\" 代替 \"");
                     quotedCell = true;
                     continue;
                 }
@@ -79,7 +79,7 @@ namespace SqlAssist.Core.Clipboard
                 if (quotedCell && !warnedAfterQuote)
                 {
                     warnedAfterQuote = true;
-                    warnings.Add("แถวที่ " + (rows.Count + 1) + ": มีข้อความต่อท้ายหลัง quote ปิด (เช่น \"abc\"def) — เก็บรวมเป็นข้อความใน cell เดียวกัน");
+                    warnings.Add("第 " + (rows.Count + 1) + " 行：闭合引号后还有多余字符（例如 \"abc\"def）—— 已合并为同一单元格的文本");
                 }
                 cell.Append(c);
                 i++;
@@ -101,16 +101,16 @@ namespace SqlAssist.Core.Clipboard
             {
                 int width = rows[0].Length;
                 if (rows.Any(r => r.Length > MaxColumns))
-                    return Fail("มีคอลัมน์มากเกิน " + MaxColumns + " คอลัมน์ต่อแถว");
+                    return Fail("列数过多，超过 " + MaxColumns + " 列/行");
                 for (int r = 1; r < rows.Count; r++)
                 {
                     if (rows[r].Length == width) continue;
                     problems++;
                     if (errors.Count < MaxReportedProblems)
-                        errors.Add("แถวที่ " + (r + 1) + " มี " + rows[r].Length + " คอลัมน์ แต่แถวแรกมี " + width + " คอลัมน์ (ไม่เติมช่องให้เอง — แก้ข้อมูลให้ตรงกันก่อน)");
+                        errors.Add("第 " + (r + 1) + " 行有 " + rows[r].Length + " 列，但首行有 " + width + " 列（不会自动补齐 —— 请先修正数据使其一致）");
                 }
                 if (problems > errors.Count)
-                    errors.Add("พบปัญหาทั้งหมด " + problems + " ข้อ (แสดง " + errors.Count + " ข้อแรก)");
+                    errors.Add("共发现 " + problems + " 个问题（显示前 " + errors.Count + " 个）");
             }
             return new DelimitedTable(rows, errors, warnings);
         }
@@ -134,7 +134,7 @@ namespace SqlAssist.Core.Clipboard
         }
 
         private static DelimitedTable TooManyRows() =>
-            Fail("มีแถวมากเกิน " + MaxRows.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " แถว — แบ่งวางทีละส่วน");
+            Fail("行数过多，超过 " + MaxRows.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " 行 —— 请分批粘贴");
 
         private static DelimitedTable Fail(string error) =>
             new DelimitedTable(new string[0][], new[] { error }, new string[0]);

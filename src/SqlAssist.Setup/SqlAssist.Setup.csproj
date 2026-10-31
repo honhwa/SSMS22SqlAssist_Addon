@@ -25,8 +25,13 @@
     <ProjectReference Include="..\SqlAssist.Vsix\SqlAssist.Vsix.csproj" ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>
 
-  <Target Name="EmbedVsix" BeforeTargets="PrepareForBuild">
-    <Error Condition="!Exists('$(VsixPath)')" Text="$(VsixPath) not found. Build src\SqlAssist.Vsix first (Configuration=$(Configuration))." />
+  <!-- The .vsix comes from the referenced project, and MSBuild builds project references in ResolveReferences, which
+       runs AFTER PrepareForBuild. Hanging this off PrepareForBuild therefore checks for the file before the Vsix
+       project has ever been built: a clean tree (no .vsix yet) failed here instead of building the extension first.
+       PrepareResources is the first target that actually needs the embedded resource, and it runs after
+       ResolveReferences, so by then the .vsix exists. -->
+  <Target Name="EmbedVsix" AfterTargets="ResolveProjectReferences" BeforeTargets="PrepareResources">
+    <Error Condition="!Exists('$(VsixPath)')" Text="$(VsixPath) not found. Build the whole solution (or src\SqlAssist.Vsix first), then build this project again (Configuration=$(Configuration))." />
     <ItemGroup>
       <EmbeddedResource Include="$(VsixPath)" LogicalName="SqlAssist.vsix" />
     </ItemGroup>

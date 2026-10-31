@@ -189,7 +189,7 @@ namespace SqlAssist.Setup
                 g.DrawImage(_logo, inner);
             }
             DrawRun(g, "SqlAssist", _name, Color.White, D(74), D(26));
-            DrawRun(g, "สำหรับ SSMS 22", _small, Theme.NavyMuted, D(74), D(50));
+            DrawRun(g, "适用于 SSMS 22", _small, Theme.NavyMuted, D(74), D(50));
 
             float y = D(104);
             for (int i = 0; i < _steps.Length; i++)
@@ -403,16 +403,16 @@ namespace SqlAssist.Setup
         }
     }
 
-    /// <summary>"ติดตั้งอยู่ 1.2.15 → เวอร์ชันใหม่ 1.2.17" with the SSMS check on the right.</summary>
+    /// <summary>"已安装 1.2.15 → 新版本 1.2.17"，右侧是 SSMS 检查结果。</summary>
     internal sealed class VersionCard : PaintedControl
     {
         private readonly Font _caption = Theme.Ui(8f);
         private readonly Font _value = Theme.Mono(15f, FontStyle.Bold);
         private readonly Font _status = Theme.Ui(8.5f);
 
-        public string FromCaption { get; set; } = "ติดตั้งอยู่";
+        public string FromCaption { get; set; } = "已安装";
         public string FromValue { get; set; }
-        public string ToCaption { get; set; } = "เวอร์ชันใหม่";
+        public string ToCaption { get; set; } = "新版本";
         public string ToValue { get; set; }
         public string Status { get; set; }
         public bool StatusOk { get; set; } = true;
@@ -454,7 +454,7 @@ namespace SqlAssist.Setup
         }
     }
 
-    /// <summary>A small rounded label such as "มีเวอร์ชันใหม่"; sizes itself to the text.</summary>
+    /// <summary>小圆角标签，例如"有新版本"；宽度随文字自适应。</summary>
     internal sealed class Badge : PaintedControl
     {
         private readonly Font _font = Theme.Ui(8f, FontStyle.Bold);
@@ -500,7 +500,7 @@ namespace SqlAssist.Setup
         }
     }
 
-    /// <summary>The "รายละเอียด" box: one line per thing done (✓) and the step running now (›, bold).</summary>
+    /// <summary>"详细信息"框：每完成一项显示一行（✓），当前步骤加粗显示（›）。</summary>
     internal sealed class LogBox : PaintedControl
     {
         // Not monospace: Consolas has no Thai, and its fallback renders the Thai words noticeably smaller.
@@ -619,7 +619,7 @@ namespace SqlAssist.Setup
         }
     }
 
-    /// <summary>One line of text in several styles, e.g. "เป็นเวอร์ชัน <b>1.2.17</b> แล้ว".</summary>
+    /// <summary>一行文字可分段使用不同样式，例如"版本为 <b>1.2.17</b>"。</summary>
     internal sealed class RunsLabel : PaintedControl
     {
         private readonly List<Tuple<string, Font, Color>> _runs = new List<Tuple<string, Font, Color>>();

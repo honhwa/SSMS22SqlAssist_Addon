@@ -21,17 +21,17 @@ namespace SqlAssist.Core.Sql
 
             if (parts.Count > MaxParts)
             {
-                error = "ใส่ได้สูงสุด 3 ส่วน (database.schema.table)";
+                error = "最多只能有 3 个部分 (database.schema.table)";
                 return false;
             }
             for (int i = 0; i < parts.Count; i++)
             {
                 string part = parts[i];
-                if (part.Trim().Length == 0) { error = "ชื่อบางส่วนว่างอยู่"; return false; }
-                if (part.Length > MaxPartLength) { error = "ชื่อ \"" + Shorten(part) + "\" ยาวเกิน " + MaxPartLength + " ตัวอักษร"; return false; }
+                if (part.Trim().Length == 0) { error = "某个名称为空"; return false; }
+                if (part.Length > MaxPartLength) { error = "名称 \"" + Shorten(part) + "\" 长度超过 " + MaxPartLength + " 个字符"; return false; }
                 if (parts.Count > 1 && (part[0] == '#' || part[0] == '@'))
                 {
-                    error = "ชื่อที่ขึ้นต้นด้วย # หรือ @ (temp table / table variable) ใส่ schema หรือ database นำหน้าไม่ได้";
+                    error = "以 # 或 @ 开头的名称（临时表 / 表变量）不能加 schema 或 database 前缀";
                     return false;
                 }
             }
@@ -49,13 +49,13 @@ namespace SqlAssist.Core.Sql
         private static bool TryReadParts(string text, List<string> parts, out string error)
         {
             error = null;
-            if (string.IsNullOrWhiteSpace(text)) { error = "ใส่ชื่อตารางปลายทาง"; return false; }
+            if (string.IsNullOrWhiteSpace(text)) { error = "请输入目标表名称"; return false; }
 
             int i = 0;
             while (true)
             {
                 SkipSpaces(text, ref i);
-                if (i >= text.Length) { error = "ชื่อไม่ครบ: หลังจุดต้องมีชื่ออีกส่วน"; return false; }
+                if (i >= text.Length) { error = "名称不完整：点号后必须还有一段名称"; return false; }
 
                 string part;
                 char c = text[i];
@@ -69,7 +69,7 @@ namespace SqlAssist.Core.Sql
                     while (i < text.Length && IsBareChar(text[i])) i++;
                     if (i == start)
                     {
-                        error = "ใช้อักขระ '" + c + "' ในชื่อโดยไม่ครอบด้วย [ ] ไม่ได้";
+                        error = "不能在名称中使用字符 '" + c + "'（除非用 [ ] 括起来）";
                         return false;
                     }
                     part = text.Substring(start, i - start);
@@ -80,7 +80,7 @@ namespace SqlAssist.Core.Sql
                 if (i >= text.Length) return true;
                 if (text[i] != '.')
                 {
-                    error = "ใช้อักขระ '" + text[i] + "' ในชื่อโดยไม่ครอบด้วย [ ] ไม่ได้ (ชื่อที่มีช่องว่างหรืออักขระพิเศษต้องอยู่ใน [ ])";
+                    error = "不能在名称中使用字符 '" + text[i] + "'（含空格或特殊字符的名称必须放在 [ ] 中）";
                     return false;
                 }
                 i++;
@@ -104,11 +104,11 @@ namespace SqlAssist.Core.Sql
                     part = sb.ToString();
                     return true;
                 }
-                if (char.IsControl(c)) { error = "ชื่อมีอักขระควบคุม (เช่น ขึ้นบรรทัดใหม่) ไม่ได้"; return false; }
+                if (char.IsControl(c)) { error = "名称中不能包含控制字符（例如换行）"; return false; }
                 sb.Append(c);
                 i++;
             }
-            error = "ชื่อเปิดด้วย " + (close == ']' ? "[" : "\"") + " แต่ไม่ได้ปิดด้วย " + close;
+            error = "名称以 " + (close == ']' ? "[" : "\"") + " 开始，但缺少闭合符号 " + close;
             return false;
         }
 

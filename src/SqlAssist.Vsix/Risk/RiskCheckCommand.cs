@@ -27,13 +27,13 @@ namespace SqlAssist.Risk
                 var view = ActiveSqlEditor.Find();
                 if (view == null)
                 {
-                    ScriptDelivery.Status("SqlAssist: Check SQL Risks — เปิดหน้า query ก่อน");
+                    ScriptDelivery.Status("SqlAssist：检查 SQL 风险 —— 请先打开查询窗口");
                     return;
                 }
                 var scope = ActiveSqlEditor.RunScope(view, out bool isSelection);
                 if (scope.Length > MaxChars)
                 {
-                    ScriptDelivery.Show("ข้อความยาวเกิน " + MaxChars.ToString("N0") + " ตัวอักษร ให้เลือกเฉพาะส่วนที่ต้องการตรวจแทน", "SqlAssist: Check SQL Risks");
+                    ScriptDelivery.Show("文本过长，超过 " + MaxChars.ToString("N0") + " 个字符，请只选择要检查的部分", "SqlAssist: Check SQL Risks");
                     return;
                 }
                 var report = RiskAnalyzer.Analyze(scope.GetText(), SettingsProvider.Load().Risk);
@@ -42,7 +42,7 @@ namespace SqlAssist.Risk
             catch (Exception ex)
             {
                 Log.Error("Check SQL risks", ex);
-                ScriptDelivery.Show("ตรวจ SQL ไม่สำเร็จ: " + ex.GetType().Name + "\n(ดูรายละเอียดที่ Tools › SqlAssist › Options… › เปิดไฟล์ Log)", "SqlAssist: Check SQL Risks");
+                ScriptDelivery.Show("检查 SQL 失败：" + ex.GetType().Name + "\n（详情请见 工具 › SqlAssist › 选项… › 打开日志文件）", "SqlAssist：检查 SQL 风险");
             }
         }
     }

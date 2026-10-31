@@ -82,13 +82,13 @@ namespace SqlAssist.Core.Clipboard
             int firstData = request.FirstRowIsHeader ? 1 : 0;
             int dataRows = Math.Max(0, request.Rows.Count - firstData);
 
-            if (columnCount == 0 || dataRows == 0) errors.Add("ไม่มีแถวข้อมูล (วางข้อมูลก่อน" + (request.FirstRowIsHeader ? " หรือเอาติ๊ก \"แถวแรกเป็นชื่อคอลัมน์\" ออก" : "") + ")");
-            else if (request.ColumnTypes == null || request.ColumnTypes.Count < columnCount) errors.Add("ยังไม่ได้กำหนดชนิดข้อมูลของทุกคอลัมน์");
+            if (columnCount == 0 || dataRows == 0) errors.Add("没有数据行（请先粘贴数据" + (request.FirstRowIsHeader ? "，或取消勾选\"首行为列名\"" : "") + ")");
+            else if (request.ColumnTypes == null || request.ColumnTypes.Count < columnCount) errors.Add("尚未为所有列指定数据类型");
             if (request.Kind == ClipboardSqlKind.In && columnCount > 0 && (request.InColumn < 0 || request.InColumn >= columnCount))
-                errors.Add("เลือกคอลัมน์สำหรับ IN ไม่ถูกต้อง");
+                errors.Add("为 IN 选择的列无效");
             string tempName = request.TempTableName;
             if (request.Kind == ClipboardSqlKind.TempTable && !TryTempTableName(request.TempTableName, out tempName, out string nameError))
-                errors.Add("ชื่อ temp table: " + nameError);
+                errors.Add("临时表名称：" + nameError);
             if (errors.Total > 0) return Failed(errors, warnings, dataRows);
 
             var headerNames = HeaderNames(request.Rows, request.FirstRowIsHeader, columnCount);
@@ -131,16 +131,16 @@ namespace SqlAssist.Core.Clipboard
                     if (cell.Length == 0)
                         parsed = request.EmptyCell == EmptyCellRule.Null ? new CellParse(null)
                             : isText ? new CellParse("")
-                            : new CellParse(null, "cell ว่างเก็บเป็นสตริงว่างใน " + TypeName(type) + " ไม่ได้ (เลือกให้ cell ว่างเป็น NULL หรือเปลี่ยนชนิดเป็นข้อความ)");
+                            : new CellParse(null, "空单元格不能以空字符串存入 " + TypeName(type) + "（请将空单元格设为 NULL，或把类型改为文本）");
                     else if (cell == "NULL")
                         parsed = request.NullText == NullTextRule.Null ? new CellParse(null)
                             : isText ? new CellParse(cell)
-                            : new CellParse(null, "ข้อความ NULL เก็บเป็นข้อความใน " + TypeName(type) + " ไม่ได้ (เลือกให้ข้อความ NULL เป็น SQL NULL หรือเปลี่ยนชนิดเป็นข้อความ)");
+                            : new CellParse(null, "文本 NULL 不能以文本形式存入 " + TypeName(type) + "（请将文本 NULL 视为 SQL NULL，或把类型改为文本）");
                     else
                         parsed = ClipboardValueParser.Parse(cell, type, request.DateFormat);
 
                     if (!parsed.IsValid)
-                        errors.Add(() => Where(r, c, names) + ": " + parsed.Error + (cell.Length > 0 ? " — ค่าคือ \"" + Shorten(cell) + "\"" : ""));
+                        errors.Add(() => Where(r, c, names) + ": " + parsed.Error + (cell.Length > 0 ? " —— 值为 \"" + Shorten(cell) + "\"" : ""));
                     else if (parsed.Warning != null)
                         warnings.Add(() => Where(r, c, names) + ": " + parsed.Warning);
                     if (type == ClipboardColumnType.Varchar && parsed.IsValid && parsed.Value is string s && s.Any(ch => ch > 127)) varcharNonAscii[c] = true;
@@ -152,14 +152,14 @@ namespace SqlAssist.Core.Clipboard
                 if (varcharNonAscii[c])
                 {
                     int column = c;
-                    warnings.Add(() => "คอลัมน์ " + (column + 1) + " (" + names[column] + ") เป็น varchar แต่มีอักขระนอก ASCII — ถ้า collation ของฐานข้อมูลไม่รองรับอักขระนั้น ข้อมูลจะเพี้ยน ใช้ข้อความ (nvarchar) แทนเพื่อความปลอดภัย");
+                    warnings.Add(() => "列 " + (column + 1) + " (" + names[column] + ") 是 varchar 但包含非 ASCII 字符 —— 若数据库排序规则不支持该字符，数据会损坏，为安全起见请改用文本类型 (nvarchar)");
                 }
             return values;
         }
 
-        /// <summary>"แถวที่ 3 คอลัมน์ 2 (Qty)": the row counts the header row, like the rows of the pasted text.</summary>
+        /// <summary>"第 3 行，第 2 列 (Qty)"：行号把表头行也算进去，和粘贴文本的行号一致。</summary>
         private static string Where(int row, int column, IReadOnlyList<string> names) =>
-            "แถวที่ " + (row + 1) + " คอลัมน์ " + (column + 1) + " (" + names[column] + ")";
+            "第 " + (row + 1) + " 行，第 " + (column + 1) + " 列 (" + names[column] + ")";
 
         private static string Shorten(string cell)
         {
@@ -183,15 +183,15 @@ namespace SqlAssist.Core.Clipboard
                 if (request.Distinct && !seen.Add(literal)) continue;
                 literals.Add(literal);
             }
-            if (nulls > 0) warnings.Add(() => "ข้าม NULL " + nulls.ToString("N0", CultureInfo.InvariantCulture) + " ค่า — IN (...) ไม่จับ NULL (ใช้ IS NULL แยกถ้าต้องการ)");
+            if (nulls > 0) warnings.Add(() => "已跳过 NULL " + nulls.ToString("N0", CultureInfo.InvariantCulture) + " 个值 —— IN (...) 不匹配 NULL（如需请另行使用 IS NULL）");
             if (literals.Count == 0)
             {
-                errors.Add("ไม่มีค่าให้ใส่ใน IN (...) (ทุกค่าเป็น NULL)");
+                errors.Add("IN (...) 中没有可用的值（全部为 NULL）");
                 truncated = false;
                 return null;
             }
             if (literals.Count > LargeInListWarning)
-                warnings.Add(() => "IN (...) มี " + literals.Count.ToString("N0", CultureInfo.InvariantCulture) + " ค่า ซึ่งมากเกินไป SQL Server อาจช้าหรือรันไม่ได้ ควรใช้ #Temp แล้ว JOIN แทน");
+                warnings.Add(() => "IN (...) 包含 " + literals.Count.ToString("N0", CultureInfo.InvariantCulture) + " 个值，数量过多，SQL Server 可能变慢或无法执行，建议改用 #Temp 再 JOIN");
 
             truncated = request.PreviewRows > 0 && literals.Count > request.PreviewRows;
             if (truncated) literals = literals.Take(request.PreviewRows).ToList();
@@ -225,9 +225,9 @@ namespace SqlAssist.Core.Clipboard
                 ResultScriptBuilder.AppendValueRows(sb, columns, all, rows, start, Math.Min(rows.Count, start + ResultScriptBuilder.MaxRowsPerInsert), request.Newline, true);
             }
             if (values.Count > ResultScriptBuilder.MaxRowsPerInsert)
-                warnings.Add(() => "VALUES รับได้ไม่เกิน " + ResultScriptBuilder.MaxRowsPerInsert.ToString("N0", CultureInfo.InvariantCulture) +
-                                   " แถวต่อก้อน จึงแบ่งเป็น " + ((values.Count + ResultScriptBuilder.MaxRowsPerInsert - 1) / ResultScriptBuilder.MaxRowsPerInsert) +
-                                   " ก้อน ใช้ทีละก้อน (หรือใช้ #Temp + INSERT สำหรับข้อมูลชุดใหญ่)");
+                warnings.Add(() => "VALUES 每批最多 " + ResultScriptBuilder.MaxRowsPerInsert.ToString("N0", CultureInfo.InvariantCulture) +
+                                   " 行，因此分为 " + ((values.Count + ResultScriptBuilder.MaxRowsPerInsert - 1) / ResultScriptBuilder.MaxRowsPerInsert) +
+                                   " 批，请逐批使用（大数据集请改用 #Temp + INSERT）");
             return sb.ToString();
         }
 
@@ -242,7 +242,7 @@ namespace SqlAssist.Core.Clipboard
             for (int c = 0; c < columns.Count; c++)
             {
                 string type = ColumnDefinition(request.ColumnTypes[c], c, values, out string problem);
-                if (problem != null) { errors.Add(() => "คอลัมน์ " + (c + 1) + " (" + names[c] + "): " + problem); continue; }
+                if (problem != null) { errors.Add(() => "列 " + (c + 1) + " (" + names[c] + "): " + problem); continue; }
                 definitions.Add("    " + names[c] + " " + type);
             }
             if (errors.Total > 0) { truncated = false; return null; }
@@ -280,7 +280,7 @@ namespace SqlAssist.Core.Clipboard
                     int precision = Math.Max(1, integerDigits + scale);
                     if (precision > MaxDecimalPrecision)
                     {
-                        problem = "ค่าที่กว้างที่สุด (" + integerDigits + " หลักก่อนจุด, " + scale + " หลักหลังจุด) เกิน decimal(38)";
+                        problem = "最宽的值（" + integerDigits + " 位整数，" + scale + " 位小数）超出 decimal(38)";
                         return null;
                     }
                     return "decimal(" + precision + "," + scale + ")";
@@ -295,7 +295,7 @@ namespace SqlAssist.Core.Clipboard
             if (formatted[0] != '#' || formatted.Length < 2)
             {
                 formatted = null;
-                error = "ต้องขึ้นต้นด้วย # (local) หรือ ## (global) ตามด้วยตัวอักษร ตัวเลข หรือ _ เช่น #Temp";
+                error = "必须以 #（局部）或 ##（全局）开头，后接字母、数字或 _，例如 #Temp";
                 return false;
             }
             return true;
@@ -342,7 +342,7 @@ namespace SqlAssist.Core.Clipboard
                 if (_shown.Count < MaxReportedProblems) _shown.Add(message());
                 List.Clear();
                 List.AddRange(_shown);
-                if (Total > _shown.Count) List.Add("พบทั้งหมด " + Total.ToString("N0", CultureInfo.InvariantCulture) + " ข้อ (แสดง " + _shown.Count + " ข้อแรก)");
+                if (Total > _shown.Count) List.Add("共找到 " + Total.ToString("N0", CultureInfo.InvariantCulture) + " 条（显示前 " + _shown.Count + " 条）");
             }
         }
     }

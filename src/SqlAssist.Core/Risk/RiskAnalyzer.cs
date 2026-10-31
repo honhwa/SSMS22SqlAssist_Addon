@@ -68,8 +68,8 @@ namespace SqlAssist.Core.Risk
         public const int MaxStatementLength = 100;
 
         public const string Disclaimer =
-            "ผลตรวจนี้ไม่ใช่การรับประกันความปลอดภัย: การไม่พบรายการไม่ได้แปลว่าปลอดภัย และการมี WHERE ก็ไม่ได้รับประกันว่าคำสั่งปลอดภัย (WHERE อาจกว้างเกินไปหรือผิดเงื่อนไข) " +
-            "ตรวจเฉพาะคำสั่งที่เขียนไว้ตรง ๆ ไม่ตรวจ SQL ที่ประกอบเป็นข้อความใน EXEC / sp_executesql, stored procedure ที่ถูกเรียก, trigger หรือ view";
+            "本检查不构成安全保证：未发现问题并不代表安全，写了 WHERE 也不能保证语句安全（WHERE 可能范围过大或条件写错）。" +
+            "仅检查直接写出的语句，不检查在 EXEC / sp_executesql 中拼接的 SQL、被调用的存储过程、触发器或视图";
 
         public static RiskReport Analyze(string text, RiskOptions options)
         {
@@ -81,7 +81,7 @@ namespace SqlAssist.Core.Risk
             foreach (var problem in scan.Problems)
             {
                 var (line, column) = scan.LineAndColumn(problem.Offset);
-                report.Notes.Add("บรรทัด " + line + " คอลัมน์ " + column + ": " + problem.Message + " — ตรวจได้ถึงจุดที่อ่านออกเท่านั้น");
+                report.Notes.Add("第 " + line + " 行，第 " + column + ": " + problem.Message + " —— 仅检查到可解析的位置为止");
             }
 
             foreach (var batch in scan.Batches)
@@ -119,11 +119,11 @@ namespace SqlAssist.Core.Risk
                     target = ReadName(scan, i, last);
                     if (options.SkipTempTables && IsTemporary(target)) return null;
 
-                    string what = target.Length > 0 ? target : "ตารางที่ระบุ";
+                    string what = target.Length > 0 ? target : "指定的表";
                     message = isUpdate
-                        ? "UPDATE ที่ไม่มี WHERE: จะแก้ทุกแถวของ " + what
-                        : "DELETE ที่ไม่มี WHERE: จะลบทุกแถวของ " + what;
-                    if (top) message += " (มี TOP จำกัดจำนวนแถว แต่ยังไม่มี WHERE)";
+                        ? "没有 WHERE 的 UPDATE：将更新 " + what + " 的所有行"
+                        : "没有 WHERE 的 DELETE：将删除 " + what + " 的所有行";
+                    if (top) message += "（有 TOP 限制行数，但仍无 WHERE）";
                     break;
                 }
                 case StatementKind.Truncate:
@@ -133,7 +133,7 @@ namespace SqlAssist.Core.Risk
                     if (!options.IsEnabled(rule) || i < 0 || !tokens[i].IsWord("TABLE")) return null;
                     target = ReadName(scan, NextSignificant(tokens, i, last), last);
                     if (options.SkipTempTables && IsTemporary(target)) return null;
-                    message = "TRUNCATE TABLE " + (target.Length > 0 ? target : "ตารางที่ระบุ") + ": ลบข้อมูลทุกแถวของตาราง (ไม่มี WHERE ให้เลือกแถว)";
+                    message = "TRUNCATE TABLE " + (target.Length > 0 ? target : "指定的表") + "：删除表中所有行（没有 WHERE 可供筛选行）";
                     break;
                 }
                 case StatementKind.Drop:
@@ -149,7 +149,7 @@ namespace SqlAssist.Core.Risk
                     }
                     target = ReadNameList(scan, i, last);
                     if (options.SkipTempTables && target.Length > 0 && target.Split(',').All(t => IsTemporary(t.Trim()))) return null;
-                    message = "DROP TABLE " + (target.Length > 0 ? target : "ตารางที่ระบุ") + ": ลบตารางทั้งตัว (โครงสร้างและข้อมูล)";
+                    message = "DROP TABLE " + (target.Length > 0 ? target : "指定的表") + "：删除整张表（结构和数据）";
                     break;
                 }
                 default:

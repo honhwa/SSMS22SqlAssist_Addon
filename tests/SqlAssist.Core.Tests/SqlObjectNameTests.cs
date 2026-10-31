@@ -22,8 +22,8 @@ namespace SqlAssist.Core.Tests
         [InlineData("#tmp", "#tmp")]
         [InlineData("##global", "##global")]
         [InlineData("@tv", "@tv")]
-        // Plain Thai letters are a regular identifier; a name with vowel/tone marks is bracketed (see SqlIdentifier).
-        [InlineData("[ตาราง].[ลูกค้า]", "ตาราง.[ลูกค้า]")]
+        // 普通汉字属于常规标识符，不需要用方括号括起来（见 SqlIdentifier）。
+        [InlineData("[my table].[客户]", "[my table].客户")]
         public void Parses(string text, string expected)
         {
             Assert.True(SqlObjectName.TryParse(text, out string formatted, out string error), error);

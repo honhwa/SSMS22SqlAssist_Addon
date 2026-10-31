@@ -72,7 +72,7 @@ namespace SqlAssist.Results
             TextWrapping = TextWrapping.NoWrap,
         };
         private readonly ComboBox _target = new ComboBox { Width = 170, Height = 28 };
-        private readonly Button _create = new Button { Content = "สร้าง Script", Width = 110, Height = 28, Margin = new Thickness(8, 0, 0, 0) };
+        private readonly Button _create = new Button { Content = "生成脚本", Width = 110, Height = 28, Margin = new Thickness(8, 0, 0, 0) };
         private IReadOnlyList<DuplicateKey> _duplicates = new DuplicateKey[0];
         private string _duplicatesFor;
         private bool _loading = true;
@@ -86,7 +86,7 @@ namespace SqlAssist.Results
         {
             _columns = columns;
             _cache = cache;
-            Title = "SqlAssist: Generate Script As › UPDATE";
+            Title = "SqlAssist：生成脚本 › UPDATE";
             Width = 860;
             Height = 780;
             MinWidth = 640;
@@ -121,7 +121,7 @@ namespace SqlAssist.Results
             var root = new DockPanel { Margin = new Thickness(12) };
 
             var bottom = new DockPanel { Margin = new Thickness(0, 10, 0, 0) };
-            var cancel = new Button { Content = "ยกเลิก", Width = 90, Height = 28, IsCancel = true, Margin = new Thickness(8, 0, 0, 0) };
+            var cancel = new Button { Content = "取消", Width = 90, Height = 28, IsCancel = true, Margin = new Thickness(8, 0, 0, 0) };
             cancel.Click += (s, e) => DialogResult = false;
             DockPanel.SetDock(cancel, Dock.Right);
             bottom.Children.Add(cancel);
@@ -129,21 +129,21 @@ namespace SqlAssist.Results
             bottom.Children.Add(_create);
             DockPanel.SetDock(_target, Dock.Right);
             bottom.Children.Add(_target);
-            bottom.Children.Add(new TextBlock { Text = "ส่งไปที่", VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, 8, 0) });
+            bottom.Children.Add(new TextBlock { Text = "发送到", VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, 8, 0) });
             DockPanel.SetDock(bottom, Dock.Bottom);
             root.Children.Add(bottom);
 
             var top = new StackPanel();
-            top.Children.Add(new TextBlock { Text = "ชื่อตารางปลายทาง", Margin = new Thickness(0, 0, 0, 3) });
+            top.Children.Add(new TextBlock { Text = "目标表名称", Margin = new Thickness(0, 0, 0, 3) });
             top.Children.Add(_table);
             top.Children.Add(new TextBlock
             {
-                Text = "เช่น dbo.Orders หรือ [Sales].[Order Line] — SqlAssist ไม่เดาชื่อตารางจากผลลัพธ์ จึงต้องระบุเอง",
+                Text = "例如 dbo.Orders 或 [Sales].[Order Line] —— SqlAssist 不会从结果集推测表名，必须手动指定",
                 Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(0, 2, 0, 10),
             });
             top.Children.Add(new TextBlock
             {
-                Text = "คอลัมน์ (" + _columns.Count + ") — SET คือคอลัมน์ที่จะเปลี่ยนค่า, Key คือคอลัมน์ที่ใช้หาแถวใน WHERE (เลือกได้หลายคอลัมน์ ต่อด้วย AND)",
+                Text = "列（" + _columns.Count + "）—— SET 是要修改的列，Key 是 WHERE 中用于定位行的列（可多选，用 AND 连接）",
                 TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 3),
             });
             DockPanel.SetDock(top, Dock.Top);
@@ -152,15 +152,15 @@ namespace SqlAssist.Results
             var notes = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
             notes.Children.Add(new TextBlock
             {
-                Text = "Key ที่เลือกเป็นการระบุของคุณเอง SqlAssist ไม่รับประกันว่าไม่ซ้ำ (unique) ในฐานข้อมูลจริง — ถ้า Key ซ้ำ UPDATE จะกระทบหลายแถว ตรวจ PRIMARY KEY / UNIQUE ของตารางก่อนรัน " +
-                       "และเมื่อติ๊ก Key คอลัมน์นั้นจะถูกเอาออกจาก SET ให้ก่อน (ติ๊ก SET กลับเองได้)",
+                Text = "所选 Key 由你自行指定，SqlAssist 不保证在真实数据库中唯一 —— 若 Key 重复，UPDATE 会影响多行，运行前请检查表的 PRIMARY KEY / UNIQUE " +
+                       "另外，勾选 Key 时该列会自动从 SET 中移除（可再自行勾回 SET）",
                 TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11,
             });
             notes.Children.Add(_warnings);
             notes.Children.Add(_problems);
 
             var previewBox = new DockPanel { Margin = new Thickness(0, 8, 0, 0) };
-            var previewLabel = new TextBlock { Text = "ตัวอย่าง Script (" + PreviewRows + " แถวแรก)", Margin = new Thickness(0, 0, 0, 3) };
+            var previewLabel = new TextBlock { Text = "脚本预览（前 " + PreviewRows + " 行）", Margin = new Thickness(0, 0, 0, 3) };
             DockPanel.SetDock(previewLabel, Dock.Top);
             previewBox.Children.Add(previewLabel);
             previewBox.Children.Add(_preview);
@@ -169,8 +169,8 @@ namespace SqlAssist.Results
             root.Children.Add(previewBox);
 
             var grid = new GridView();
-            grid.Columns.Add(new GridViewColumn { Header = "คอลัมน์", Width = 240, DisplayMemberBinding = new Binding(nameof(ColumnRow.Name)) });
-            grid.Columns.Add(new GridViewColumn { Header = "ชนิดข้อมูล", Width = 200, DisplayMemberBinding = new Binding(nameof(ColumnRow.Type)) });
+            grid.Columns.Add(new GridViewColumn { Header = "列", Width = 240, DisplayMemberBinding = new Binding(nameof(ColumnRow.Name)) });
+            grid.Columns.Add(new GridViewColumn { Header = "数据类型", Width = 200, DisplayMemberBinding = new Binding(nameof(ColumnRow.Type)) });
             grid.Columns.Add(CheckColumn("SET", nameof(ColumnRow.IsSet)));
             grid.Columns.Add(CheckColumn("Key (WHERE)", nameof(ColumnRow.IsKey)));
             _list.View = grid;
@@ -204,16 +204,16 @@ namespace SqlAssist.Results
                 var needed = options.SetColumns.Union(options.KeyColumns).ToList();
                 var result = UpdateScriptBuilder.Build(_columns, _cache.Rows(needed, PreviewRows), options, "\r\n");
 
-                _problems.Text = result.IsValid ? "" : "ยังสร้าง Script ไม่ได้:\r\n" + string.Join("\r\n", result.Errors.Select(e => "• " + e));
+                _problems.Text = result.IsValid ? "" : "暂时无法生成脚本：\r\n" + string.Join("\r\n", result.Errors.Select(e => "• " + e));
                 _preview.Text = result.IsValid ? result.Script + (_cache.RowCount > PreviewRows
-                    ? "-- ... และอีก " + (_cache.RowCount - PreviewRows).ToString("N0") + " แถว (ตัวอย่างแสดงแค่ " + PreviewRows + " แถวแรก)\r\n" : "") : "";
+                    ? "-- …… 另有 " + (_cache.RowCount - PreviewRows).ToString("N0") + " 行（预览仅显示前 " + PreviewRows + " 行）\r\n" : "") : "";
                 _create.IsEnabled = result.IsValid;
                 RefreshWarnings(options);
             }
             catch (Exception ex)
             {
                 Log.Error("UPDATE script preview", ex);
-                _problems.Text = "สร้างตัวอย่างไม่สำเร็จ: " + ex.Message;
+                _problems.Text = "生成预览失败：" + ex.Message;
                 _create.IsEnabled = false;
             }
         }
@@ -241,14 +241,14 @@ namespace SqlAssist.Results
             if (_duplicates.Count > 0)
             {
                 int rows = _duplicates.Sum(d => d.Rows.Count);
-                warnings.Append("⚠ Key ซ้ำ ").Append(_duplicates.Count.ToString("N0")).Append(" ชุด (รวม ").Append(rows.ToString("N0"))
-                    .Append(" แถว): หลายแถวใช้เงื่อนไข WHERE เดียวกัน คำสั่ง UPDATE ของแถวเหล่านั้นจะชนกัน เช่น");
+                warnings.Append("⚠ 重复 Key ").Append(_duplicates.Count.ToString("N0")).Append(" 组（共 ").Append(rows.ToString("N0"))
+                    .Append(" 行）：多行使用相同的 WHERE 条件，这些行的 UPDATE 语句会相互冲突，例如");
                 foreach (var d in _duplicates.Take(3))
-                    warnings.Append("\r\n   ").Append(d.Condition).Append("  (แถวที่ ").Append(string.Join(", ", d.Rows.Take(6))).Append(d.Rows.Count > 6 ? ", ..." : "").Append(')');
+                    warnings.Append("\r\n   ").Append(d.Condition).Append("  （行 ").Append(string.Join(", ", d.Rows.Take(6))).Append(d.Rows.Count > 6 ? ", ..." : "").Append(')');
             }
             var both = _rows.Where(r => r.IsSet && r.IsKey).Select(r => r.Name).ToList();
             if (both.Count > 0)
-                warnings.Append(warnings.Length > 0 ? "\r\n" : "").Append("⚠ ").Append(string.Join(", ", both)).Append(" ถูกใช้ทั้ง SET และ Key");
+                warnings.Append(warnings.Length > 0 ? "\r\n" : "").Append("⚠ ").Append(string.Join(", ", both)).Append(" 同时用于 SET 和 Key");
             _warnings.Text = warnings.ToString();
         }
 
@@ -273,7 +273,7 @@ namespace SqlAssist.Results
             catch (Exception ex)
             {
                 Log.Error("UPDATE script", ex);
-                MessageBox.Show(this, "สร้าง Script ไม่สำเร็จ:\n" + ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(this, "生成脚本失败：\n" + ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {

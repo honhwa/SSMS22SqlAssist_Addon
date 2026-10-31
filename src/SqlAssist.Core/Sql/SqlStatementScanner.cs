@@ -176,9 +176,9 @@ namespace SqlAssist.Core.Sql
             foreach (var t in result.Tokens)
             {
                 if (t.Terminated) continue;
-                if (t.Kind == TokenKind.String) result.Problems.Add(new ScanProblem(t.Start, "string literal ('...') ที่เปิดไว้ไม่มีเครื่องหมาย ' ปิด"));
-                else if (t.Kind == TokenKind.QuotedIdentifier) result.Problems.Add(new ScanProblem(t.Start, "ชื่อที่เปิดด้วย " + t.Text[0] + " ไม่มี " + (t.Text[0] == '[' ? "]" : "\"") + " ปิดในบรรทัดเดียวกัน"));
-                else if (t.Kind == TokenKind.Comment && t.Text.StartsWith("/*", StringComparison.Ordinal)) result.Problems.Add(new ScanProblem(t.Start, "block comment (/* ... */) ที่เปิดไว้ไม่มี */ ปิด"));
+                if (t.Kind == TokenKind.String) result.Problems.Add(new ScanProblem(t.Start, "字符串字面量 ('...') 已打开但没有 ' 闭合"));
+                else if (t.Kind == TokenKind.QuotedIdentifier) result.Problems.Add(new ScanProblem(t.Start, "以 " + t.Text[0] + " 开始的名称缺少 " + (t.Text[0] == '[' ? "]" : "\"") + " 在同一行内闭合"));
+                else if (t.Kind == TokenKind.Comment && t.Text.StartsWith("/*", StringComparison.Ordinal)) result.Problems.Add(new ScanProblem(t.Start, "块注释 (/* ... */) 已打开但没有 */ 闭合"));
             }
         }
 
@@ -242,11 +242,11 @@ namespace SqlAssist.Core.Sql
                 else if (t.Text == ")")
                 {
                     if (open.Count > 0) open.Pop();
-                    else result.Problems.Add(new ScanProblem(t.Start, "มีวงเล็บ ) ปิดเกินโดยไม่มี ( เปิด"));
+                    else result.Problems.Add(new ScanProblem(t.Start, "多余的右括号 )，没有对应的左括号 ("));
                 }
             }
             foreach (int offset in open.Reverse())
-                result.Problems.Add(new ScanProblem(offset, "วงเล็บ ( ที่เปิดไว้ไม่มี ) ปิด"));
+                result.Problems.Add(new ScanProblem(offset, "左括号 ( 已打开但没有 ) 闭合"));
         }
 
         // ---- statements ----

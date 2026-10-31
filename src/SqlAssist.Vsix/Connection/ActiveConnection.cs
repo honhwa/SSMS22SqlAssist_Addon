@@ -63,7 +63,7 @@ namespace SqlAssist.Connection
             {
                 var asm = FindAssembly("SQLEditors");
                 var factoryType = asm?.GetType("Microsoft.SqlServer.Management.UI.VSIntegration.Editors.ScriptFactory");
-                if (factoryType == null) return Problem("ScriptFactory type not found in SQLEditors");
+                if (factoryType == null) return Problem("在 SQLEditors 中找不到 ScriptFactory 类型");
                 object factory = factoryType.GetProperty("Instance", Any)?.GetValue(null);
                 object wnd = factory == null ? null : factoryType.GetProperty("CurrentlyActiveWndConnectionInfo", Any)?.GetValue(factory);
                 object info = Get(wnd, "UIConnectionInfo");
@@ -72,7 +72,7 @@ namespace SqlAssist.Connection
                 string server = Get(info, "ServerName") as string;
                 if (string.IsNullOrEmpty(server)) return null;
                 if (Get(info, "RenewableToken") != null)
-                    return Unsupported("Connection to " + server + " uses Entra ID authentication, which SqlAssist does not support yet");
+                    return Unsupported("到 " + server + " 的连接使用 Entra ID 身份验证，SqlAssist 暂不支持");
 
                 string database = GetAdvancedOption(info, "DATABASE");
                 var builder = new SqlConnectionStringBuilder
@@ -116,7 +116,7 @@ namespace SqlAssist.Connection
             }
             catch (Exception ex)
             {
-                return Problem("Reading the active connection failed: " + ex.Message);
+                return Problem("读取活动连接失败：" + ex.Message);
             }
         }
 

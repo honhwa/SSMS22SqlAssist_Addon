@@ -27,7 +27,7 @@ namespace SqlAssist.Risk
 
         private static ExecuteGuard _active;
         private static uint _cookie;
-        private static string _status = "ปิดอยู่";
+        private static string _status = "已关闭";
 
         private readonly HashSet<(Guid group, uint id)> _commands;
         private readonly RiskOptions _options;
@@ -51,37 +51,37 @@ namespace SqlAssist.Risk
                 Stop();
                 if (!options.WarnBeforeExecute)
                 {
-                    _status = "ปิดอยู่";
+                    _status = "已关闭";
                     return;
                 }
                 var commands = Resolve();
                 if (commands.Count == 0)
                 {
-                    _status = "เปิดไว้ แต่หาคำสั่ง Execute ของ SSMS ไม่พบ (ลองชื่อ " + string.Join(", ", CommandNames) + ") จึงยังไม่ได้ดัก — ใช้ Check SQL Risks ตรวจเองแทน";
+                    _status = "已启用，但找不到 SSMS 的执行命令（尝试过名称 " + string.Join(", ", CommandNames) + "），因此尚未拦截 —— 请改用“检查 SQL 风险”手动检查";
                     Log.Info("Execute guard: " + _status);
                     return;
                 }
                 if (!(Package.GetGlobalService(typeof(SVsRegisterPriorityCommandTarget)) is IVsRegisterPriorityCommandTarget register))
                 {
-                    _status = "เปิดไว้ แต่ SSMS นี้ไม่มีบริการที่ใช้ดักคำสั่ง จึงยังไม่ได้ดัก — ใช้ Check SQL Risks ตรวจเองแทน";
+                    _status = "已启用，但此 SSMS 没有可用于拦截命令的服务，因此尚未拦截 —— 请改用“检查 SQL 风险”手动检查";
                     Log.Info("Execute guard: " + _status);
                     return;
                 }
                 var guard = new ExecuteGuard(commands.Select(c => (c.group, c.id)).ToHashSet(), Copy(options));
                 if (register.RegisterPriorityCommandTarget(0, guard, out _cookie) != VSConstants.S_OK)
                 {
-                    _status = "เปิดไว้ แต่ลงทะเบียนตัวดักคำสั่งไม่สำเร็จ จึงยังไม่ได้ดัก — ใช้ Check SQL Risks ตรวจเองแทน";
+                    _status = "已启用，但注册命令拦截器失败，因此尚未拦截 —— 请改用“检查 SQL 风险”手动检查";
                     Log.Info("Execute guard: " + _status);
                     return;
                 }
                 _active = guard;
-                _status = "ดักคำสั่ง: " + string.Join(", ", commands.Select(c => c.name)) + " (ทดลอง ยังไม่ได้ยืนยันทุกช่องทางที่รัน query)";
+                _status = "已拦截命令：" + string.Join(", ", commands.Select(c => c.name)) + "（实验性功能，尚未验证所有执行查询的入口）";
                 Log.Info("Execute guard hooked: " + string.Join("; ", commands.Select(c => c.name + " " + c.group + ":" + c.id)));
             }
             catch (Exception ex)
             {
                 Log.Error("Execute guard", ex);
-                _status = "เปิดไว้ แต่เกิดข้อผิดพลาดตอนตั้งค่า (" + ex.GetType().Name + ") จึงยังไม่ได้ดัก";
+                _status = "已启用，但设置时出错（" + ex.GetType().Name + "），因此尚未拦截";
             }
         }
 
@@ -162,7 +162,7 @@ namespace SqlAssist.Risk
                 Message = f.Message,
             }).ToList();
             var target = ActiveConnection.TryGet();
-            var window = new ExecuteWarningWindow(target?.Server ?? "(ยังไม่ได้เชื่อมต่อ)", target?.Database ?? "(ไม่ทราบ)", isSelection, items, report.Notes);
+            var window = new ExecuteWarningWindow(target?.Server ?? "(未连接)", target?.Database ?? "(未知)", isSelection, items, report.Notes);
             return DialogHost.ShowDialog(window) != true;
         }
     }

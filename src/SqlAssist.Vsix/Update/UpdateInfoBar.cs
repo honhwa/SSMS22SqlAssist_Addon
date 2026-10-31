@@ -41,16 +41,16 @@ namespace SqlAssist.Update
                 if (release.SetupUrl != null)
                 {
                     // Download now, install by itself once SSMS is closed: no setup window to come back to.
-                    actions.Add(new InfoBarButton("Install when SSMS closes", InstallOnExit));
-                    actions.Add(new InfoBarButton("Install now", Install));
+                    actions.Add(new InfoBarButton("关闭 SSMS 时安装", InstallOnExit));
+                    actions.Add(new InfoBarButton("立即安装", Install));
                 }
-                else actions.Add(new InfoBarButton("Open download page", Install));
-                actions.Add(new InfoBarHyperlink("What's new", Notes));
-                actions.Add(new InfoBarHyperlink("Skip this version", Skip));
-                actions.Add(new InfoBarHyperlink("Don't check automatically", Never));
+                else actions.Add(new InfoBarButton("打开下载页面", Install));
+                actions.Add(new InfoBarHyperlink("更新内容", Notes));
+                actions.Add(new InfoBarHyperlink("跳过此版本", Skip));
+                actions.Add(new InfoBarHyperlink("不再自动检查", Never));
 
                 var model = new InfoBarModel(
-                    new[] { new InfoBarTextSpan("SqlAssist " + release.Version + " is available (installed: " + SqlAssistPackage.Version + ").  ") },
+                    new[] { new InfoBarTextSpan("SqlAssist " + release.Version + " 可用（已安装：" + SqlAssistPackage.Version + "）。  ") },
                     actions,
                     KnownMonikers.StatusInformation,
                     isCloseButtonVisible: true);

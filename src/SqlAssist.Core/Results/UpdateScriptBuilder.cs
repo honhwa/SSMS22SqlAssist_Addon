@@ -62,11 +62,11 @@ namespace SqlAssist.Core.Results
             UpdateScriptOptions options, string newline = "\r\n")
         {
             var errors = new List<string>();
-            if (!SqlObjectName.TryParse(options.Table, out string table, out string tableError)) errors.Add("ชื่อตารางปลายทาง: " + tableError);
-            if (options.SetColumns.Count == 0) errors.Add("เลือกคอลัมน์ที่จะ SET อย่างน้อย 1 คอลัมน์");
-            if (options.KeyColumns.Count == 0) errors.Add("เลือกคอลัมน์ Key อย่างน้อย 1 คอลัมน์ (ใช้สร้าง WHERE)");
-            if (!InRange(columns, options.SetColumns) || !InRange(columns, options.KeyColumns)) errors.Add("มีคอลัมน์ที่เลือกซึ่งไม่อยู่ในผลลัพธ์");
-            if (rows.Count == 0) errors.Add("ไม่มีแถวที่เลือก");
+            if (!SqlObjectName.TryParse(options.Table, out string table, out string tableError)) errors.Add("目标表名称：" + tableError);
+            if (options.SetColumns.Count == 0) errors.Add("请至少选择 1 个要 SET 的列");
+            if (options.KeyColumns.Count == 0) errors.Add("请至少选择 1 个 Key 列（用于生成 WHERE）");
+            if (!InRange(columns, options.SetColumns) || !InRange(columns, options.KeyColumns)) errors.Add("所选列中有不在结果集中的列");
+            if (rows.Count == 0) errors.Add("没有选中任何行");
             if (errors.Count > 0) return new UpdateScriptResult(null, errors);
 
             var names = ResultScriptBuilder.ColumnNames(columns);

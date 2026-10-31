@@ -57,12 +57,12 @@ namespace SqlAssist.Results
             try
             {
                 var grid = FocusedGrid() ?? LastGrid() ?? ActiveDocumentGrid();
-                if (grid == null) { problem = "Select cells in a results grid first."; return null; }
+                if (grid == null) { problem = "请先在结果网格中选择单元格。"; return null; }
                 object storage = Get(grid, "GridStorage");
-                if (storage == null) { problem = "The results grid has no data."; return null; }
+                if (storage == null) { problem = "结果网格中没有数据。"; return null; }
 
                 var columns = ReadColumns(storage);
-                if (columns.Count == 0) { problem = "The results grid has no columns."; return null; }
+                if (columns.Count == 0) { problem = "结果网格中没有列。"; return null; }
 
                 var (rows, uiColumns) = ReadSelection(grid);
                 var selected = new List<int>();
@@ -71,7 +71,7 @@ namespace SqlAssist.Results
                     int data = StorageColumn(grid, ui) - 1;
                     if (data >= 0 && data < columns.Count && !selected.Contains(data)) selected.Add(data);
                 }
-                if (selected.Count == 0 || rows.Count == 0) { problem = "Select one or more data cells in the results grid."; return null; }
+                if (selected.Count == 0 || rows.Count == 0) { problem = "请在结果网格中选择一个或多个数据单元格。"; return null; }
 
                 return new GridSelection
                 {
@@ -84,7 +84,7 @@ namespace SqlAssist.Results
             catch (Exception ex)
             {
                 Log.Error("Read results grid", ex);
-                problem = "Could not read the results grid: " + ex.Message;
+                problem = "无法读取结果网格：" + ex.Message;
                 return null;
             }
         }

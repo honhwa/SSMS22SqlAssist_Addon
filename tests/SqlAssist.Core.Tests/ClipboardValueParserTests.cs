@@ -14,7 +14,7 @@ namespace SqlAssist.Core.Tests
         [InlineData("00123")]
         [InlineData("  padded  ")]
         [InlineData("N'x' -- ; DROP")]
-        [InlineData("สวัสดี")]
+        [InlineData("你好")]
         [InlineData("line1\nline2")]
         public void TextIsKeptExactly(string cell)
         {
@@ -45,7 +45,7 @@ namespace SqlAssist.Core.Tests
         [InlineData("12abc")]
         [InlineData("1e3")]
         [InlineData("2147483648")]
-        [InlineData("๑๒๓")]
+        [InlineData("一百二十三")]
         [InlineData("--1")]
         public void IntRejects(string cell)
         {
@@ -193,7 +193,7 @@ namespace SqlAssist.Core.Tests
         {
             var result = Parse("31/01/2567", ClipboardColumnType.Date, DateInputFormat.DayMonthYear);
             Assert.True(result.IsValid);
-            Assert.Contains("พ.ศ.", result.Warning);
+            Assert.Contains("佛历", result.Warning);
             Assert.Null(Parse("2999-12-31", ClipboardColumnType.Date).Warning);
             Assert.Null(Parse("2024-01-31", ClipboardColumnType.Date).Warning);
         }

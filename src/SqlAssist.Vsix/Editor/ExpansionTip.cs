@@ -117,7 +117,7 @@ namespace SqlAssist.Editor
                     }
                     start = window.Offset + star.ReplaceStart;
                     span = new SnapshotSpan(caret.Snapshot, start, star.ReplaceEnd - star.ReplaceStart);
-                    action = $"expand {count} column{(count == 1 ? "" : "s")}";
+                    action = $"展开 {count} 列";
                 }
                 else
                 {
@@ -129,7 +129,7 @@ namespace SqlAssist.Editor
                             Hide();
                             return;
                         }
-                        action = "insert list of parameters";
+                        action = "插入参数列表";
                     }
                     else if (stmt.Kind == ExpansionKind.Alter)
                     {
@@ -141,7 +141,7 @@ namespace SqlAssist.Editor
                             Hide();
                             return;
                         }
-                        action = "insert the current definition";
+                        action = "插入当前定义";
                     }
                     else
                     {
@@ -155,7 +155,7 @@ namespace SqlAssist.Editor
                             Hide();
                             return;
                         }
-                        action = insert ? "insert columns and VALUES" : "insert SET and WHERE";
+                        action = insert ? "插入列和 VALUES" : "插入 SET 和 WHERE";
                     }
                     start = window.Offset + stmt.NameStart;
                     span = new SnapshotSpan(caret.Snapshot, start, stmt.NameEnd - stmt.NameStart);
@@ -220,9 +220,9 @@ namespace SqlAssist.Editor
             _presenter = _toolTips.CreatePresenter(_view, new ToolTipParameters(trackMouse: false, ignoreBufferChange: false));
             _presenter.Dismissed += (s, e) => { if (ReferenceEquals(s, _presenter)) { _presenter = null; _shownAt = -1; } };
             var text = new ClassifiedTextElement(
-                new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, "Press "),
+                new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, "按 "),
                 new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, "Tab", ClassifiedTextRunStyle.Bold),
-                new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, " to " + action));
+                new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, " 可" + action));
             _presenter.StartOrUpdate(span.Snapshot.CreateTrackingSpan(span, SpanTrackingMode.EdgeInclusive), new object[] { text });
         }
 

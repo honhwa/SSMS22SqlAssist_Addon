@@ -54,8 +54,12 @@
     <Resource Include="Resources\toolbar16.png;Resources\toolbar24.png;Resources\toolbar32.png;Resources\toolbar48.png" />
   </ItemGroup>
 
-  <Import Project="$(NuGetPackageRoot)microsoft.vssdk.buildtools\18.5.40034\tools\vssdk\Microsoft.VsSDK.targets"
-          Condition="'$(NuGetPackageRoot)' != '' And Exists('$(NuGetPackageRoot)microsoft.vssdk.buildtools\18.5.40034\tools\vssdk\Microsoft.VsSDK.targets')" />
+  <!-- NuGetPackageRoot has no trailing separator when globalPackagesFolder is set in NuGet.config (it is "G:\nuget\packages"
+       on this machine, not "...\packages\"), so the separator has to be written out here: without it the path becomes
+       "...\packagesmicrosoft.vssdk.buildtools\..." and the import is silently skipped, which leaves GeneratePkgDef and
+       CreateVsixContainer undefined and the build failing at EnsurePkgDef. -->
+  <Import Project="$(NuGetPackageRoot)\microsoft.vssdk.buildtools\18.5.40034\tools\vssdk\Microsoft.VsSDK.targets"
+          Condition="'$(NuGetPackageRoot)' != '' And Exists('$(NuGetPackageRoot)\microsoft.vssdk.buildtools\18.5.40034\tools\vssdk\Microsoft.VsSDK.targets')" />
 
   <!-- The manifest's Version is a placeholder; the real one comes from Directory.Build.props. -->
   <Target Name="StampVsixVersion" AfterTargets="MergeVsixManifestFile" BeforeTargets="DetokenizeVsixManifestFile"

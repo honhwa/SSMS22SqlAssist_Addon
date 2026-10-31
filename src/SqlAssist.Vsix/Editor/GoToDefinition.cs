@@ -58,7 +58,7 @@ namespace SqlAssist.Editor
                 string resolvedSchema = table?.Schema ?? routine.Schema;
                 string resolvedName = table?.Name ?? routine.Name;
                 var type = table != null ? SearchObjectType.View : routine.IsProcedure ? SearchObjectType.Procedure : SearchObjectType.Function;
-                ScriptDelivery.Status("SqlAssist: reading the definition of " + resolvedSchema + "." + resolvedName + "...");
+                ScriptDelivery.Status("SqlAssist：正在读取 " + resolvedSchema + "." + resolvedName + " 的定义...");
                 ThreadHelper.JoinableTaskFactory.RunAsync(() => OpenDefinitionAsync(target, resolvedSchema, resolvedName, type))
                     .FileAndForget("SqlAssist/GoToDefinition");
                 return true;
@@ -83,10 +83,10 @@ namespace SqlAssist.Editor
             catch (Exception ex)
             {
                 Log.Error("Go to definition: locating " + schema + "." + name, ex);
-                error = "could not reach the server (see SqlAssist.log)";
+                error = "无法连接到服务器（见 SqlAssist.log）";
             }
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-            if (error != null) ScriptDelivery.Status("SqlAssist: " + error);
+            if (error != null) ScriptDelivery.Status("SqlAssist：" + error);
         }
 
         private static async System.Threading.Tasks.Task OpenDefinitionAsync(Connection.ConnectionTarget target, string schema, string name, SearchObjectType type)
@@ -102,23 +102,23 @@ namespace SqlAssist.Editor
                     await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                     if (definition == null)
                     {
-                        status = "SqlAssist: no readable definition for " + schema + "." + name;
+                        status = "SqlAssist：" + schema + "." + name + " 没有可读取的定义";
                     }
                     else
                     {
                         string error = SsmsNavigator.OpenScript(target, new SearchItem(database, schema, name, type, definition: definition), -1, 0);
-                        status = error == null ? "Ready" : "SqlAssist: " + error;
+                        status = error == null ? "就绪" : "SqlAssist：" + error;
                     }
                 }
                 // SqlClient reports its own cancellation as a SqlException.
                 catch (Exception ex) when (cts.IsCancellationRequested && (ex is OperationCanceledException || ex is SqlException))
                 {
-                    status = "SqlAssist: Go to Definition timed out";
+                    status = "SqlAssist：转到定义超时";
                 }
                 catch (Exception ex)
                 {
                     Log.Error("Go to definition: reading " + schema + "." + name, ex);
-                    status = "SqlAssist: could not read the definition (see SqlAssist.log)";
+                    status = "SqlAssist：无法读取定义（见 SqlAssist.log）";
                 }
             }
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();

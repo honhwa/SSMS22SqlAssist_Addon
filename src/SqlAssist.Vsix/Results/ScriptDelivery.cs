@@ -31,7 +31,7 @@ namespace SqlAssist.Results
                     if (error != null) Show(error, title);
                     break;
                 case ScriptTarget.Clipboard:
-                    if (CopyToClipboard(script, title)) Status("SqlAssist: " + what + " copied to the clipboard");
+                    if (CopyToClipboard(script, title)) Status("SqlAssist：" + what + "已复制到剪贴板");
                     break;
                 case ScriptTarget.File:
                     SaveToFile(script, what);
@@ -74,7 +74,7 @@ namespace SqlAssist.Results
                 catch (Exception ex)
                 {
                     Log.Error("Copy script", ex);
-                    Show("Could not copy to the clipboard: " + ex.Message, title);
+                    Show("无法复制到剪贴板：" + ex.Message, title);
                     return false;
                 }
             }
@@ -85,14 +85,14 @@ namespace SqlAssist.Results
             ThreadHelper.ThrowIfNotOnUIThread();
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
-                Title = "Save " + what,
-                Filter = "SQL files (*.sql)|*.sql|All files (*.*)|*.*",
+                Title = "保存" + what,
+                Filter = "SQL 文件 (*.sql)|*.sql|所有文件 (*.*)|*.*",
                 DefaultExt = ".sql",
                 FileName = "Script.sql",
             };
             if (dialog.ShowDialog() != true) return;
             File.WriteAllText(dialog.FileName, script, new UTF8Encoding(true));
-            Status("SqlAssist: " + what + " saved to " + dialog.FileName);
+            Status("SqlAssist：" + what + "已保存到 " + dialog.FileName);
         }
     }
 }

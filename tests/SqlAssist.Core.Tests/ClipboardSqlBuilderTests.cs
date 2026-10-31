@@ -114,8 +114,8 @@ namespace SqlAssist.Core.Tests
         [Fact]
         public void Values_WritesOneTupleRowPerLine()
         {
-            var result = Build("Name\tQty\nit's\t5\nสวัสดี\t7\n", ClipboardSqlKind.Values, true, Txt, Int);
-            Assert.Equal("VALUES\n(N'it''s', 5),\n(N'สวัสดี', 7)\n", result.Script);
+            var result = Build("Name\tQty\nit's\t5\n你好\t7\n", ClipboardSqlKind.Values, true, Txt, Int);
+            Assert.Equal("VALUES\n(N'it''s', 5),\n(N'你好', 7)\n", result.Script);
         }
 
         [Fact]
@@ -275,8 +275,8 @@ namespace SqlAssist.Core.Tests
             var result = ClipboardSqlBuilder.Build(request);
             Assert.False(result.IsValid);
             Assert.Null(result.Script);
-            Assert.Contains("แถวที่ 2", result.Errors[0]);
-            Assert.Contains("คอลัมน์ 1", result.Errors[0]);
+            Assert.Contains("第 2 行", result.Errors[0]);
+            Assert.Contains("第 1 列", result.Errors[0]);
         }
 
         [Fact]
@@ -303,8 +303,8 @@ namespace SqlAssist.Core.Tests
             Assert.False(result.IsValid);
             Assert.Null(result.Script);
             Assert.Single(result.Errors);
-            Assert.Contains("แถวที่ 3", result.Errors[0]);
-            Assert.Contains("คอลัมน์ 2", result.Errors[0]);
+            Assert.Contains("第 3 行", result.Errors[0]);
+            Assert.Contains("第 2 列", result.Errors[0]);
             Assert.Contains("Qty", result.Errors[0]);
             Assert.Contains("abc", result.Errors[0]);
         }
@@ -312,8 +312,8 @@ namespace SqlAssist.Core.Tests
         [Fact]
         public void RowNumbersCountTheHeaderRowOnlyWhenThereIsOne()
         {
-            Assert.Contains("แถวที่ 2", Build("1\nabc\n", ClipboardSqlKind.Values, false, Int).Errors[0]);
-            Assert.Contains("แถวที่ 3", Build("h\n1\nabc\n", ClipboardSqlKind.Values, true, Int).Errors[0]);
+            Assert.Contains("第 2 行", Build("1\nabc\n", ClipboardSqlKind.Values, false, Int).Errors[0]);
+            Assert.Contains("第 3 行", Build("h\n1\nabc\n", ClipboardSqlKind.Values, true, Int).Errors[0]);
         }
 
         [Fact]
@@ -337,9 +337,9 @@ namespace SqlAssist.Core.Tests
         [Fact]
         public void VarcharWithNonAsciiTextWarnsBecauseOfTheCodePage()
         {
-            var result = Build("a\nสวัสดี\n", ClipboardSqlKind.Values, true, ClipboardColumnType.Varchar);
+            var result = Build("a\n你好\n", ClipboardSqlKind.Values, true, ClipboardColumnType.Varchar);
             Assert.True(result.IsValid);
-            Assert.Equal("VALUES\n('สวัสดี')\n", result.Script);
+            Assert.Equal("VALUES\n('你好')\n", result.Script);
             Assert.Contains(result.Warnings, w => w.Contains("varchar") && w.Contains("nvarchar"));
         }
 
@@ -350,7 +350,7 @@ namespace SqlAssist.Core.Tests
             request.DateFormat = DateInputFormat.DayMonthYear;
             var result = ClipboardSqlBuilder.Build(request);
             Assert.True(result.IsValid);
-            Assert.Contains(result.Warnings, w => w.Contains("พ.ศ.") && w.Contains("แถวที่ 2"));
+            Assert.Contains(result.Warnings, w => w.Contains("佛历") && w.Contains("第 2 行"));
         }
 
         [Theory]

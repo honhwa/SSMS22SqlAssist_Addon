@@ -614,11 +614,11 @@ namespace SqlAssist.Core.Tests
         // ---- when the text cannot be formatted ----
 
         [Theory]
-        [InlineData("select 'abc from t", "string")]
-        [InlineData("select a from t /* open", "comment")]
+        [InlineData("select 'abc from t", "字符串")]
+        [InlineData("select a from t /* open", "注释")]
         [InlineData("select [abc from t", "[")]
-        [InlineData("select (a + 1 from t", "วงเล็บ")]
-        [InlineData("select a) from t", "วงเล็บ")]
+        [InlineData("select (a + 1 from t", "括号")]
+        [InlineData("select a) from t", "括号")]
         public void IncompleteTextIsReportedAndLeftAlone(string sql, string reason)
         {
             var result = SqlFormatter.Format(sql);
@@ -632,7 +632,7 @@ namespace SqlAssist.Core.Tests
         public void TheErrorSaysWhere()
         {
             var result = SqlFormatter.Format("select a\nfrom t\nwhere (x = 1");
-            Assert.Contains("บรรทัด 3", result.Error);
+            Assert.Contains("第 3 行", result.Error);
         }
 
         // ---- properties over a corpus ----

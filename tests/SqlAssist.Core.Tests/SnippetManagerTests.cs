@@ -98,7 +98,7 @@ namespace SqlAssist.Core.Tests
             });
             Assert.Equal(4, errors.Count);
             Assert.Contains(errors, e => e.Contains("two words"));
-            Assert.Contains(errors, e => e.Contains("ซ้ำ"));
+            Assert.Contains(errors, e => e.Contains("重复"));
             Assert.Contains(errors, e => e.Contains("empty"));
         }
 

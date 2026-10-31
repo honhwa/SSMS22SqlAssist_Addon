@@ -174,7 +174,7 @@ namespace SqlAssist.Editor
             int order = 0;
             foreach (var c in JoinConditionSuggester.Suggest(schema, ctx.JoinTarget, ctx.JoinPartners, ctx.JoinConditionSoFar))
             {
-                string description = c.ForeignKeyName != null ? "Foreign key " + c.ForeignKeyName : "Columns with the same name";
+                string description = c.ForeignKeyName != null ? "外键 " + c.ForeignKeyName : "同名列";
                 // The sort key keeps the suggester's order (foreign keys, then id-like names) instead of alphabetical.
                 var item = new CompletionItem(c.Text, this, Icons.Join, ImmutableArray<CompletionFilter>.Empty,
                     c.ForeignKeyName != null ? "FK" : "", c.Text, "0" + order++.ToString("D4"), c.Text, ImmutableArray<ImageElement>.Empty);

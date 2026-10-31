@@ -88,11 +88,11 @@ namespace SqlAssist.Core.Tests
             var table = DelimitedTextParser.Parse("a\tb\tc\r\n1\t2\r\n4\t5\t6\r\n\r\n7\t8\t9\t10\r\n");
             Assert.False(table.IsValid);
             Assert.Equal(3, table.Errors.Count);
-            Assert.Contains("แถวที่ 2", table.Errors[0]);
-            Assert.Contains("2 คอลัมน์", table.Errors[0]);
-            Assert.Contains("3 คอลัมน์", table.Errors[0]);
-            Assert.Contains("แถวที่ 4", table.Errors[1]);
-            Assert.Contains("แถวที่ 5", table.Errors[2]);
+            Assert.Contains("第 2 行", table.Errors[0]);
+            Assert.Contains("2 列", table.Errors[0]);
+            Assert.Contains("3 列", table.Errors[0]);
+            Assert.Contains("第 4 行", table.Errors[1]);
+            Assert.Contains("第 5 行", table.Errors[2]);
         }
 
         [Fact]
@@ -100,7 +100,7 @@ namespace SqlAssist.Core.Tests
         {
             var table = DelimitedTextParser.Parse("a\t\"b\r\nc\td");
             Assert.False(table.IsValid);
-            Assert.Contains("quote", table.Errors[0]);
+            Assert.Contains("引号", table.Errors[0]);
             Assert.Empty(table.Rows);
         }
 
@@ -111,7 +111,7 @@ namespace SqlAssist.Core.Tests
             Assert.True(table.IsValid);
             Assert.Equal(new[] { "abcdef", "x" }, table.Rows[0]);
             Assert.Single(table.Warnings);
-            Assert.Contains("แถวที่ 1", table.Warnings[0]);
+            Assert.Contains("第 1 行", table.Warnings[0]);
         }
 
         [Fact]
@@ -120,7 +120,7 @@ namespace SqlAssist.Core.Tests
             var table = DelimitedTextParser.Parse(new string('a', DelimitedTextParser.MaxChars + 1));
             Assert.False(table.IsValid);
             Assert.Empty(table.Rows);
-            Assert.Contains("ใหญ่เกิน", table.Errors[0]);
+            Assert.Contains("过大", table.Errors[0]);
         }
 
         [Fact]
@@ -130,7 +130,7 @@ namespace SqlAssist.Core.Tests
             var table = DelimitedTextParser.Parse(text);
             Assert.False(table.IsValid);
             Assert.Empty(table.Rows);
-            Assert.Contains("แถว", table.Errors[0]);
+            Assert.Contains("行数过多", table.Errors[0]);
         }
 
         [Fact]
@@ -139,7 +139,7 @@ namespace SqlAssist.Core.Tests
             string text = string.Join("\t", Enumerable.Repeat("x", DelimitedTextParser.MaxColumns + 1));
             var table = DelimitedTextParser.Parse(text);
             Assert.False(table.IsValid);
-            Assert.Contains("คอลัมน์", table.Errors[0]);
+            Assert.Contains("列数过多", table.Errors[0]);
         }
 
         [Theory]

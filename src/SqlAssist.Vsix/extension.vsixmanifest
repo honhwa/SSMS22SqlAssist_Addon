@@ -1,10 +1,10 @@
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011">
   <Metadata>
-    <Identity Id="SqlAssist.9cc4aed8-f2ad-4120-ba6f-222b08aa04a0" Version="1.5.2" Language="en-US" Publisher="SqlAssist" />
+    <Identity Id="SqlAssist.9cc4aed8-f2ad-4120-ba6f-222b08aa04a0" Version="1.5.2" Language="zh-CN" Publisher="SqlAssist" />
     <DisplayName>SqlAssist</DisplayName>
-    <Description xml:space="preserve">IntelliSense and snippets for the SSMS 22 query editor: fuzzy table/column completion with automatic aliases, foreign-key JOIN suggestions, SELECT * expansion on Tab, and Tab-triggered snippets (ssf → SELECT * FROM).</Description>
+    <Description xml:space="preserve">适用于 SSMS 22 查询编辑器的 IntelliSense 与代码片段：带自动别名的模糊表/列补全、基于外键的 JOIN 建议、按 Tab 展开 SELECT *，以及 Tab 触发的代码片段（ssf → SELECT * FROM）。</Description>
     <Icon>Resources\icon.png</Icon>
-    <Tags>SSMS, SQL Server, IntelliSense, Snippets</Tags>
+    <Tags>SSMS, SQL Server, IntelliSense, Snippets, 中文</Tags>
   </Metadata>
   <Installation>
     <InstallationTarget Id="Microsoft.VisualStudio.Ssms" Version="[22.0,23.0)">

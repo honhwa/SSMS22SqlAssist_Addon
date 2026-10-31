@@ -35,7 +35,7 @@ namespace SqlAssist.Setup
             _ide = ide;
             _install = install;
 
-            Text = "SqlAssist Update";
+            Text = "SqlAssist 更新";
             Font = Theme.Ui(9f);
             BackColor = Color.White;
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -56,8 +56,8 @@ namespace SqlAssist.Setup
             _secondary.Click += (s, e) => Close();
             Controls.AddRange(new Control[] { _title, _text, _bar, _primary, _secondary });
 
-            _title.Text = "กำลังอัปเดต SqlAssist เป็น " + version + "...";
-            _text.Text = "ปิด SSMS ครบแล้ว กำลังติดตั้งให้ ใช้เวลาไม่นาน\nอย่าเปิด SSMS จนกว่าหน้าต่างนี้จะบอกว่าเสร็จ";
+            _title.Text = "正在将 SqlAssist 更新到 " + version + "...";
+            _text.Text = "SSMS 已全部关闭，正在安装，很快完成\n在此窗口提示完成前请勿启动 SSMS";
 
             // The user can't close it mid-install; if something else does (End task, sign-out) the install still finishes (Program).
             FormClosing += (s, e) => { if (_busy && e.CloseReason == CloseReason.UserClosing) e.Cancel = true; };
@@ -85,18 +85,18 @@ namespace SqlAssist.Setup
             _bar.Visible = false;
             if (error == null)
             {
-                _title.Text = "อัปเดตเรียบร้อยแล้ว";
-                _text.Text = "ตอนนี้ SqlAssist เป็นเวอร์ชัน " + _version + " แล้ว เปิด SSMS ได้เลย";
-                _primary.Text = "เปิด SSMS";
+                _title.Text = "更新完成";
+                _text.Text = "SqlAssist 现在的版本是 " + _version + "，可以启动 SSMS 了";
+                _primary.Text = "启动 SSMS";
                 _primaryAction = () => { LaunchSsms(); Close(); };
-                _secondary.Text = "ปิด";
+                _secondary.Text = "关闭";
                 _secondary.Visible = true;
             }
             else
             {
-                _title.Text = "อัปเดตไม่สำเร็จ";
-                _text.Text = error + "\n\nถ้า SqlAssist หายไปจาก SSMS ให้ดับเบิลคลิกไฟล์นี้เพื่อติดตั้งใหม่:\n" + Application.ExecutablePath;
-                _primary.Text = "ปิด";
+                _title.Text = "更新失败";
+                _text.Text = error + "\n\n如果 SqlAssist 从 SSMS 中消失了，请双击此文件重新安装：\n" + Application.ExecutablePath;
+                _primary.Text = "关闭";
                 _primaryAction = Close;
             }
             _primary.Visible = true;

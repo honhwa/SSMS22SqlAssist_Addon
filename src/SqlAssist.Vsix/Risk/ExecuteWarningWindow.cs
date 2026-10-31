@@ -22,7 +22,7 @@ namespace SqlAssist.Risk
 
         public ExecuteWarningWindow(string server, string database, bool isSelection, IReadOnlyList<Item> findings, IReadOnlyList<string> notes)
         {
-            Title = "SqlAssist: คำสั่งเสี่ยงก่อน Execute";
+            Title = "SqlAssist：执行前的风险提示";
             Width = 760;
             Height = 460;
             MinWidth = 520;
@@ -36,9 +36,9 @@ namespace SqlAssist.Risk
             var root = new DockPanel { Margin = new Thickness(14) };
 
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
-            var run = new Button { Content = "รันต่อ", Width = 100, Height = 30, Margin = new Thickness(0, 0, 10, 0) };
+            var run = new Button { Content = "仍然执行", Width = 100, Height = 30, Margin = new Thickness(0, 0, 10, 0) };
             run.Click += (s, e) => DialogResult = true;
-            var cancel = new Button { Content = "ยกเลิก", Width = 100, Height = 30, IsDefault = true, IsCancel = true };
+            var cancel = new Button { Content = "取消", Width = 100, Height = 30, IsDefault = true, IsCancel = true };
             cancel.Click += (s, e) => DialogResult = false;
             buttons.Children.Add(run);
             buttons.Children.Add(cancel);
@@ -46,11 +46,11 @@ namespace SqlAssist.Risk
             root.Children.Add(buttons);
 
             var head = new StackPanel();
-            head.Children.Add(new TextBlock { Text = "กำลังจะรัน " + (isSelection ? "ส่วนที่เลือก" : "ทั้งหน้า query") + " ซึ่งมีคำสั่งเสี่ยง " + findings.Count + " รายการ", FontWeight = FontWeights.SemiBold, FontSize = 15 });
+            head.Children.Add(new TextBlock { Text = "即将执行 " + (isSelection ? "所选内容" : "整个查询窗口") + "，其中有 " + findings.Count + " 项风险语句", FontWeight = FontWeights.SemiBold, FontSize = 15 });
             var where = new TextBlock { Margin = new Thickness(0, 6, 0, 8) };
-            where.Inlines.Add(new System.Windows.Documents.Run("Server: ") { Foreground = Brushes.Gray });
+            where.Inlines.Add(new System.Windows.Documents.Run("服务器：") { Foreground = Brushes.Gray });
             where.Inlines.Add(new System.Windows.Documents.Run(server) { FontWeight = FontWeights.SemiBold });
-            where.Inlines.Add(new System.Windows.Documents.Run("    Database: ") { Foreground = Brushes.Gray });
+            where.Inlines.Add(new System.Windows.Documents.Run("    数据库：") { Foreground = Brushes.Gray });
             where.Inlines.Add(new System.Windows.Documents.Run(database) { FontWeight = FontWeights.SemiBold });
             head.Children.Add(where);
             DockPanel.SetDock(head, Dock.Top);
@@ -65,10 +65,10 @@ namespace SqlAssist.Risk
 
             var list = new ListView();
             var grid = new GridView();
-            grid.Columns.Add(new GridViewColumn { Header = "กฎ", Width = 140, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Item.Rule)) });
-            grid.Columns.Add(new GridViewColumn { Header = "บรรทัด", Width = 60, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Item.Line)) });
-            grid.Columns.Add(new GridViewColumn { Header = "คำสั่ง", Width = 250, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Item.Statement)) });
-            grid.Columns.Add(new GridViewColumn { Header = "เหตุผล", Width = 260, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Item.Message)) });
+            grid.Columns.Add(new GridViewColumn { Header = "规则", Width = 140, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Item.Rule)) });
+            grid.Columns.Add(new GridViewColumn { Header = "行", Width = 60, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Item.Line)) });
+            grid.Columns.Add(new GridViewColumn { Header = "语句", Width = 250, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Item.Statement)) });
+            grid.Columns.Add(new GridViewColumn { Header = "原因", Width = 260, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Item.Message)) });
             list.View = grid;
             list.ItemsSource = findings;
             root.Children.Add(list);

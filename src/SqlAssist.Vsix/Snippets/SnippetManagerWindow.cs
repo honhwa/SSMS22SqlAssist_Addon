@@ -51,7 +51,7 @@ namespace SqlAssist.Snippets
 
         public SnippetManagerWindow()
         {
-            Title = "SqlAssist: Snippets Manager";
+            Title = "SqlAssist：代码片段管理器";
             Width = 980;
             Height = 640;
             MinWidth = 720;
@@ -62,9 +62,9 @@ namespace SqlAssist.Snippets
             FontFamily = new FontFamily("Segoe UI");
             FontSize = 13;
 
-            _save = ToolButton(KnownMonikers.Save, "บันทึก (Ctrl+S)", (s, e) => Save());
-            _cancel = ToolButton(KnownMonikers.Undo, "ยกเลิกการแก้ไข", (s, e) => Revert());
-            _delete = ToolButton(KnownMonikers.DeleteListItem, "ลบ", (s, e) => DeleteCurrent());
+            _save = ToolButton(KnownMonikers.Save, "保存 (Ctrl+S)", (s, e) => Save());
+            _cancel = ToolButton(KnownMonikers.Undo, "撤销修改", (s, e) => Revert());
+            _delete = ToolButton(KnownMonikers.DeleteListItem, "删除", (s, e) => DeleteCurrent());
 
             Content = BuildLayout();
             Load();
@@ -86,25 +86,25 @@ namespace SqlAssist.Snippets
 
             // Toolbar
             var toolbar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
-            toolbar.Children.Add(ToolButton(KnownMonikers.NewItem, "Snippet ใหม่", (s, e) => AddNew()));
+            toolbar.Children.Add(ToolButton(KnownMonikers.NewItem, "新建代码片段", (s, e) => AddNew()));
             toolbar.Children.Add(_delete);
             toolbar.Children.Add(new Separator { Margin = new Thickness(6, 2, 6, 2) });
             toolbar.Children.Add(_save);
             toolbar.Children.Add(_cancel);
             toolbar.Children.Add(new Separator { Margin = new Thickness(6, 2, 6, 2) });
-            toolbar.Children.Add(ToolButton(KnownMonikers.OpenFolder, "เปิดโฟลเดอร์", (s, e) => OpenFolder()));
+            toolbar.Children.Add(ToolButton(KnownMonikers.OpenFolder, "打开文件夹", (s, e) => OpenFolder()));
             toolbar.Children.Add(_status);
             DockPanel.SetDock(toolbar, Dock.Top);
             root.Children.Add(toolbar);
 
             // Bottom: location + close
             var bottom = new DockPanel { Margin = new Thickness(0, 8, 0, 0) };
-            var close = new Button { Content = "ปิด", Width = 90, Height = 28, IsCancel = true };
+            var close = new Button { Content = "关闭", Width = 90, Height = 28, IsCancel = true };
             close.Click += (s, e) => Close();
             DockPanel.SetDock(close, Dock.Right);
             bottom.Children.Add(close);
             var location = new TextBlock { VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
-            location.Inlines.Add(new System.Windows.Documents.Run("ที่เก็บไฟล์: ") { Foreground = Brushes.Gray });
+            location.Inlines.Add(new System.Windows.Documents.Run("文件位置：") { Foreground = Brushes.Gray });
             location.Inlines.Add(new System.Windows.Documents.Run(SnippetProvider.FilePath));
             bottom.Children.Add(location);
             DockPanel.SetDock(bottom, Dock.Bottom);
@@ -118,12 +118,12 @@ namespace SqlAssist.Snippets
 
             var left = new DockPanel();
             var sortRow = new DockPanel { Margin = new Thickness(0, 0, 0, 4) };
-            _sort.Items.Add("เรียงตาม Shortcut");
-            _sort.Items.Add("เรียงตามคำอธิบาย");
+            _sort.Items.Add("按快捷键排序");
+            _sort.Items.Add("按说明排序");
             _sort.SelectedIndex = 0;
             DockPanel.SetDock(_sort, Dock.Right);
             sortRow.Children.Add(_sort);
-            sortRow.Children.Add(Labeled("ค้นหา", _filter, new Thickness(0, 0, 6, 0)));
+            sortRow.Children.Add(Labeled("搜索", _filter, new Thickness(0, 0, 6, 0)));
             DockPanel.SetDock(sortRow, Dock.Top);
             left.Children.Add(sortRow);
             left.Children.Add(_list);
@@ -146,21 +146,21 @@ namespace SqlAssist.Snippets
             keyRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(200) });
             keyRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10) });
             keyRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            keyRow.Children.Add(Stacked("Shortcut (พิมพ์แล้วกด Tab)", _key));
-            var desc = Stacked("คำอธิบาย", _description);
+            keyRow.Children.Add(Stacked("快捷键（输入后按 Tab）", _key));
+            var desc = Stacked("说明", _description);
             Grid.SetColumn(desc, 2);
             keyRow.Children.Add(desc);
             Grid.SetColumnSpan(keyRow, 3);
             editor.Children.Add(keyRow);
 
-            var textLabel = new TextBlock { Text = "ข้อความ (Text)", Margin = new Thickness(0, 0, 0, 3) };
+            var textLabel = new TextBlock { Text = "内容 (Text)", Margin = new Thickness(0, 0, 0, 3) };
             Grid.SetRow(textLabel, 1);
             editor.Children.Add(textLabel);
             Grid.SetRow(_body, 2);
             Grid.SetRowSpan(_body, 2);
             editor.Children.Add(_body);
 
-            var literalsLabel = new TextBlock { Text = "Literals (ดับเบิลคลิกเพื่อแทรก)", Margin = new Thickness(0, 0, 0, 3) };
+            var literalsLabel = new TextBlock { Text = "占位符（双击插入）", Margin = new Thickness(0, 0, 0, 3) };
             Grid.SetRow(literalsLabel, 1);
             Grid.SetColumn(literalsLabel, 2);
             editor.Children.Add(literalsLabel);
@@ -172,7 +172,7 @@ namespace SqlAssist.Snippets
                 item.Tag = l;
                 _literals.Items.Add(item);
             }
-            var insert = new Button { Content = "แทรก", Height = 26, Margin = new Thickness(0, 6, 0, 0) };
+            var insert = new Button { Content = "插入", Height = 26, Margin = new Thickness(0, 6, 0, 0) };
             insert.Click += (s, e) => InsertLiteral();
             var literalsPanel = new DockPanel();
             DockPanel.SetDock(insert, Dock.Bottom);
@@ -202,8 +202,8 @@ namespace SqlAssist.Snippets
             {
                 Log.Error("Snippets Manager: reading " + SnippetProvider.FilePath, ex);
                 string copy = SnippetProvider.BackupUnreadable();
-                MessageBox.Show(this, "อ่านไฟล์ snippets ไม่ได้:\n" + ex.Message
-                    + (copy == null ? "" : "\n\nถ้าบันทึกจากหน้านี้ snippets.xml จะถูกแทนที่ด้วยรายการในหน้านี้ สำเนาของไฟล์เดิมเก็บไว้ที่:\n" + copy),
+                MessageBox.Show(this, "无法读取代码片段文件：\n" + ex.Message
+                    + (copy == null ? "" : "\n\n如果在此页面保存，snippets.xml 将被本页的列表替换，原文件的备份位于：\n" + copy),
                     Title, MessageBoxButton.OK, MessageBoxImage.Warning);
             }
             SetDirty(false);
@@ -269,7 +269,7 @@ namespace SqlAssist.Snippets
         private void DeleteCurrent()
         {
             if (_current == null) return;
-            if (MessageBox.Show(this, $"ลบ snippet \"{_current.Key}\" ใช่ไหม?", Title, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+            if (MessageBox.Show(this, $"确定删除代码片段 \"{_current.Key}\" 吗？", Title, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             _entries.Remove(_current);
             SetDirty(true);
             RefreshList(null);
@@ -282,27 +282,27 @@ namespace SqlAssist.Snippets
             var errors = SnippetStore.Validate(snippets);
             if (errors.Count > 0)
             {
-                MessageBox.Show(this, "ยังบันทึกไม่ได้:\n\n• " + string.Join("\n• ", errors), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(this, "暂时无法保存：\n\n• " + string.Join("\n• ", errors), Title, MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
             try
             {
                 SnippetProvider.Save(snippets);
                 SetDirty(false);
-                _status.Text = $"บันทึกแล้ว {DateTime.Now:HH:mm:ss}";
+                _status.Text = $"已保存 {DateTime.Now:HH:mm:ss}";
                 return true;
             }
             catch (Exception ex)
             {
                 Log.Error("Snippets Manager: saving", ex);
-                MessageBox.Show(this, "บันทึกไม่สำเร็จ:\n" + ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(this, "保存失败：\n" + ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
         }
 
         private void Revert()
         {
-            if (_dirty && MessageBox.Show(this, "ยกเลิกการแก้ไขทั้งหมดที่ยังไม่บันทึก แล้วโหลดจากไฟล์ใหม่?", Title,
+            if (_dirty && MessageBox.Show(this, "放弃所有未保存的修改并重新从文件加载吗？", Title,
                     MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             _filter.Text = "";
             Load();
@@ -329,7 +329,7 @@ namespace SqlAssist.Snippets
         {
             _dirty = dirty;
             _save.IsEnabled = _cancel.IsEnabled = dirty;
-            if (dirty) _status.Text = "มีการแก้ไขที่ยังไม่บันทึก";
+            if (dirty) _status.Text = "有未保存的修改";
         }
 
         private void OnKeyDown(object sender, KeyEventArgs e)
@@ -344,7 +344,7 @@ namespace SqlAssist.Snippets
         private void OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             if (!_dirty) return;
-            var answer = MessageBox.Show(this, "บันทึกการแก้ไขก่อนปิดไหม?", Title, MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            var answer = MessageBox.Show(this, "关闭前要保存修改吗？", Title, MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
             if (answer == MessageBoxResult.Cancel || (answer == MessageBoxResult.Yes && !Save())) e.Cancel = true;
         }
 

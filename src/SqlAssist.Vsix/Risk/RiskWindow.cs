@@ -37,7 +37,7 @@ namespace SqlAssist.Risk
         private RiskWindow()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            Title = "SqlAssist: Check SQL Risks";
+            Title = "SqlAssist：检查 SQL 风险";
             Width = 900;
             Height = 420;
             MinWidth = 560;
@@ -70,9 +70,9 @@ namespace SqlAssist.Risk
             var root = new DockPanel { Margin = new Thickness(12) };
 
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
-            var again = new Button { Content = "ตรวจอีกครั้ง", Width = 110, Height = 28, Margin = new Thickness(0, 0, 8, 0) };
+            var again = new Button { Content = "重新检查", Width = 110, Height = 28, Margin = new Thickness(0, 0, 8, 0) };
             again.Click += (s, e) => { ThreadHelper.ThrowIfNotOnUIThread(); RiskCheckCommand.Run(); };
-            var close = new Button { Content = "ปิด", Width = 90, Height = 28, IsCancel = true };
+            var close = new Button { Content = "关闭", Width = 90, Height = 28, IsCancel = true };
             close.Click += (s, e) => Close();
             buttons.Children.Add(again);
             buttons.Children.Add(close);
@@ -89,10 +89,10 @@ namespace SqlAssist.Risk
             root.Children.Add(_summary);
 
             var grid = new GridView();
-            grid.Columns.Add(new GridViewColumn { Header = "กฎ", Width = 150, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Rule)) });
-            grid.Columns.Add(new GridViewColumn { Header = "ตำแหน่ง", Width = 130, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Position)) });
-            grid.Columns.Add(new GridViewColumn { Header = "คำสั่ง", Width = 280, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Statement)) });
-            grid.Columns.Add(new GridViewColumn { Header = "เหตุผล", Width = 300, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Message)) });
+            grid.Columns.Add(new GridViewColumn { Header = "规则", Width = 150, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Rule)) });
+            grid.Columns.Add(new GridViewColumn { Header = "位置", Width = 130, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Position)) });
+            grid.Columns.Add(new GridViewColumn { Header = "语句", Width = 280, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Statement)) });
+            grid.Columns.Add(new GridViewColumn { Header = "原因", Width = 300, DisplayMemberBinding = new System.Windows.Data.Binding(nameof(Row.Message)) });
             _list.View = grid;
             _list.PreviewMouseLeftButtonUp += (s, e) =>
             {
@@ -118,17 +118,17 @@ namespace SqlAssist.Risk
                 rows.Add(new Row
                 {
                     Rule = RuleName(f.Rule),
-                    Position = "บรรทัด " + (line.LineNumber + 1) + ", คอลัมน์ " + (position - line.Start.Position + 1),
+                    Position = "第 " + (line.LineNumber + 1) + " 行，第 " + (position - line.Start.Position + 1),
                     Statement = f.Statement,
                     Message = f.Message,
                     Where = snapshot.CreateTrackingSpan(new Span(position, f.Length), SpanTrackingMode.EdgeExclusive),
                 });
             }
             _list.ItemsSource = rows;
-            string what = isSelection ? "ส่วนที่เลือก" : "ทั้งเอกสาร";
+            string what = isSelection ? "所选内容" : "整个文档";
             _summary.Text = rows.Count == 0
-                ? "ไม่พบรายการ (" + what + ") — ไม่ได้แปลว่าปลอดภัย ดูหมายเหตุด้านล่าง"
-                : "พบ " + rows.Count + " รายการใน" + what + " — คลิกแถวเพื่อไปที่คำสั่งนั้น";
+                ? "未发现问题（" + what + "）—— 并不代表安全，请见下方说明"
+                : "在" + what + "中发现 " + rows.Count + " 项 —— 点击行可跳转到该语句";
             _notes.Text = string.Join("\r\n", report.Notes.Select(n => "⚠ " + n));
             _notes.Visibility = report.Notes.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         }
@@ -140,7 +140,7 @@ namespace SqlAssist.Risk
             {
                 if (_view == null || _view.IsClosed)
                 {
-                    MessageBox.Show(this, "หน้า query ที่ตรวจไว้ถูกปิดไปแล้ว", Title, MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show(this, "被检查的查询窗口已关闭", Title, MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
                 var span = row.Where.GetSpan(_view.TextSnapshot);
@@ -179,8 +179,8 @@ namespace SqlAssist.Risk
         {
             switch (rule)
             {
-                case RiskRule.UpdateWithoutWhere: return "UPDATE ไม่มี WHERE";
-                case RiskRule.DeleteWithoutWhere: return "DELETE ไม่มี WHERE";
+                case RiskRule.UpdateWithoutWhere: return "UPDATE 无 WHERE";
+                case RiskRule.DeleteWithoutWhere: return "DELETE 无 WHERE";
                 case RiskRule.TruncateTable: return "TRUNCATE TABLE";
                 default: return "DROP TABLE";
             }

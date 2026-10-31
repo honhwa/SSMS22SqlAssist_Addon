@@ -36,7 +36,7 @@ namespace SqlAssist.Editor
             title.Inlines.Add(new Run(" (" + d.Kind + ")"));
             if (d.Returns != null)
             {
-                title.Inlines.Add(new Run(" returns "));
+                title.Inlines.Add(new Run(" 返回 "));
                 title.Inlines.Add(new Run(d.Returns) { Foreground = keyword });
             }
             header.Children.Add(title);
@@ -81,7 +81,7 @@ namespace SqlAssist.Editor
 
             if (d.HiddenColumns > 0)
             {
-                var more = Text(textKey, $"… and {d.HiddenColumns} more columns");
+                var more = Text(textKey, $"… 另有 {d.HiddenColumns} 列");
                 more.Opacity = 0.7;
                 more.Margin = new Thickness(22, 2, 0, 0);
                 panel.Children.Add(more);
@@ -91,7 +91,7 @@ namespace SqlAssist.Editor
             {
                 var count = Text(textKey, null);
                 count.Margin = new Thickness(0, 4, 0, 0);
-                count.Inlines.Add(new Run("Est. row count: "));
+                count.Inlines.Add(new Run("预估行数："));
                 count.Inlines.Add(new Bold(new Run(d.RowCount)));
                 var separator = new Border { BorderThickness = new Thickness(0, 1, 0, 0), Margin = new Thickness(0, 4, 0, 0), Child = count };
                 separator.SetResourceReference(Border.BorderBrushProperty, borderKey);

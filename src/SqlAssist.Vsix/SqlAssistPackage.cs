@@ -109,14 +109,14 @@ namespace SqlAssist
             catch (Exception ex)
             {
                 Log.Error("Options", ex);
-                ScriptDelivery.Show("เปิดหน้าต่าง Options ไม่สำเร็จ: " + ex.GetType().Name + " (ดู log ที่ " + Log.FilePath + ")", "SqlAssist: Options");
+                ScriptDelivery.Show("无法打开选项窗口：" + ex.GetType().Name + "（日志位于 " + Log.FilePath + ")", "SqlAssist：选项");
             }
         }
 
         private static void ShowCsvToSql()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            const string title = "SqlAssist: CSV to SQL";
+            const string title = "SqlAssist：CSV 转 SQL";
             try
             {
                 var window = new ClipboardSqlWindow();
@@ -126,7 +126,7 @@ namespace SqlAssist
             catch (Exception ex)
             {
                 Log.Error("CSV to SQL", ex);
-                ScriptDelivery.Show("CSV to SQL failed: " + ex.GetType().Name + " (see the log: " + Log.FilePath + ")", title);
+                ScriptDelivery.Show("CSV 转 SQL 失败：" + ex.GetType().Name + "（详见日志：" + Log.FilePath + "）", title);
             }
         }
 
@@ -149,10 +149,10 @@ namespace SqlAssist
             ThreadHelper.ThrowIfNotOnUIThread();
             VsShellUtilities.ShowMessageBox(this,
                 "SqlAssist " + Version + "\n\n" +
-                "IntelliSense + Snippets for SSMS 22\n\n" +
-                "Snippets: " + SnippetProvider.FilePath + "\n" +
-                "Log: " + Log.FilePath,
-                "About SqlAssist",
+                "适用于 SSMS 22 的 IntelliSense + 代码片段\n\n" +
+                "代码片段：" + SnippetProvider.FilePath + "\n" +
+                "日志：" + Log.FilePath,
+                "关于 SqlAssist",
                 Microsoft.VisualStudio.Shell.Interop.OLEMSGICON.OLEMSGICON_INFO,
                 Microsoft.VisualStudio.Shell.Interop.OLEMSGBUTTON.OLEMSGBUTTON_OK,
                 Microsoft.VisualStudio.Shell.Interop.OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);

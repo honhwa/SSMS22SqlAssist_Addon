@@ -17,7 +17,7 @@ namespace SqlAssist.Core.Tests
 
         private static readonly object[][] Rows =
         {
-            new object[] { 1, "00123", "สวัสดี", 5 },
+            new object[] { 1, "00123", "你好", 5 },
             new object[] { 2, "A-2", "it's", null },
         };
 
@@ -32,7 +32,7 @@ namespace SqlAssist.Core.Tests
             Assert.Empty(result.Errors);
             Assert.Equal(
                 "SET DATEFORMAT ymd\n\n" +
-                "UPDATE dbo.Items SET Name = N'สวัสดี', Qty = 5 WHERE Id = 1\nGO\n" +
+                "UPDATE dbo.Items SET Name = N'你好', Qty = 5 WHERE Id = 1\nGO\n" +
                 "UPDATE dbo.Items SET Name = N'it''s', Qty = NULL WHERE Id = 2\nGO\n",
                 result.Script);
         }

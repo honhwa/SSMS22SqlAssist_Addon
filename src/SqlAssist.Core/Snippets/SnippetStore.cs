@@ -131,11 +131,11 @@ namespace SqlAssist.Core.Snippets
             foreach (var s in snippets)
             {
                 string key = s.Key ?? "";
-                if (key.Length == 0) { errors.Add("มี snippet ที่ยังไม่ได้ใส่ Shortcut"); continue; }
+                if (key.Length == 0) { errors.Add("有代码片段尚未填写快捷键"); continue; }
                 if (!key.All(c => char.IsLetterOrDigit(c) || c == '_'))
-                    errors.Add($"Shortcut \"{key}\" ใช้ได้เฉพาะตัวอักษร ตัวเลข และ _ (ห้ามมีช่องว่าง)");
-                if (!seen.Add(key)) errors.Add($"Shortcut \"{key}\" ซ้ำกัน");
-                if (string.IsNullOrWhiteSpace(s.Body)) errors.Add($"Snippet \"{key}\" ยังไม่มีข้อความ (Text)");
+                    errors.Add($"Shortcut \"{key}\" 只能包含字母、数字和 _（不能有空格）");
+                if (!seen.Add(key)) errors.Add($"Shortcut \"{key}\" 重复");
+                if (string.IsNullOrWhiteSpace(s.Body)) errors.Add($"Snippet \"{key}\" 还没有内容 (Text)");
             }
             return errors;
         }
@@ -167,30 +167,30 @@ namespace SqlAssist.Core.Snippets
         public const string DefaultXml =
 @"<?xml version=""1.0"" encoding=""utf-8""?>
 <!--
-  SqlAssist snippets: type the key, then press Tab.
-  $CARET$ marks where the caret lands after expansion. Also: $DATE$ $TIME$ $USER$ $DB$ $SERVER$.
-  Multi-line snippets can be written on their own lines; common indentation is removed.
-  Saved changes take effect on the next Tab - no restart needed.
+  SqlAssist 代码片段：输入快捷键后按 Tab。
+  $CARET$ 表示展开后光标的位置。另可用：$DATE$ $TIME$ $USER$ $DB$ $SERVER$。
+  多行代码片段可直接分行书写；公共缩进会被去掉。
+  保存后下一次按 Tab 即生效，无需重启。
 -->
 <snippets defaults=""1"">
-  <snippet key=""ssf"" description=""SELECT * FROM"">SELECT * FROM $CARET$</snippet>
-  <snippet key=""st100"" description=""SELECT TOP 100 * FROM"">SELECT TOP 100 * FROM $CARET$</snippet>
-  <snippet key=""scf"" description=""SELECT COUNT(*) FROM"">SELECT COUNT(*) FROM $CARET$</snippet>
-  <snippet key=""sel"" description=""SELECT ... FROM"">SELECT $CARET$
+  <snippet key=""ssf"" description=""查询全部列"">SELECT * FROM $CARET$</snippet>
+  <snippet key=""st100"" description=""查询前 100 行"">SELECT TOP 100 * FROM $CARET$</snippet>
+  <snippet key=""scf"" description=""统计行数"">SELECT COUNT(*) FROM $CARET$</snippet>
+  <snippet key=""sel"" description=""SELECT 查询"">SELECT $CARET$
 FROM </snippet>
-  <snippet key=""ii"" description=""INSERT INTO"">INSERT INTO $CARET$ ()
+  <snippet key=""ii"" description=""插入数据"">INSERT INTO $CARET$ ()
 VALUES ()</snippet>
-  <snippet key=""upd"" description=""UPDATE ... SET ... WHERE"">UPDATE $CARET$
+  <snippet key=""upd"" description=""更新数据"">UPDATE $CARET$
 SET
 WHERE </snippet>
-  <snippet key=""del"" description=""DELETE FROM ... WHERE"">DELETE FROM $CARET$
+  <snippet key=""del"" description=""删除数据"">DELETE FROM $CARET$
 WHERE </snippet>
-  <snippet key=""ij"" description=""INNER JOIN"">INNER JOIN $CARET$</snippet>
-  <snippet key=""lj"" description=""LEFT JOIN"">LEFT JOIN $CARET$</snippet>
-  <snippet key=""wh"" description=""WHERE"">WHERE $CARET$</snippet>
-  <snippet key=""ob"" description=""ORDER BY"">ORDER BY $CARET$</snippet>
-  <snippet key=""gb"" description=""GROUP BY"">GROUP BY $CARET$</snippet>
-  <snippet key=""bt"" description=""BEGIN TRAN / ROLLBACK"">
+  <snippet key=""ij"" description=""内连接"">INNER JOIN $CARET$</snippet>
+  <snippet key=""lj"" description=""左连接"">LEFT JOIN $CARET$</snippet>
+  <snippet key=""wh"" description=""WHERE 条件"">WHERE $CARET$</snippet>
+  <snippet key=""ob"" description=""排序"">ORDER BY $CARET$</snippet>
+  <snippet key=""gb"" description=""分组"">GROUP BY $CARET$</snippet>
+  <snippet key=""bt"" description=""事务（可回滚）"">
     BEGIN TRAN;
 
     $CARET$
@@ -198,19 +198,19 @@ WHERE </snippet>
     ROLLBACK TRAN;
     -- COMMIT TRAN;
   </snippet>
-  <snippet key=""cte"" description=""WITH cte AS (...)"">
+  <snippet key=""cte"" description=""公用表表达式 (CTE)"">
     WITH cte AS (
         $CARET$
     )
     SELECT * FROM cte;
   </snippet>
-  <snippet key=""ifex"" description=""IF EXISTS (SELECT 1 ...)"">
+  <snippet key=""ifex"" description=""存在则执行"">
     IF EXISTS (SELECT 1 FROM $CARET$)
     BEGIN
 
     END
   </snippet>
-  <snippet key=""case"" description=""CASE WHEN ... THEN ... ELSE ... END"">
+  <snippet key=""case"" description=""条件分支 (CASE)"">
     CASE
         WHEN $CARET$ THEN
         ELSE

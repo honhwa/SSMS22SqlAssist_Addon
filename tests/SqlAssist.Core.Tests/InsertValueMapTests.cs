@@ -11,8 +11,8 @@ namespace SqlAssist.Core.Tests
         private const string Two =
             "INSERT INTO dbo.Table1 (Id, Code, Name, CreatedAt)\n" +
             "VALUES\n" +
-            "    (1, N'A01', N'สมชาย', CONVERT(datetime, '2026-10-30', 121)),\n" +
-            "    (2, N'A02', N'สมศรี', GETDATE());";
+            "    (1, N'A01', N'张三', CONVERT(datetime, '2026-10-30', 121)),\n" +
+            "    (2, N'A02', N'李四', GETDATE());";
 
         /// <summary>The caret is written as '|'. Returns "Column=value;value" or null.</summary>
         private static string Highlight(string sqlWithCaret)
@@ -37,7 +37,7 @@ namespace SqlAssist.Core.Tests
         [Theory]
         [InlineData("(1", 1, "Id=1")]
         [InlineData("N'A01'", 3, "Code=N'A01'")]
-        [InlineData("N'สมชาย'", 4, "Name=N'สมชาย'")]
+        [InlineData("N'张三'", 4, "Name=N'张三'")]
         [InlineData("CONVERT(", 3, "CreatedAt=CONVERT(datetime, '2026-10-30', 121)")]
         [InlineData("datetime, '2026", 2, "CreatedAt=CONVERT(datetime, '2026-10-30', 121)")] // inside the function's own commas
         [InlineData("'2026-10-30'", 6, "CreatedAt=CONVERT(datetime, '2026-10-30', 121)")]
@@ -48,7 +48,7 @@ namespace SqlAssist.Core.Tests
         [Theory]
         [InlineData("(2", 1, "Id=2")]
         [InlineData("N'A02'", 2, "Code=N'A02'")]
-        [InlineData("N'สมศรี'", 5, "Name=N'สมศรี'")]
+        [InlineData("N'李四'", 5, "Name=N'李四'")]
         [InlineData("GETDATE()", 3, "CreatedAt=GETDATE()")]
         [InlineData("GETDATE()", 8, "CreatedAt=GETDATE()")] // between the parentheses
         public void SecondRow_UsesTheRowTheCaretIsIn(string marker, int offset, string expected) =>
@@ -58,7 +58,7 @@ namespace SqlAssist.Core.Tests
         [InlineData("Id,", 1, "Id=1;2")]
         [InlineData("Id,", 2, "Id=1;2")] // right after the name
         [InlineData("Code,", 2, "Code=N'A01';N'A02'")]
-        [InlineData("Name,", 0, "Name=N'สมชาย';N'สมศรี'")]
+        [InlineData("Name,", 0, "Name=N'张三';N'李四'")]
         [InlineData("CreatedAt)", 4, "CreatedAt=CONVERT(datetime, '2026-10-30', 121);GETDATE()")]
         public void ColumnNameGivesTheValueInEachRow(string marker, int offset, string expected) =>
             Assert.Equal(expected, Highlight(Caret(Two, marker, offset)));

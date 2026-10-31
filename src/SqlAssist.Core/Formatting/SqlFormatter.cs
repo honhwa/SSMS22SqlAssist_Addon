@@ -27,7 +27,7 @@ namespace SqlAssist.Core.Formatting
                 {
                     var problem = scan.Problems[0];
                     var (line, column) = scan.LineAndColumn(problem.Offset);
-                    return Fail(sql, "บรรทัด " + line + " คอลัมน์ " + column + ": " + problem.Message);
+                    return Fail(sql, "第 " + line + " 行，第 " + column + ": " + problem.Message);
                 }
 
                 string newline = options.Newline ?? DetectNewline(sql);
@@ -38,12 +38,12 @@ namespace SqlAssist.Core.Formatting
 
                 string difference = Compare(scan, keywords, SqlStatementScanner.Scan(text));
                 if (difference != null)
-                    return Fail(sql, "ตรวจพบว่าผลที่จัดแล้วต่างจากต้นฉบับมากกว่าช่องว่าง (" + difference + ") จึงไม่ได้แก้ข้อความ");
+                    return Fail(sql, "格式化结果与原文的差异超出空白字符范围（" + difference + "），因此未修改文本");
                 return new FormatResult(text, null, !string.Equals(text, sql, StringComparison.Ordinal));
             }
             catch (Exception ex)
             {
-                return Fail(sql, "จัดรูปแบบไม่สำเร็จ (" + ex.GetType().Name + ") จึงไม่ได้แก้ข้อความ");
+                return Fail(sql, "格式化失败（" + ex.GetType().Name + "），因此未修改文本");
             }
         }
 
@@ -136,18 +136,18 @@ namespace SqlAssist.Core.Formatting
             // go, say) would change what the script does.
             if (original.Batches.Count != formatted.Batches.Count ||
                 original.Batches.Select(b => b.HasGo).SequenceEqual(formatted.Batches.Select(b => b.HasGo)) == false)
-                return "การแบ่ง batch ด้วย GO ต่างไป";
-            if (commasBefore != commasAfter) return "จำนวนเครื่องหมาย , ไม่เท่ากัน";
-            if (before.Count != after.Count) return "จำนวน token ไม่เท่ากัน";
+                return "GO 分批结果不一致";
+            if (commasBefore != commasAfter) return "逗号 , 数量不一致";
+            if (before.Count != after.Count) return "标记数量不一致";
             for (int i = 0; i < before.Count; i++)
             {
                 var comparison = before[i].keyword ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
                 if (before[i].kind != after[i].kind || !string.Equals(before[i].text, after[i].text, comparison))
-                    return "'" + before[i].text + "' เป็น '" + after[i].text + "'";
+                    return "'" + before[i].text + "' 变成了 '" + after[i].text + "'";
             }
-            if (commentsBefore.Count != commentsAfter.Count) return "จำนวน comment ไม่เท่ากัน";
+            if (commentsBefore.Count != commentsAfter.Count) return "注释数量不一致";
             for (int i = 0; i < commentsBefore.Count; i++)
-                if (commentsBefore[i] != commentsAfter[i]) return "comment ถูกเปลี่ยน";
+                if (commentsBefore[i] != commentsAfter[i]) return "注释被修改";
             return null;
         }
 

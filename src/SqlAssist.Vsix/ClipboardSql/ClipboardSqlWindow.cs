@@ -32,8 +32,8 @@ namespace SqlAssist.ClipboardSql
 
         private static readonly TypeChoice[] Types =
         {
-            new TypeChoice(ClipboardColumnType.Text, "ข้อความ (nvarchar)"),
-            new TypeChoice(ClipboardColumnType.Varchar, "ข้อความ (varchar)"),
+            new TypeChoice(ClipboardColumnType.Text, "文本 (nvarchar)"),
+            new TypeChoice(ClipboardColumnType.Varchar, "文本 (varchar)"),
             new TypeChoice(ClipboardColumnType.Int, "int"),
             new TypeChoice(ClipboardColumnType.BigInt, "bigint"),
             new TypeChoice(ClipboardColumnType.Decimal, "decimal"),
@@ -67,13 +67,13 @@ namespace SqlAssist.ClipboardSql
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
             TextWrapping = TextWrapping.NoWrap,
         };
-        private readonly CheckBox _header = new CheckBox { Content = "แถวแรกเป็นชื่อคอลัมน์", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0) };
+        private readonly CheckBox _header = new CheckBox { Content = "首行为列名", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0) };
         private readonly RadioButton _in = new RadioButton { Content = "IN (...)", GroupName = "kind", IsChecked = true, Margin = new Thickness(0, 0, 12, 0), VerticalAlignment = VerticalAlignment.Center };
         private readonly RadioButton _values = new RadioButton { Content = "VALUES (...), (...)", GroupName = "kind", Margin = new Thickness(0, 0, 12, 0), VerticalAlignment = VerticalAlignment.Center };
         private readonly RadioButton _temp = new RadioButton { Content = "CREATE TABLE #Temp + INSERT", GroupName = "kind", VerticalAlignment = VerticalAlignment.Center };
         private readonly ComboBox _delimiter = new ComboBox { Width = 170, Height = 24, Margin = new Thickness(6, 0, 16, 0) };
         private readonly ComboBox _inColumn = new ComboBox { MinWidth = 160, Height = 24, Margin = new Thickness(6, 0, 12, 0) };
-        private readonly CheckBox _distinct = new CheckBox { Content = "ตัดค่าซ้ำ", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
+        private readonly CheckBox _distinct = new CheckBox { Content = "去除重复值", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
         private readonly TextBox _tempName = new TextBox { Text = "#Temp", Width = 120, Height = 24, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
         private readonly ComboBox _empty = new ComboBox { Width = 130, Height = 24, Margin = new Thickness(6, 0, 16, 0) };
         private readonly ComboBox _nullText = new ComboBox { Width = 150, Height = 24, Margin = new Thickness(6, 0, 16, 0) };
@@ -90,12 +90,12 @@ namespace SqlAssist.ClipboardSql
         };
         private readonly TextBlock _previewLabel = new TextBlock { Margin = new Thickness(0, 0, 0, 3) };
         private readonly ComboBox _target = new ComboBox { Width = 160, Height = 28 };
-        private readonly Button _create = new Button { Content = "สร้าง SQL", Width = 110, Height = 28, Margin = new Thickness(8, 0, 0, 0) };
+        private readonly Button _create = new Button { Content = "生成 SQL", Width = 110, Height = 28, Margin = new Thickness(8, 0, 0, 0) };
         /// <summary>What separates cells, in the order of <see cref="_delimiter"/>'s items. Tab is first because that is what Excel
         /// puts on the clipboard; it is never guessed from the text, since a single column of names with commas in them is common.</summary>
         private static readonly (string Label, char Character)[] Delimiters =
         {
-            ("Tab (ข้อมูลจาก Excel)", '\t'), ("คอมมา ,", ','), ("เซมิโคลอน ;", ';'), ("ไปป์ |", '|'),
+            ("Tab（来自 Excel 的数据）", '\t'), ("逗号 ,", ','), ("分号 ;", ';'), ("竖线 |", '|'),
         };
 
         private readonly DispatcherTimer _timer;
@@ -113,7 +113,7 @@ namespace SqlAssist.ClipboardSql
         /// <param name="initialText">Text to start with; when null the window starts from whatever text is on the clipboard.</param>
         public ClipboardSqlWindow(string initialText = null)
         {
-            Title = "SqlAssist: CSV to SQL";
+            Title = "SqlAssist：CSV 转 SQL";
             Width = 940;
             Height = 900;
             MinWidth = 720;
@@ -127,17 +127,17 @@ namespace SqlAssist.ClipboardSql
             foreach (var delimiter in Delimiters) _delimiter.Items.Add(delimiter.Label);
             _delimiter.SelectedIndex = 0;
             _empty.Items.Add("SQL NULL");
-            _empty.Items.Add("สตริงว่าง ''");
+            _empty.Items.Add("空字符串 ''");
             _empty.SelectedIndex = 0;
             _nullText.Items.Add("SQL NULL");
-            _nullText.Items.Add("ข้อความ 'NULL'");
+            _nullText.Items.Add("文本 'NULL'");
             _nullText.SelectedIndex = 0;
             _dateFormat.Items.Add("yyyy-MM-dd");
             _dateFormat.Items.Add("dd/MM/yyyy");
             _dateFormat.Items.Add("MM/dd/yyyy");
             _dateFormat.SelectedIndex = 0;
-            _target.Items.Add("New Query Window");
-            _target.Items.Add("Clipboard");
+            _target.Items.Add("新建查询窗口");
+            _target.Items.Add("剪贴板");
             _target.SelectedIndex = 1;
             _columns.ItemsSource = _rows;
 
@@ -179,15 +179,15 @@ namespace SqlAssist.ClipboardSql
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });                       // 6 bottom
 
             var inputBar = new DockPanel { Margin = new Thickness(0, 0, 0, 3) };
-            var clear = new Button { Content = "ล้าง", Padding = new Thickness(10, 2, 10, 2), Margin = new Thickness(6, 0, 0, 0) };
+            var clear = new Button { Content = "清空", Padding = new Thickness(10, 2, 10, 2), Margin = new Thickness(6, 0, 0, 0) };
             clear.Click += (s, e) => _input.Clear();
             DockPanel.SetDock(clear, Dock.Right);
             inputBar.Children.Add(clear);
-            var paste = new Button { Content = "วางจาก Clipboard", Padding = new Thickness(10, 2, 10, 2) };
+            var paste = new Button { Content = "从剪贴板粘贴", Padding = new Thickness(10, 2, 10, 2) };
             paste.Click += (s, e) => PasteFromClipboard();
             DockPanel.SetDock(paste, Dock.Right);
             inputBar.Children.Add(paste);
-            inputBar.Children.Add(new TextBlock { Text = "ข้อมูลที่คัดลอกมา (Excel หรือข้อความ CSV) — แก้ไขในช่องนี้ได้", VerticalAlignment = VerticalAlignment.Center });
+            inputBar.Children.Add(new TextBlock { Text = "已复制的数据（Excel 或 CSV 文本）—— 可在此框中直接修改", VerticalAlignment = VerticalAlignment.Center });
             Grid.SetRow(inputBar, 0);
             root.Children.Add(inputBar);
             Grid.SetRow(_input, 1);
@@ -196,26 +196,26 @@ namespace SqlAssist.ClipboardSql
             var options = new StackPanel { Margin = new Thickness(0, 8, 0, 6) };
             var line1 = new WrapPanel { Margin = new Thickness(0, 0, 0, 4) };
             line1.Children.Add(_header);
-            line1.Children.Add(new TextBlock { Text = "ตัวคั่น cell:", VerticalAlignment = VerticalAlignment.Center });
+            line1.Children.Add(new TextBlock { Text = "单元格分隔符：", VerticalAlignment = VerticalAlignment.Center });
             line1.Children.Add(_delimiter);
-            line1.Children.Add(new TextBlock { Text = "ผลลัพธ์:", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
+            line1.Children.Add(new TextBlock { Text = "输出形式：", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
             line1.Children.Add(_in);
             line1.Children.Add(_values);
             line1.Children.Add(_temp);
             options.Children.Add(line1);
             var line2 = new WrapPanel { Margin = new Thickness(0, 0, 0, 4) };
-            line2.Children.Add(new TextBlock { Text = "IN: คอลัมน์", VerticalAlignment = VerticalAlignment.Center });
+            line2.Children.Add(new TextBlock { Text = "IN：列", VerticalAlignment = VerticalAlignment.Center });
             line2.Children.Add(_inColumn);
             line2.Children.Add(_distinct);
-            line2.Children.Add(new TextBlock { Text = "ชื่อ temp table", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) });
+            line2.Children.Add(new TextBlock { Text = "临时表名称", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) });
             line2.Children.Add(_tempName);
             options.Children.Add(line2);
             var line3 = new WrapPanel();
-            line3.Children.Add(new TextBlock { Text = "cell ว่าง =", VerticalAlignment = VerticalAlignment.Center });
+            line3.Children.Add(new TextBlock { Text = "空单元格 =", VerticalAlignment = VerticalAlignment.Center });
             line3.Children.Add(_empty);
-            line3.Children.Add(new TextBlock { Text = "ข้อความ NULL (ตัวพิมพ์ใหญ่ทั้งหมดเท่านั้น) =", VerticalAlignment = VerticalAlignment.Center });
+            line3.Children.Add(new TextBlock { Text = "文本 NULL（仅限全大写）= ", VerticalAlignment = VerticalAlignment.Center });
             line3.Children.Add(_nullText);
-            line3.Children.Add(new TextBlock { Text = "รูปแบบวันที่ในข้อมูล", VerticalAlignment = VerticalAlignment.Center });
+            line3.Children.Add(new TextBlock { Text = "数据中的日期格式", VerticalAlignment = VerticalAlignment.Center });
             line3.Children.Add(_dateFormat);
             options.Children.Add(line3);
             Grid.SetRow(options, 2);
@@ -226,8 +226,8 @@ namespace SqlAssist.ClipboardSql
             columnsBox.Children.Add(_summary);
             var grid = new GridView();
             grid.Columns.Add(new GridViewColumn { Header = "#", Width = 40, DisplayMemberBinding = new Binding(nameof(ColumnRow.Number)) });
-            grid.Columns.Add(new GridViewColumn { Header = "ชื่อคอลัมน์", Width = 220, DisplayMemberBinding = new Binding(nameof(ColumnRow.Name)) });
-            grid.Columns.Add(new GridViewColumn { Header = "ตัวอย่างค่า (แถวข้อมูลแรก)", Width = 280, DisplayMemberBinding = new Binding(nameof(ColumnRow.Sample)) });
+            grid.Columns.Add(new GridViewColumn { Header = "列名", Width = 220, DisplayMemberBinding = new Binding(nameof(ColumnRow.Name)) });
+            grid.Columns.Add(new GridViewColumn { Header = "示例值（首个数据行）", Width = 280, DisplayMemberBinding = new Binding(nameof(ColumnRow.Sample)) });
             grid.Columns.Add(TypeColumn());
             _columns.View = grid;
             columnsBox.Children.Add(_columns);
@@ -248,7 +248,7 @@ namespace SqlAssist.ClipboardSql
             root.Children.Add(previewBox);
 
             var bottom = new DockPanel { Margin = new Thickness(0, 10, 0, 0) };
-            var close = new Button { Content = "ปิด", Width = 90, Height = 28, IsCancel = true, Margin = new Thickness(8, 0, 0, 0) };
+            var close = new Button { Content = "关闭", Width = 90, Height = 28, IsCancel = true, Margin = new Thickness(8, 0, 0, 0) };
             close.Click += (s, e) => DialogResult = false;
             DockPanel.SetDock(close, Dock.Right);
             bottom.Children.Add(close);
@@ -256,7 +256,7 @@ namespace SqlAssist.ClipboardSql
             bottom.Children.Add(_create);
             DockPanel.SetDock(_target, Dock.Right);
             bottom.Children.Add(_target);
-            bottom.Children.Add(new TextBlock { Text = "ส่งไปที่", VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, 8, 0) });
+            bottom.Children.Add(new TextBlock { Text = "发送到", VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, 8, 0) });
             Grid.SetRow(bottom, 6);
             root.Children.Add(bottom);
             return root;
@@ -270,7 +270,7 @@ namespace SqlAssist.ClipboardSql
             combo.SetValue(Selector.SelectedValuePathProperty, nameof(TypeChoice.Type));
             combo.SetBinding(Selector.SelectedValueProperty, new Binding(nameof(ColumnRow.Type)) { Mode = BindingMode.TwoWay });
             combo.SetValue(WidthProperty, 170d);
-            return new GridViewColumn { Header = "ชนิดข้อมูล", Width = 200, CellTemplate = new DataTemplate { VisualTree = combo } };
+            return new GridViewColumn { Header = "数据类型", Width = 200, CellTemplate = new DataTemplate { VisualTree = combo } };
         }
 
         private void Schedule()
@@ -297,13 +297,13 @@ namespace SqlAssist.ClipboardSql
             {
                 // The message of a clipboard failure never holds the clipboard's content.
                 Log.Error("CSV to SQL: reading the clipboard", ex);
-                _errors.Text = "อ่าน Clipboard ไม่ได้ (อาจมีโปรแกรมอื่นถืออยู่) ลองใหม่อีกครั้ง";
+                _errors.Text = "无法读取剪贴板（可能有其他程序占用），请重试";
                 return;
             }
-            if (string.IsNullOrEmpty(text)) { _errors.Text = "ใน Clipboard ไม่มีข้อความ"; return; }
+            if (string.IsNullOrEmpty(text)) { _errors.Text = "剪贴板中没有文本"; return; }
             if (text.Length > DelimitedTextParser.MaxChars)
             {
-                _errors.Text = "ข้อมูลใน Clipboard ใหญ่เกิน " + DelimitedTextParser.MaxChars.ToString("N0") + " ตัวอักษร จึงไม่ได้วางให้ — แบ่งคัดลอกทีละส่วน";
+                _errors.Text = "剪贴板数据过大，超过 " + DelimitedTextParser.MaxChars.ToString("N0") + " 个字符，因此未粘贴 —— 请分批复制";
                 return;
             }
             _input.Text = text;
@@ -327,7 +327,7 @@ namespace SqlAssist.ClipboardSql
                 var warnings = new List<string>(_table.Warnings);
                 string script = "";
                 _create.IsEnabled = false;
-                _previewLabel.Text = "ตัวอย่าง SQL";
+                _previewLabel.Text = "SQL 预览";
 
                 if (!_table.IsValid)
                 {
@@ -335,12 +335,12 @@ namespace SqlAssist.ClipboardSql
                 }
                 else if (_table.Rows.Count == 0)
                 {
-                    _summary.Text = "ยังไม่มีข้อมูล — วางข้อมูลจาก Excel หรือข้อความ CSV ในช่องด้านบน";
+                    _summary.Text = "暂无数据 —— 请在上方框中粘贴 Excel 或 CSV 文本";
                 }
                 else
                 {
                     int dataRows = _table.Rows.Count - (_header.IsChecked == true ? 1 : 0);
-                    _summary.Text = "ข้อมูล " + dataRows.ToString("N0") + " แถว × " + _table.ColumnCount + " คอลัมน์ — เลือกชนิดข้อมูลของแต่ละคอลัมน์ (ค่าเริ่มต้นเป็นข้อความเพื่อไม่ให้ 00123 กลายเป็น 123)";
+                    _summary.Text = "共 " + dataRows.ToString("N0") + " 行 × " + _table.ColumnCount + " 列 —— 请为每列选择数据类型（默认文本，避免 00123 变成 123）";
                     var result = ClipboardSqlBuilder.Build(Request(PreviewRows));
                     messages.AddRange(result.Errors);
                     warnings.AddRange(result.Warnings);
@@ -348,7 +348,7 @@ namespace SqlAssist.ClipboardSql
                     {
                         script = result.Script;
                         _create.IsEnabled = true;
-                        if (result.IsTruncated) _previewLabel.Text = "ตัวอย่าง SQL (แสดง " + PreviewRows + " แถว/ค่าแรก — ตรวจข้อมูลครบทุกแถวแล้ว)";
+                        if (result.IsTruncated) _previewLabel.Text = "SQL 预览（显示前 " + PreviewRows + " 行/值 —— 已校验所有行）";
                     }
                 }
                 _errors.Text = string.Join("\r\n", messages.Select(m => "• " + m));
@@ -358,7 +358,7 @@ namespace SqlAssist.ClipboardSql
             catch (Exception ex)
             {
                 Log.Error("CSV to SQL: preview", ex);
-                _errors.Text = "สร้างตัวอย่างไม่สำเร็จ: " + ex.GetType().Name;
+                _errors.Text = "生成预览失败：" + ex.GetType().Name;
                 _create.IsEnabled = false;
             }
         }
@@ -431,7 +431,7 @@ namespace SqlAssist.ClipboardSql
             catch (Exception ex)
             {
                 Log.Error("CSV to SQL: build", ex);
-                MessageBox.Show(this, "สร้าง SQL ไม่สำเร็จ: " + ex.GetType().Name, Title, MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(this, "生成 SQL 失败：" + ex.GetType().Name, Title, MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {

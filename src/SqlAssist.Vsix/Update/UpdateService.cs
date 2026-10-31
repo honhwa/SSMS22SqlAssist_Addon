@@ -61,7 +61,7 @@ namespace SqlAssist.Update
             catch (Exception ex)
             {
                 Log.Error("Update check", ex);
-                if (manual) await ShowMessageAsync(package, "Could not check for updates:\n" + ex.Message, OLEMSGICON.OLEMSGICON_WARNING);
+                if (manual) await ShowMessageAsync(package, "检查更新失败：\n" + ex.Message, OLEMSGICON.OLEMSGICON_WARNING);
                 return;
             }
 
@@ -69,7 +69,7 @@ namespace SqlAssist.Update
             if (manual && release != null && state.PendingVersion != null && !UpdatePolicy.IsNewer(state.PendingVersion, release.Version) &&
                 UpdatePolicy.IsNewer(CurrentVersion, release.Version))
             {
-                await ShowMessageAsync(package, "SqlAssist " + state.PendingVersion + " is downloaded and will be installed when SSMS closes.", OLEMSGICON.OLEMSGICON_INFO);
+                await ShowMessageAsync(package, "SqlAssist " + state.PendingVersion + " 已下载，将在 SSMS 关闭时安装。", OLEMSGICON.OLEMSGICON_INFO);
                 return;
             }
             if (UpdatePolicy.ShouldNotify(CurrentVersion, release, state, manual))
@@ -80,7 +80,7 @@ namespace SqlAssist.Update
             }
             else if (manual)
             {
-                await ShowMessageAsync(package, "SqlAssist " + SqlAssistPackage.Version + " is the latest version.", OLEMSGICON.OLEMSGICON_INFO);
+                await ShowMessageAsync(package, "SqlAssist " + SqlAssistPackage.Version + " 已是最新版本。", OLEMSGICON.OLEMSGICON_INFO);
             }
         }
 
@@ -109,7 +109,7 @@ namespace SqlAssist.Update
             if (Interlocked.Exchange(ref _busy, 1) == 1) return;
             try
             {
-                await SetStatusAsync(package, "SqlAssist: downloading " + release.SetupFileName + "...");
+                await SetStatusAsync(package, "SqlAssist：正在下载 " + release.SetupFileName + "...");
                 await TaskScheduler.Default;
                 string exe = await DownloadAsync(release, package.DisposalToken);
                 Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true, WorkingDirectory = DownloadDirectory });
@@ -122,7 +122,7 @@ namespace SqlAssist.Update
                 Log.Error("Update download", ex);
                 await SetStatusAsync(package, "");
                 await ShowMessageAsync(package,
-                    "Could not download the update:\n" + ex.Message + "\n\nThe release page will open so you can download it yourself.",
+                    "下载更新失败：\n" + ex.Message + "\n\n将打开发布页面，你可以自行下载。",
                     OLEMSGICON.OLEMSGICON_WARNING);
                 OpenUrl(release.PageUrl);
             }
@@ -145,20 +145,20 @@ namespace SqlAssist.Update
             if (Interlocked.Exchange(ref _busy, 1) == 1) return;
             try
             {
-                await SetStatusAsync(package, "SqlAssist: downloading " + release.SetupFileName + "...");
+                await SetStatusAsync(package, "SqlAssist：正在下载 " + release.SetupFileName + "...");
                 await TaskScheduler.Default;
                 string exe = await DownloadAsync(release, package.DisposalToken);
                 StartWaiter(exe);
                 ChangeState(s => { s.PendingVersion = release.Version; s.PendingSetup = exe; });
                 // Status bar only: the setup shows its own window once every SSMS has closed.
-                await SetStatusAsync(package, "SqlAssist " + release.Version + " will be installed when SSMS closes");
+                await SetStatusAsync(package, "SqlAssist " + release.Version + " 将在 SSMS 关闭时安装");
             }
             catch (Exception ex)
             {
                 Log.Error("Update download (install on exit)", ex);
                 await SetStatusAsync(package, "");
                 await ShowMessageAsync(package,
-                    "Could not download the update:\n" + ex.Message + "\n\nThe release page will open so you can download it yourself.",
+                    "下载更新失败：\n" + ex.Message + "\n\n将打开发布页面，你可以自行下载。",
                     OLEMSGICON.OLEMSGICON_WARNING);
                 OpenUrl(release.PageUrl);
             }
@@ -213,11 +213,11 @@ namespace SqlAssist.Update
             if (result == null) return;
             Log.Info("Install on exit: " + result.Version + (result.Ok ? " installed" : " failed: " + result.Error));
             if (result.Ok)
-                await SetStatusAsync(package, "SqlAssist updated to " + result.Version);
+                await SetStatusAsync(package, "SqlAssist 已更新到 " + result.Version);
             else
                 await ShowMessageAsync(package,
-                    "SqlAssist " + result.Version + " could not be installed when SSMS closed:\n" + result.Error +
-                    "\n\nUse Tools > SqlAssist > Check for Updates to try again.",
+                    "SqlAssist " + result.Version + " 在 SSMS 关闭时安装失败：\n" + result.Error +
+                    "\n\n请使用 工具 > SqlAssist > 检查更新 重试。",
                     OLEMSGICON.OLEMSGICON_WARNING);
         }
 
@@ -238,7 +238,7 @@ namespace SqlAssist.Update
 
                 string actual = Sha256(part);
                 if (!string.Equals(actual, release.SetupSha256, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidDataException("The downloaded file's SHA-256 does not match the release (" + actual + ").");
+                    throw new InvalidDataException("下载文件的 SHA-256 与发布版本不匹配（" + actual + "）。");
 
                 if (File.Exists(target)) File.Delete(target);
                 File.Move(part, target);
@@ -304,7 +304,7 @@ namespace SqlAssist.Update
         private static async Task ShowMessageAsync(AsyncPackage package, string text, OLEMSGICON icon)
         {
             await package.JoinableTaskFactory.SwitchToMainThreadAsync();
-            VsShellUtilities.ShowMessageBox(package, text, "SqlAssist Update", icon,
+            VsShellUtilities.ShowMessageBox(package, text, "SqlAssist 更新", icon,
                 OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
         }
 

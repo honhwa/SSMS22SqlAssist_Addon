@@ -39,22 +39,22 @@ namespace SqlAssist.Core.Clipboard
             {
                 case ClipboardColumnType.Int:
                     return int.TryParse(text, NumberStyles.AllowLeadingSign, Invariant, out int i)
-                        ? new CellParse(i) : Fail("ไม่ใช่จำนวนเต็ม int (-2,147,483,648 ถึง 2,147,483,647 ไม่มี , คั่นหลัก)");
+                        ? new CellParse(i) : Fail("不是 int 整数（范围 -2,147,483,648 到 2,147,483,647，不可含千分位逗号）");
                 case ClipboardColumnType.BigInt:
                     return long.TryParse(text, NumberStyles.AllowLeadingSign, Invariant, out long l)
-                        ? new CellParse(l) : Fail("ไม่ใช่จำนวนเต็ม bigint (ไม่มี , คั่นหลัก)");
+                        ? new CellParse(l) : Fail("不是 bigint 整数（不可含千分位逗号）");
                 case ClipboardColumnType.Decimal:
                     return decimal.TryParse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, Invariant, out decimal m)
-                        ? new CellParse(m) : Fail("ไม่ใช่ตัวเลขทศนิยม (ใช้จุด . เป็นทศนิยม ไม่ใส่ , คั่นหลัก และไม่ใช้ e)");
+                        ? new CellParse(m) : Fail("不是定点小数（小数用 .，不可含千分位逗号，也不可用 e）");
                 case ClipboardColumnType.Float:
                     return double.TryParse(text, NumberStyles.Float, Invariant, out double d) && !double.IsNaN(d) && !double.IsInfinity(d)
-                        ? new CellParse(d) : Fail("ไม่ใช่ตัวเลข float (ใช้จุด . เป็นทศนิยม, e ได้ เช่น 1e5)");
+                        ? new CellParse(d) : Fail("不是 float 数值（小数用 .，可用 e，例如 1e5）");
                 case ClipboardColumnType.Bit:
                     if (text == "1" || text.Equals("true", StringComparison.OrdinalIgnoreCase)) return new CellParse(true);
                     if (text == "0" || text.Equals("false", StringComparison.OrdinalIgnoreCase)) return new CellParse(false);
-                    return Fail("ไม่ใช่ bit (ใช้ 1, 0, true หรือ false)");
+                    return Fail("不是 bit（请用 1、0、true 或 false）");
                 case ClipboardColumnType.UniqueIdentifier:
-                    return Guid.TryParse(text, out Guid g) ? new CellParse(g) : Fail("ไม่ใช่ GUID");
+                    return Guid.TryParse(text, out Guid g) ? new CellParse(g) : Fail("不是 GUID");
                 case ClipboardColumnType.Date:
                 case ClipboardColumnType.DateTime:
                 case ClipboardColumnType.DateTime2:
@@ -70,19 +70,19 @@ namespace SqlAssist.Core.Clipboard
             string[] patterns = type == ClipboardColumnType.Date ? new[] { date } : TimePatterns(date, format == DateInputFormat.Iso);
             if (!DateTime.TryParseExact(text, patterns, Invariant, DateTimeStyles.None, out DateTime value))
                 return Fail(type == ClipboardColumnType.Date
-                    ? "ไม่ใช่วันที่รูปแบบ " + Describe(format) + " (ไม่มีเวลา)"
-                    : "ไม่ใช่วันที่-เวลารูปแบบ " + Describe(format) + " [HH:mm[:ss[.fffffff]]]");
+                    ? "不符合日期格式 " + Describe(format) + "（不含时间）"
+                    : "不符合日期时间格式 " + Describe(format) + " [HH:mm[:ss[.fffffff]]]");
 
             if (type == ClipboardColumnType.DateTime)
             {
                 if (value.Ticks % TimeSpan.TicksPerMillisecond != 0)
-                    return Fail("เศษวินาทีละเอียดเกิน 3 หลักที่ datetime เก็บได้ — ใช้ datetime2");
+                    return Fail("秒的小数位超过 datetime 可存储的 3 位 —— 请改用 datetime2");
                 if (value < DateTimeMin || value > DateTimeMax)
-                    return Fail("datetime รับวันที่ตั้งแต่ 1753-01-01 ถึง 9999-12-31 23:59:59.997 (ช่วงอื่นใช้ datetime2)");
+                    return Fail("datetime 的日期范围是 1753-01-01 至 9999-12-31 23:59:59.997（其他范围请用 datetime2）");
             }
             // A year in this range is more likely a Buddhist-era year (2567 = 2024) than a real far-future date.
             string warning = value.Year >= 2400 && value.Year <= 2700
-                ? "ปี " + value.Year + " น่าจะเป็นปี พ.ศ. (ค.ศ. = พ.ศ. - 543) — ตรวจว่าตั้งใจใช้ปีนี้"
+                ? "年份 " + value.Year + " 看起来是佛历年份（公历 = 佛历 - 543）—— 请确认是否有意使用该年份"
                 : null;
             return new CellParse(value, null, warning);
         }

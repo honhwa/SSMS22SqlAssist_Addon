@@ -26,7 +26,7 @@ namespace SqlAssist.Search
             {
                 var navType = NavigationServiceType();
                 object nav = navType == null ? null : await AsyncServiceProvider.GlobalProvider.GetServiceAsync(navType);
-                if (nav == null) return Fail("Object Explorer navigation service not available in this SSMS build");
+                if (nav == null) return Fail("此 SSMS 版本中没有对象资源管理器导航服务");
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(token);
 
                 ShowObjectExplorer();
@@ -46,7 +46,7 @@ namespace SqlAssist.Search
                 if (item.Parent != null)
                     foreach (var urn in urns)
                         if (await NavigateAsync(nav, ObjectUrn.Owner(urn), token)) return null;
-                return Fail("Object Explorer could not find " + urns.FirstOrDefault());
+                return Fail("对象资源管理器找不到 " + urns.FirstOrDefault());
             }
             catch (OperationCanceledException)
             {
@@ -55,7 +55,7 @@ namespace SqlAssist.Search
             catch (Exception ex)
             {
                 Log.Error("Locate in Object Explorer", ex);
-                return "Locate failed: " + ex.Message;
+                return "定位失败：" + ex.Message;
             }
         }
 
@@ -88,7 +88,7 @@ namespace SqlAssist.Search
             catch (Exception ex)
             {
                 Log.Error("Open script", ex);
-                return "Open script failed: " + ex.Message;
+                return "打开脚本失败：" + ex.Message;
             }
         }
 
@@ -106,7 +106,7 @@ namespace SqlAssist.Search
             catch (Exception ex)
             {
                 Log.Error("Open query window", ex);
-                return "Open query window failed: " + ex.Message;
+                return "打开查询窗口失败：" + ex.Message;
             }
         }
 
@@ -116,20 +116,20 @@ namespace SqlAssist.Search
             error = null;
             var factoryType = FindAssembly("SQLEditors")?.GetType("Microsoft.SqlServer.Management.UI.VSIntegration.Editors.ScriptFactory");
             object factory = factoryType?.GetProperty("Instance", Any)?.GetValue(null);
-            if (factory == null) { error = Fail("ScriptFactory not available"); return null; }
+            if (factory == null) { error = Fail("ScriptFactory 不可用"); return null; }
 
             var create = factoryType.GetMethods().FirstOrDefault(m => m.Name == "CreateNewBlankScript" && m.GetParameters().Length == 3
                 && m.GetParameters()[1].ParameterType.Name == "UIConnectionInfo");
             var createBlank = factoryType.GetMethods().FirstOrDefault(m => m.Name == "CreateNewBlankScript" && m.GetParameters().Length == 1);
             var scriptType = (create ?? createBlank)?.GetParameters()[0].ParameterType;
-            if (scriptType == null) { error = Fail("CreateNewBlankScript not found"); return null; }
+            if (scriptType == null) { error = Fail("未找到 CreateNewBlankScript"); return null; }
             object sql = Enum.Parse(scriptType, "Sql");
             if (create != null && uiConnectionInfo != null) create.Invoke(factory, new[] { sql, uiConnectionInfo, null });
             else createBlank.Invoke(factory, new[] { sql });
 
             if (!(ServiceProvider.GlobalProvider.GetService(typeof(DTE)) is DTE dte) || !(dte.ActiveDocument?.Object("TextDocument") is TextDocument doc))
             {
-                error = Fail("The new query window did not open");
+                error = Fail("新查询窗口未能打开");
                 return null;
             }
             doc.StartPoint.CreateEditPoint().Insert(text);
