@@ -1,6 +1,6 @@
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011">
   <Metadata>
-    <Identity Id="SqlAssist.9cc4aed8-f2ad-4120-ba6f-222b08aa04a0" Version="1.5.2" Language="zh-CN" Publisher="SqlAssist" />
+    <Identity Id="SqlAssist.9cc4aed8-f2ad-4120-ba6f-222b08aa04a0" Version="1.5.3" Language="zh-CN" Publisher="SqlAssist" />
     <DisplayName>SqlAssist</DisplayName>
     <Description xml:space="preserve">适用于 SSMS 22 查询编辑器的 IntelliSense 与代码片段：带自动别名的模糊表/列补全、基于外键的 JOIN 建议、按 Tab 展开 SELECT *，以及 Tab 触发的代码片段（ssf → SELECT * FROM）。</Description>
     <Icon>Resources\icon.png</Icon>
@@ -15,7 +15,7 @@
     <Dependency Id="Microsoft.Framework.NDP" DisplayName="Microsoft .NET Framework" Version="[4.8,)" />
   </Dependencies>
   <Prerequisites>
-    <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" DisplayName="Visual Studio core editor" Version="[18.0,19.0)" />
+    <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[18.0,19.0)" DisplayName="Visual Studio core editor" />
   </Prerequisites>
   <Assets>
     <Asset Type="Microsoft.VisualStudio.VsPackage" Path="SqlAssist.pkgdef" />

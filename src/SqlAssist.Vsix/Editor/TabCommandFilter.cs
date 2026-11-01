@@ -16,6 +16,7 @@ using SqlAssist.Connection;
 using SqlAssist.Core.Completion;
 using SqlAssist.Core.Sql;
 using SqlAssist.Schema;
+using SqlAssist.Settings;
 using SqlAssist.Snippets;
 
 namespace SqlAssist.Editor
@@ -100,7 +101,10 @@ namespace SqlAssist.Editor
                         case VSConstants.VSStd2KCmdID.COMPLETEWORD:
                         case VSConstants.VSStd2KCmdID.SHOWMEMBERLIST:
                         case VSConstants.VSStd2KCmdID.AUTOCOMPLETE:
-                            // Ctrl+Space: open our list, and keep SSMS's from opening on top of it.
+                            // Ctrl+Space: open our list, and keep SSMS's from opening on top of it. With IntelliSense
+                            // switched off the key is left alone, so SSMS's own list (if enabled) opens as it would
+                            // without SqlAssist.
+                            if (!SettingsProvider.IntelliSenseEnabled) break;
                             Trigger(CompletionTriggerReason.Invoke, '\0');
                             return VSConstants.S_OK;
 
@@ -139,6 +143,7 @@ namespace SqlAssist.Editor
                 _broker.GetSession(_view)?.Dismiss();
 
             int hr = Next.Exec(ref group, id, opt, pvaIn, pvaOut);
+            if (!SettingsProvider.IntelliSenseEnabled) return hr;
 
             // The editor's own completion handler normally does both of these; repeating them is harmless and
             // covers an SSMS build where it is not in the chain.
@@ -213,7 +218,11 @@ namespace SqlAssist.Editor
                 return true;
             }
 
-            // 2. An open list with a selection: let the editor commit it.
+            // 2. With IntelliSense off, the snippet above still expands and everything below (the open list, the star
+            // expansion, the statement expansion) does not: Tab is an ordinary Tab again.
+            if (!SettingsProvider.IntelliSenseEnabled) return false;
+
+            // 3. An open list with a selection: let the editor commit it.
             var session = _broker.GetSession(_view);
             if (session != null && !session.IsDismissed)
             {
@@ -221,10 +230,10 @@ namespace SqlAssist.Editor
                 session.Dismiss();
             }
 
-            // 3. SELECT *| → column list.
+            // 4. SELECT *| → column list.
             if (ExpandStar(caret, window)) return true;
 
-            // 4. INSERT INTO t| / UPDATE t| / EXEC p| / ALTER PROCEDURE p| → the full statement.
+            // 5. INSERT INTO t| / UPDATE t| / EXEC p| / ALTER PROCEDURE p| → the full statement.
             return ExpandStatement(caret, window);
         }
 

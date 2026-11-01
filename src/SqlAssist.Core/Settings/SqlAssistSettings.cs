@@ -56,7 +56,10 @@ namespace SqlAssist.Core.Settings
 
             var editor = Child(root, "Editor");
             if (editor != null)
+            {
+                settings.Editor.IntelliSenseEnabled = Flag(editor, "IntelliSenseEnabled", settings.Editor.IntelliSenseEnabled);
                 settings.Editor.HighlightInsertColumns = Flag(editor, "HighlightInsertColumns", settings.Editor.HighlightInsertColumns);
+            }
             return settings;
         }
 
@@ -69,6 +72,7 @@ namespace SqlAssist.Core.Settings
                         new XAttribute("IndentSize", Format.IndentSize.ToString(CultureInfo.InvariantCulture)),
                         new XAttribute("CommaStyle", Format.CommaStyle.ToString())),
                     new XElement("Editor",
+                        new XAttribute("IntelliSenseEnabled", Editor.IntelliSenseEnabled),
                         new XAttribute("HighlightInsertColumns", Editor.HighlightInsertColumns)),
                     new XElement("RiskCheck",
                         new XAttribute("UpdateWithoutWhere", Risk.UpdateWithoutWhere),

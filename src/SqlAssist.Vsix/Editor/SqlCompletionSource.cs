@@ -18,6 +18,7 @@ using SqlAssist.Core.Schema;
 using SqlAssist.Core.Snippets;
 using SqlAssist.Core.Sql;
 using SqlAssist.Schema;
+using SqlAssist.Settings;
 using SqlAssist.Snippets;
 
 namespace SqlAssist.Editor
@@ -60,6 +61,9 @@ namespace SqlAssist.Editor
         {
             try
             {
+                // The switch in 选项 › 编辑器: off means the list never opens, from typing or from Ctrl+Space.
+                if (!SettingsProvider.IntelliSenseEnabled) return CompletionStartData.DoesNotParticipateInCompletion;
+
                 var window = TextWindow.Around(triggerLocation.Snapshot, triggerLocation.Position);
                 var ctx = SqlContextAnalyzer.Analyze(window.Text, window.Caret);
                 if (ctx.InStringOrComment) return CompletionStartData.DoesNotParticipateInCompletion;

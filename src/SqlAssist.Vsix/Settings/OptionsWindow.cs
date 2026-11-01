@@ -39,6 +39,7 @@ namespace SqlAssist.Settings
         private readonly CheckBox _drop = new CheckBox { Content = "DROP TABLE", Margin = new Thickness(0, 0, 0, 6) };
         private readonly CheckBox _skipTemp = new CheckBox { Content = "跳过临时表 (#...) 和表变量 (@...)", Margin = new Thickness(0, 6, 0, 0) };
         private readonly CheckBox _highlightInsert = new CheckBox { Content = "高亮 INSERT … VALUES 中位置对应的列和值", FontWeight = FontWeights.SemiBold };
+        private readonly CheckBox _intelliSense = new CheckBox { Content = "启用 IntelliSense（补全列表与 Tab 展开）", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 6) };
         private readonly CheckBox _warn = new CheckBox { Content = "执行前提示（实验性）", FontWeight = FontWeights.SemiBold };
         private readonly TextBlock _guardStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(18, 6, 0, 0) };
         private bool _loading = true;
@@ -73,6 +74,7 @@ namespace SqlAssist.Settings
             _skipTemp.IsChecked = _settings.Risk.SkipTempTables;
             _warn.IsChecked = _settings.Risk.WarnBeforeExecute;
             _highlightInsert.IsChecked = _settings.Editor.HighlightInsertColumns;
+            _intelliSense.IsChecked = _settings.Editor.IntelliSenseEnabled;
             _guardStatus.Text = "当前状态：" + ExecuteGuard.Status;
 
             // Building the layout needs no UI-thread check: it only creates WPF controls, which is also what lets this window be
@@ -182,6 +184,16 @@ namespace SqlAssist.Settings
         private UIElement EditorTab()
         {
             var panel = new StackPanel { Margin = new Thickness(12) };
+            panel.Children.Add(_intelliSense);
+            panel.Children.Add(new TextBlock
+            {
+                Text = "关闭后，输入时不再弹出补全列表，Ctrl+Space 交回给 SSMS 自己的 IntelliSense，Tab 也不再展开 *、INSERT / UPDATE / EXEC 等语句" +
+                       "（此时 “按 Tab 可展开…” 的提示也不再显示）。\n\n" +
+                       "代码片段（如 ssf + Tab）、悬停查看表结构、F12 转到定义和下面的 INSERT 列高亮不受影响。\n\n" +
+                       "该选项在保存后立即生效，无需重启 SSMS",
+                TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(18, 0, 0, 0),
+            });
+            panel.Children.Add(new Separator { Margin = new Thickness(0, 14, 0, 14) });
             panel.Children.Add(_highlightInsert);
             panel.Children.Add(new TextBlock
             {
@@ -264,6 +276,7 @@ namespace SqlAssist.Settings
                 _settings.Risk.SkipTempTables = _skipTemp.IsChecked == true;
                 _settings.Risk.WarnBeforeExecute = _warn.IsChecked == true;
                 _settings.Editor.HighlightInsertColumns = _highlightInsert.IsChecked == true;
+                _settings.Editor.IntelliSenseEnabled = _intelliSense.IsChecked == true;
                 SettingsProvider.Save(_settings);
 
                 ExecuteGuard.Apply(_settings.Risk);

@@ -87,6 +87,23 @@ namespace SqlAssist.Core.Tests
         }
 
         [Fact]
+        public void IntelliSenseIsOnByDefaultAndKeepsWhatWasChosen()
+        {
+            Assert.True(SqlAssistSettings.Parse(null).Editor.IntelliSenseEnabled);
+            Assert.True(SqlAssistSettings.Parse("<SqlAssistSettings><Editor/></SqlAssistSettings>").Editor.IntelliSenseEnabled);
+            Assert.True(SqlAssistSettings.Parse("<SqlAssistSettings><Editor IntelliSenseEnabled='maybe'/></SqlAssistSettings>").Editor.IntelliSenseEnabled);
+            Assert.False(SqlAssistSettings.Parse("<SqlAssistSettings><Editor intellisenseenabled='FALSE'/></SqlAssistSettings>").Editor.IntelliSenseEnabled);
+
+            var settings = new SqlAssistSettings();
+            settings.Editor.IntelliSenseEnabled = false;
+            Assert.False(SqlAssistSettings.Parse(settings.ToXml()).Editor.IntelliSenseEnabled);
+            // Turning IntelliSense off must not disturb the other editor option.
+            Assert.True(SqlAssistSettings.Parse(settings.ToXml()).Editor.HighlightInsertColumns);
+            settings.Editor.IntelliSenseEnabled = true;
+            Assert.True(SqlAssistSettings.Parse(settings.ToXml()).Editor.IntelliSenseEnabled);
+        }
+
+        [Fact]
         public void RiskCheckDefaults()
         {
             var risk = SqlAssistSettings.Parse(null).Risk;

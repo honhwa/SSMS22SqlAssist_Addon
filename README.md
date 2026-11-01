@@ -23,6 +23,7 @@
 | SQL 风险检查 | **工具 › SqlAssist › 检查 SQL 风险...** 在所选内容（或整个查询窗口）中检查没有 `WHERE` 的 `UPDATE` / `DELETE`、`TRUNCATE TABLE`、`DROP TABLE`。点击列表项可跳转到该语句，不会修改也不会执行 SQL。见 [SQL 风险检查](#sql-风险检查) |
 | CSV 转 SQL | **工具 › SqlAssist › CSV 转 SQL...** 把从 Excel 复制的数据或 CSV 文本转换为 `IN (...)`、`VALUES (...)` 或 `CREATE TABLE #Temp` + `INSERT`。见 [CSV 转 SQL](#csv-转-sql) |
 | 代码片段 | `ssf` + **Tab** → `SELECT * FROM `，随后弹出表名列表供继续选择 |
+| IntelliSense 开关 | **工具 › SqlAssist › 选项... › 编辑器** 中可关闭 SqlAssist 的 IntelliSense（补全列表与 Tab 展开）。关闭后输入时不再弹出列表、Ctrl+Space 交回给 SSMS 自己的 IntelliSense、Tab 不再展开 `*` / INSERT / UPDATE / EXEC；代码片段（`ssf` + Tab）、悬停查看表结构、F12 和 INSERT 列高亮不受影响。保存后立即生效，无需重启 SSMS |
 
 ## 安装前（只需做一次）
 

@@ -14,6 +14,7 @@ using SqlAssist.Core.Completion;
 using SqlAssist.Core.Schema;
 using SqlAssist.Core.Sql;
 using SqlAssist.Schema;
+using SqlAssist.Settings;
 
 namespace SqlAssist.Editor
 {
@@ -79,6 +80,13 @@ namespace SqlAssist.Editor
             ThreadHelper.ThrowIfNotOnUIThread();
             try
             {
+                // With IntelliSense off Tab no longer expands anything, so there is nothing to advertise.
+                if (!SettingsProvider.IntelliSenseEnabled)
+                {
+                    Hide();
+                    return;
+                }
+
                 if (_view.IsClosed || !_view.HasAggregateFocus || _broker.IsCompletionActive(_view) || !_view.Selection.IsEmpty)
                 {
                     Hide();

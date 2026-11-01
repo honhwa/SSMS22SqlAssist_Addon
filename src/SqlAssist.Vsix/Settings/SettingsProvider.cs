@@ -28,6 +28,20 @@ namespace SqlAssist.Settings
             }
         }
 
+        /// <summary>Whether SqlAssist's IntelliSense (the completion list and the Tab expansions) is on. Asked on every
+        /// keystroke and on every completion trigger, so it does not copy the settings.</summary>
+        public static bool IntelliSenseEnabled
+        {
+            get
+            {
+                lock (Gate)
+                {
+                    Refresh(throttled: true);
+                    return _current.Editor.IntelliSenseEnabled;
+                }
+            }
+        }
+
         /// <summary>Whether the INSERT column highlight is on. Asked on every caret move, so it does not copy the settings.</summary>
         public static bool HighlightInsertColumns
         {
