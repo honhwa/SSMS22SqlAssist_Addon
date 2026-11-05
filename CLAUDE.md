@@ -51,8 +51,7 @@ Three projects (`SqlAssist.sln`) plus tests:
   `Completion/` (fuzzy matcher, alias generator, JOIN suggester, star expander), `Snippets/`, `Results/` (scripts from result-grid cells,
   the UPDATE script builder, a cell cache), `Schema/` (schema model,
   SQL type formatting), `Search/` (search matcher with match-case/whole-word/wildcards, `CREATE TABLE` preview
-  builder), `Clipboard/` (Excel-style paste parser, strict typed cell parsing, IN / VALUES / #Temp builder),
-  `Formatting/` (the SQL formatter), `Risk/` (UPDATE/DELETE without WHERE, TRUNCATE, DROP TABLE analyzer) and `Settings/`
+  builder), `Formatting/` (the SQL formatter), `Risk/` (UPDATE/DELETE without WHERE, TRUNCATE, DROP TABLE analyzer) and `Settings/`
   (`settings.xml`). `Sql/SqlStatementScanner` splits text into GO batches and statements (no grammar: a statement starts at a
   statement keyword unless the word before it continues the current one); the formatter and the risk check both build on it.
   All unit tests target this layer; put testable logic here, not in the Vsix project.
@@ -79,9 +78,6 @@ Three projects (`SqlAssist.sln`) plus tests:
     only while a grid has focus. Script text comes from Core `Results/ResultScriptBuilder`; UPDATE is the exception: it opens
     `UpdateScriptWindow` (target table and key columns chosen by the user, never guessed) and uses `UpdateScriptBuilder`.
     `ScriptDelivery` sends any generated text to a new query window, the clipboard or a file (never executes it).
-  - `ClipboardSql/` — Tools › SqlAssist › CSV to SQL (`ClipboardSqlWindow`, Core `Clipboard/`; the code kept its
-    original "Clipboard" names, only the user-facing name is CSV to SQL). Cell delimiter: Tab by default, comma / semicolon /
-    pipe by choice, never guessed from the text. The clipboard's content is never written to the log.
   - `Formatting/` — `FormatSqlCommand` (Ctrl+K, Ctrl+Shift+F, the Tools menu, and a second command `cmdFormatSqlContext` on the
     query editor's right-click menu: SSMS's `IDM_SQLWB_SQLSCRIPT_CONTEXT` = 0x50 in the same `{33F13AC3-…}` group as the grid's
     0x70): formats the selection or the document in one edit (one Undo),

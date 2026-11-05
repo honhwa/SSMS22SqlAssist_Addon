@@ -22,7 +22,6 @@ add-on ขนาดเล็กสำหรับ SQL Server Management Studio 2
 | ค้นชื่อไม่ต้องตรงตัว | `custid` → `CustomerID`, `od` → `OrderDetails` |
 | Format SQL | **Tools › SqlAssist › Format SQL**, คลิกขวาใน query editor › **Format SQL (SqlAssist)** หรือ **Ctrl+K, Ctrl+Shift+F** จัดรูปแบบ SQL ที่เลือก (หรือทั้งหน้า query ถ้าไม่ได้เลือก) โดยรักษา comment, string, hint และ `GO` ปรับค่าได้ที่ **Tools › SqlAssist › Options...** ดูหัวข้อ [Format SQL](#format-sql) |
 | ตรวจจุดเสี่ยงใน SQL | **Tools › SqlAssist › Check SQL Risks...** ตรวจ `UPDATE` / `DELETE` ที่ไม่มี `WHERE`, `TRUNCATE TABLE`, `DROP TABLE` ในส่วนที่เลือก (หรือทั้งหน้า query) คลิกรายการเพื่อกระโดดไปที่คำสั่ง ไม่แก้และไม่รัน SQL ให้ ดูหัวข้อ [ตรวจจุดเสี่ยงใน SQL](#ตรวจจุดเสี่ยงใน-sql) |
-| CSV to SQL | **Tools › SqlAssist › CSV to SQL...** เปลี่ยนข้อมูลที่คัดลอกจาก Excel หรือข้อความ CSV เป็น `IN (...)`, `VALUES (...)` หรือ `CREATE TABLE #Temp` + `INSERT` ดูหัวข้อ [CSV to SQL](#csv-to-sql) |
 | Snippets | `ssf` + **Tab** → `SELECT * FROM ` แล้วรายชื่อตารางจะเด้งขึ้นมาให้เลือกต่อ |
 
 ## ก่อนติดตั้ง (ทำครั้งเดียว)
@@ -155,31 +154,6 @@ schema จะถูกโหลดครั้งแรกที่ใช้ง�
 - **ข้อจำกัดที่ต้องรู้:** ยังเป็นของทดลอง ลองแล้วใน SSMS 22 (เครื่องทดสอบ, server SQL Express, ใช้ temp table เท่านั้น) กับ F5, Ctrl+E, ปุ่ม Execute บน toolbar, เมนู Query › Execute และการรันเฉพาะ selection ทุกช่องทางขึ้นหน้าต่างเตือน ปุ่มยกเลิก/Enter/Esc ไม่รันอะไร ปุ่ม รันต่อ รันครั้งเดียว และ Cancel Query ยังใช้ได้ปกติ แต่ **ยังไม่ได้ลองทุกช่องทางที่รัน query ใน SSMS** และไม่ใช่การรับประกันว่าจะไม่มีคำสั่งเสี่ยงหลุดไปรัน ถ้าต้องการความแน่ใจให้ใช้ Check SQL Risks ตรวจก่อนรันเอง ไม่แก้ปุ่มลัดของ SSMS เลย และถ้าปิดตัวเลือกนี้จะไม่มีอะไรถูกลงทะเบียน (ไม่มีผลต่อความเร็ว)
 - **ลองยืนยันเอง (โดยไม่แตะข้อมูลจริง):** เปิดตัวเลือก แล้วในหน้า query ที่ต่อ server ทดสอบ พิมพ์ `CREATE TABLE #t (a INT); DELETE FROM #t; DROP TABLE #t;` แล้วสั่ง Execute ด้วยทุกช่องทาง — **F5**, **Ctrl+E**, ปุ่ม **Execute** บน toolbar, เมนู **Query › Execute** — ทั้งแบบไม่เลือกอะไรและแบบเลือกเฉพาะ `DELETE FROM #t` ทุกครั้งต้องขึ้นหน้าต่างเตือน และกด **ยกเลิก** แล้วต้องไม่มีอะไรรัน (ตารางนี้เป็น temp table ของ session เท่านั้น)
 
-## CSV to SQL
-
-เปิดจาก **Tools › SqlAssist › CSV to SQL...** เพื่อเปลี่ยนข้อมูลที่คัดลอกจาก Excel หรือข้อความ CSV ให้เป็น SQL
-
-- **ช่องข้อความ:** ตอนเปิดหน้าต่างจะวางข้อความจาก Clipboard ให้ (ปุ่ม **วางจาก Clipboard** อ่านซ้ำได้) แก้ไขในช่องนี้ได้ แล้วตัวอย่างจะอัปเดตเอง รองรับ cell ที่ครอบด้วย `"` ตามแบบ Excel/CSV (มีตัวคั่น, ขึ้นบรรทัดใหม่ หรือ `""` อยู่ข้างใน)
-- **ตัวคั่น cell:** ค่าเริ่มต้นเป็น **Tab** (สิ่งที่ Excel ใส่ใน Clipboard) ถ้าเป็นข้อความ CSV เลือก **คอมมา `,`**, **เซมิโคลอน `;`** หรือ **ไปป์ `|`** เอง ระบบไม่เดาตัวคั่นจากข้อความ เพราะคอลัมน์เดียวที่มี `,` ในข้อความ (เช่น `Smith, John`) จะถูกแยกผิด ตัวเลขที่ใช้ `,` เป็นทศนิยม (CSV แบบยุโรป) อ่านไม่ได้ตามกติกาด้านล่างและจะแจ้งเป็น error
-- **แถวแรกเป็นชื่อคอลัมน์:** ติ๊กเองได้ ถ้าไม่ติ๊กทุกแถวเป็นข้อมูลและคอลัมน์ชื่อ `Column1`, `Column2`, ...
-- **ผลลัพธ์ 3 แบบ**
-
-  | แบบ | ได้อะไร |
-  |---|---|
-  | `IN (...)` | `IN (N'00123', N'00456')` ของคอลัมน์เดียวที่เลือก ติ๊ก **ตัดค่าซ้ำ** ได้ ค่า NULL จะถูกข้าม (IN จับ NULL ไม่ได้) และแจ้งจำนวนที่ข้าม ถ้ามีเกิน 10 ค่าจะขึ้นบรรทัดใหม่ทุก 10 ค่า |
-  | `VALUES (...), (...)` | `VALUES` ตามด้วยแถวละบรรทัด แบ่งเป็นก้อนละไม่เกิน 1,000 แถวตามข้อจำกัดของ SQL Server |
-  | `CREATE TABLE #Temp + INSERT` | สร้าง `#Temp` (ตั้งชื่อ `#...` / `##...` เองได้) ตามชนิดข้อมูลที่เลือก ขนาด `nvarchar(n)` / `decimal(p,s)` คำนวณจากข้อมูลจริง แล้ว `INSERT` แบ่งทุก 1,000 แถว (ใช้ตัวเขียน INSERT เดียวกับ Generate Script As) |
-
-- **ชนิดข้อมูลของแต่ละคอลัมน์:** ค่าเริ่มต้นเป็น *ข้อความ (nvarchar)* ทุกคอลัมน์ เพื่อให้รหัสอย่าง `00123` ไม่กลายเป็น `123` เลือก varchar, int, bigint, decimal, float, bit, date, datetime, datetime2, uniqueidentifier ได้ ถ้าข้อมูลไม่เข้ากับชนิดที่เลือกจะแจ้ง **แถวที่ N คอลัมน์ M** พร้อมค่าที่ผิด (แถวนับรวมแถวหัวตาราง) และจะไม่สร้าง SQL จนกว่าจะแก้ ไม่มีการแปลงผิดแบบเงียบ ๆ
-- **กติกา NULL (แยกเป็น 3 อย่างชัดเจน):**
-  - *cell ว่าง* (ไม่มีอะไรระหว่างตัวคั่น) → เลือกได้ว่าเป็น `NULL` (ค่าเริ่มต้น) หรือสตริงว่าง `''`
-  - *ข้อความ NULL* (ตัวพิมพ์ใหญ่ `NULL` ตรงตัว เช่น ที่ SSMS ใช้แสดงค่า NULL ตอน copy จาก grid) → เลือกได้ว่าเป็น `NULL` (ค่าเริ่มต้น) หรือข้อความ `'NULL'` ส่วน `Null`, `null`, ` NULL` ถือเป็นข้อความธรรมดาเสมอ (กันชื่อคนอย่าง Null)
-  - ถ้าเลือกให้เก็บเป็นสตริงว่าง/ข้อความ `NULL` แต่คอลัมน์เป็นตัวเลขหรือวันที่ ซึ่งเก็บไม่ได้ จะแจ้งเป็น error
-- **ตัวเลขและวันที่ไม่ขึ้นกับ regional settings ของเครื่อง:** ตัวเลขต้องเป็นเลขอารบิกและใช้จุด `.` เป็นทศนิยม (ไม่มี `,` คั่นหลัก, ไม่มี `1e5` ใน decimal) วันที่ต้องตรงรูปแบบที่เลือก (`yyyy-MM-dd`, `dd/MM/yyyy` หรือ `MM/dd/yyyy`) และ `date` ต้องไม่มีเวลา, `datetime` ละเอียดไม่เกิน 3 หลัก (เกินให้ใช้ `datetime2`) ปีที่ดูเหมือนปี พ.ศ. (2400-2700) จะมีคำเตือน วันที่ในผลลัพธ์เขียนเป็น ISO (`'2024-01-31T13:05:09.000'`) จึงไม่ต้องใช้ `SET DATEFORMAT`
-- **ตัวอย่างและการส่งออก:** ตัวอย่างแสดง 50 แถวแรก (แต่ตรวจข้อมูลครบทุกแถวแล้ว) ส่งไปที่ **Clipboard** หรือ **New Query Window** ได้ SqlAssist ไม่รัน SQL ให้
-- **ขีดจำกัด (กัน SSMS ค้าง):** ข้อความไม่เกิน 2,000,000 ตัวอักษร, 100,000 แถว, 256 คอลัมน์ และทุกแถวต้องมีจำนวนคอลัมน์เท่าแถวแรก (ไม่เติมช่องว่างให้เอง)
-- **ความเป็นส่วนตัว:** เนื้อหาใน Clipboard ไม่ถูกบันทึกลง log
-
 ## ค้นหา object
 
 เปิดจาก **Tools › SqlAssist › Search Objects...** หรือปุ่ม **SqlAssist** (โลโก้ SqlAssist) บน toolbar **SqlAssist** (ถ้าไม่เห็น toolbar ให้คลิกขวาที่แถบ toolbar แล้วติ๊ก SqlAssist หรือไปที่ View › Toolbars) หน้าต่างจะ dock เป็นแท็บข้าง Output และลากไปวางที่อื่นได้
@@ -238,7 +212,7 @@ snippet เก็บอยู่ที่ไฟล์ `%APPDATA%\SqlAssist\snipp
 ## สำหรับนักพัฒนา
 
 ```
-src/SqlAssist.Core     logic ล้วน (netstandard2.0) ไม่พึ่ง VS: tokenizer, context, statement scanner, SQL formatter, clipboard → SQL, fuzzy, alias, JOIN, *, snippets, search matcher, CREATE TABLE preview, settings, update policy
+src/SqlAssist.Core     logic ล้วน (netstandard2.0) ไม่พึ่ง VS: tokenizer, context, statement scanner, SQL formatter, fuzzy, alias, JOIN, *, snippets, search matcher, CREATE TABLE preview, settings, update policy
 src/SqlAssist.Vsix     ส่วนที่เชื่อมกับ SSMS (net48): completion source, item/commit manager, Tab filter, schema cache, Search tool window + index cache, update check
 tests/                 xUnit ของ Core
 ```

@@ -4,7 +4,6 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
-using SqlAssist.ClipboardSql;
 using SqlAssist.Formatting;
 using SqlAssist.Results;
 using SqlAssist.Risk;
@@ -21,7 +20,7 @@ namespace SqlAssist
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [Guid(PackageGuidString)]
     // Bump the number whenever the .vsct changes, or SSMS keeps showing the old cached menu.
-    [ProvideMenuResource("Menus.ctmenu", 12)]
+    [ProvideMenuResource("Menus.ctmenu", 13)]
     // Loads in the background once SSMS is up, so the daily update check runs without a menu click first.
     [ProvideAutoLoad(VSConstants.UICONTEXT.ShellInitialized_string, PackageAutoLoadFlags.BackgroundLoad)]
     // Puts the extension folder on SSMS's assembly probing path. The image service resolves the toolbar logo's
@@ -39,7 +38,6 @@ namespace SqlAssist
         private const int CmdSearch = 0x0104;
         private const int CmdSearchToolbar = 0x0105;
         private const int CmdCheckUpdates = 0x0106;
-        private const int CmdClipboardToSql = 0x0107;
         private const int CmdFormatSql = 0x0108;
         private const int CmdOptions = 0x0109;
         private const int CmdCheckRisks = 0x010A;
@@ -59,7 +57,6 @@ namespace SqlAssist
                 foreach (int id in new[] { CmdSearch, CmdSearchToolbar })
                     commands.AddCommand(new MenuCommand((s, e) => JoinableTaskFactory.RunAsync(ShowSearchAsync).FileAndForget("SqlAssist/ShowSearch"), new CommandID(CommandSet, id)));
                 commands.AddCommand(new MenuCommand((s, e) => ShowSnippetManager(), new CommandID(CommandSet, CmdEditSnippets)));
-                commands.AddCommand(new MenuCommand((s, e) => ShowCsvToSql(), new CommandID(CommandSet, CmdClipboardToSql)));
                 // The Tools menu item and the query editor's right-click item run the same command.
                 foreach (int id in new[] { CmdFormatSql, CmdFormatSqlContext })
                 {
@@ -110,23 +107,6 @@ namespace SqlAssist
             {
                 Log.Error("Options", ex);
                 ScriptDelivery.Show("เปิดหน้าต่าง Options ไม่สำเร็จ: " + ex.GetType().Name + " (ดู log ที่ " + Log.FilePath + ")", "SqlAssist: Options");
-            }
-        }
-
-        private static void ShowCsvToSql()
-        {
-            ThreadHelper.ThrowIfNotOnUIThread();
-            const string title = "SqlAssist: CSV to SQL";
-            try
-            {
-                var window = new ClipboardSqlWindow();
-                if (DialogHost.ShowDialog(window) == true)
-                    ScriptDelivery.Send(window.Script, window.Target, window.What, title);
-            }
-            catch (Exception ex)
-            {
-                Log.Error("CSV to SQL", ex);
-                ScriptDelivery.Show("CSV to SQL failed: " + ex.GetType().Name + " (see the log: " + Log.FilePath + ")", title);
             }
         }
 

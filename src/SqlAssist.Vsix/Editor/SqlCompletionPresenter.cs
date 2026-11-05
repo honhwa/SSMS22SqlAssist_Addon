@@ -172,6 +172,8 @@ namespace SqlAssist.Editor
             _description.Visibility = Visibility.Collapsed;
             _details.Visibility = Visibility.Collapsed;
             if (item == null || _session == null) return;
+            // The table tree ("SELECT |") already shows each column's type in the row, so it gets no description line.
+            if (TreeState.NodeOf(item) != null && _session.Properties.ContainsProperty(typeof(TreeState))) return;
 
             var cts = _descriptionCts = new CancellationTokenSource();
             var session = _session;
@@ -224,10 +226,20 @@ namespace SqlAssist.Editor
         }
 
         // ListBoxItem selects on click only if it can take focus, and these can't (the editor keeps it), so do it here.
+        // Not on the tree's checkbox or expander: a new selection makes the session call Update, which rebuilds every row,
+        // so the button pressed here is gone before the mouse is released and its Click never fires.
         private void OnMouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.OriginalSource is DependencyObject source && ItemsControl.ContainerFromElement(_list, source) is ListBoxItem item)
+            if (!(e.OriginalSource is DependencyObject source) || IsInTreeButton(source)) return;
+            if (ItemsControl.ContainerFromElement(_list, source) is ListBoxItem item)
                 _list.SelectedItem = _list.ItemContainerGenerator.ItemFromContainer(item);
+        }
+
+        private bool IsInTreeButton(DependencyObject element)
+        {
+            for (var d = element; d != null && d != _list; d = d is Visual || d is System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
+                if (d is ButtonBase button && (button.Tag as string == "check" || button.Tag as string == "expand")) return true;
+            return false;
         }
 
         private void OnDoubleClick(object sender, MouseButtonEventArgs e)

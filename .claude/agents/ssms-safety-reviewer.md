@@ -35,10 +35,10 @@ may sit in a caller, and a handler may be wired up elsewhere. `CLAUDE.md` descri
    `await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync()`. Blocking the UI thread on I/O or SQL (`.Result`,
    `.Wait()`, synchronous `SqlConnection.Open` in a command handler) is a finding. Exception: the WPF windows shown through
    `DialogHost` must **not** call `ThrowIfNotOnUIThread` in their constructors, so they can be rendered outside SSMS.
-4. **User data stays out of the log.** Clipboard contents (`ClipboardSql/`), result-grid cell values, query text and
+4. **User data stays out of the log.** Result-grid cell values, query text and
    connection secrets (password, connection string) must never reach `Log.Info`/`Log.Error` messages. Exception messages
    that embed such values count too.
-5. **Generated SQL is never executed.** `Results/` and `ClipboardSql/` deliver text only, through `ScriptDelivery`
+5. **Generated SQL is never executed.** `Results/` delivers text only, through `ScriptDelivery`
    (new query window, clipboard or file).
 6. **ExecuteGuard is not a guarantee.** It is experimental, off unless Options turns it on (nothing registered while
    off), and not confirmed for every way of executing. Flag code, UI text, comments or docs that describe it as
