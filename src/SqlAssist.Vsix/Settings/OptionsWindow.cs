@@ -38,7 +38,7 @@ namespace SqlAssist.Settings
         private readonly CheckBox _truncate = new CheckBox { Content = "TRUNCATE TABLE", Margin = new Thickness(0, 0, 0, 6) };
         private readonly CheckBox _drop = new CheckBox { Content = "DROP TABLE", Margin = new Thickness(0, 0, 0, 6) };
         private readonly CheckBox _skipTemp = new CheckBox { Content = "ข้ามตาราง temp (#...) และ table variable (@...)", Margin = new Thickness(0, 6, 0, 0) };
-        private readonly CheckBox _highlightInsert = new CheckBox { Content = "ไฮไลต์คอลัมน์และค่าที่ตรงกันใน INSERT … VALUES", FontWeight = FontWeights.SemiBold };
+        private readonly CheckBox _highlightInsert = new CheckBox { Content = "ไฮไลต์คอลัมน์และค่าที่ตรงกันใน INSERT … VALUES / INSERT … SELECT", FontWeight = FontWeights.SemiBold };
         private readonly CheckBox _warn = new CheckBox { Content = "เตือนก่อนกด Execute (ทดลอง)", FontWeight = FontWeights.SemiBold };
         private readonly TextBlock _guardStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(18, 6, 0, 0) };
         private bool _loading = true;
@@ -185,9 +185,10 @@ namespace SqlAssist.Settings
             panel.Children.Add(_highlightInsert);
             panel.Children.Add(new TextBlock
             {
-                Text = "เมื่อ caret อยู่ที่ค่าใน VALUES (…) จะแรเงาชื่อคอลัมน์ในรายการ INSERT (…) ที่อยู่ตำแหน่งเดียวกัน พร้อมกรอบสีฟ้ารอบค่านั้น " +
-                       "และเมื่อ caret อยู่ที่ชื่อคอลัมน์ จะแรเงาค่าตำแหน่งเดียวกันในทุกแถวของ VALUES\n\n" +
-                       "จับคู่ตามลำดับตำแหน่งจากข้อความ SQL (ไม่ต่อฐานข้อมูล) ใช้กับ INSERT ที่ระบุรายชื่อคอลัมน์และใช้ VALUES เท่านั้น ไม่รวม INSERT … SELECT / EXEC " +
+                Text = "เมื่อ caret อยู่ที่ค่าใน VALUES (…) หรือที่รายการใน SELECT ของ INSERT … SELECT จะแรเงาชื่อคอลัมน์ในรายการ INSERT (…) ที่อยู่ตำแหน่งเดียวกัน พร้อมกรอบสีฟ้ารอบค่านั้น " +
+                       "และเมื่อ caret อยู่ที่ชื่อคอลัมน์ จะแรเงาค่าตำแหน่งเดียวกัน (ทุกแถวของ VALUES หรือรายการเดียวของ SELECT)\n\n" +
+                       "จับคู่ตามลำดับตำแหน่งจากข้อความ SQL (ไม่ต่อฐานข้อมูล) ใช้กับ INSERT ที่ระบุรายชื่อคอลัมน์ และใช้ VALUES หรือ SELECT ธรรมดา " +
+                       "ไม่รวม INSERT … EXEC, UNION / EXCEPT / INTERSECT และ SELECT * (ไม่ขยาย * จึงจับคู่เฉพาะรายการก่อน *) " +
                        "ถ้าจำนวนคอลัมน์กับค่าไม่เท่ากัน หรือ SQL ยังพิมพ์ไม่ครบ จะแสดงเฉพาะคู่ที่ชัดเจน\n\n" +
                        "ผลของตัวเลือกนี้เริ่มหลังกดบันทึกและขยับ caret",
                 TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(18, 6, 0, 0),

@@ -30,7 +30,8 @@ namespace SqlAssist.Editor
     }
 
     /// <summary>Shows "Press Tab to expand N columns" under a "*", "Press Tab to insert list of parameters" under the
-    /// procedure name in "EXEC p", and the INSERT / UPDATE / ALTER hint under the object name — only where Tab would
+    /// procedure name in "EXEC p", the INSERT / UPDATE / ALTER hint under the object name, and "Press Tab to insert N grouping
+    /// expressions" under "GROUP BY" (which needs no schema) — only where Tab would
     /// do it, so the hint never promises an expansion that Tab will not do. Re-checked a moment after the caret settles.</summary>
     internal sealed class ExpansionTip
     {
@@ -40,6 +41,7 @@ namespace SqlAssist.Editor
         private readonly DispatcherTimer _timer;
         private IToolTipPresenter _presenter;
         private int _shownAt = -1;
+        private string _shownAction;   // the GROUP BY hint also depends on how many expressions it promises
         private int _waitingForSchemaAt = -1;
 
         public ExpansionTip(IWpfTextView view, IToolTipService toolTips, IAsyncCompletionBroker broker)
@@ -87,6 +89,22 @@ namespace SqlAssist.Editor
 
                 var caret = _view.Caret.Position.BufferPosition;
                 var window = TextWindow.Around(caret.Snapshot, caret.Position);
+
+                // GROUP BY needs no schema or connection, and Tab asks the same Core question (GroupByExpander.Find). The paths still
+                // differ around it: a user snippet named "by" wins in Tab, Tab ignores box selections, and the hint is debounced.
+                // _shownAction is cleared by Hide (called from Show), so the guard below only skips a hint that is already up.
+                var groupBy = GroupByExpander.Find(window.Text, window.Caret);
+                if (groupBy != null)
+                {
+                    int groupStart = window.Offset + groupBy.GroupStart;
+                    string groupAction = $"insert {groupBy.Count} grouping expression{(groupBy.Count == 1 ? "" : "s")}";
+                    if (_presenter != null && _shownAt == groupStart && _shownAction == groupAction) return;
+                    Show(new SnapshotSpan(caret.Snapshot, groupStart, groupBy.ByEnd - groupBy.GroupStart), groupAction);
+                    _shownAt = groupStart;
+                    _shownAction = groupAction;
+                    return;
+                }
+
                 var star = SqlContextAnalyzer.FindStar(window.Text, window.Caret);
                 var stmt = star == null ? StatementExpander.Find(window.Text, window.Caret) : null;
                 var target = star == null && stmt == null ? null : EditorConnection.Get(window);
@@ -161,7 +179,7 @@ namespace SqlAssist.Editor
                     span = new SnapshotSpan(caret.Snapshot, start, stmt.NameEnd - stmt.NameStart);
                 }
 
-                if (_presenter != null && _shownAt == start) return; // already showing here
+                if (_presenter != null && _shownAt == start && _shownAction == null) return; // already showing here
                 Show(span, action);
                 _shownAt = start;
             }
@@ -218,7 +236,7 @@ namespace SqlAssist.Editor
         {
             Hide();
             _presenter = _toolTips.CreatePresenter(_view, new ToolTipParameters(trackMouse: false, ignoreBufferChange: false));
-            _presenter.Dismissed += (s, e) => { if (ReferenceEquals(s, _presenter)) { _presenter = null; _shownAt = -1; } };
+            _presenter.Dismissed += (s, e) => { if (ReferenceEquals(s, _presenter)) { _presenter = null; _shownAt = -1; _shownAction = null; } };
             var text = new ClassifiedTextElement(
                 new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, "Press "),
                 new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, "Tab", ClassifiedTextRunStyle.Bold),
@@ -231,6 +249,7 @@ namespace SqlAssist.Editor
             var presenter = _presenter;
             _presenter = null;
             _shownAt = -1;
+            _shownAction = null;
             presenter?.Dismiss();
         }
     }

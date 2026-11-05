@@ -54,10 +54,10 @@ namespace SqlAssist.Core.Sql
     /// from the tokens, so commas inside strings, functions, subqueries and comments are never mistaken for separators. Only the
     /// form with a column list and VALUES is understood (not INSERT … SELECT / EXEC / DEFAULT VALUES); anything the parser is not
     /// sure of — a column that is not a plain name, a list still open, a statement that ends early — gives no map at all.</summary>
-    public sealed class InsertValueMap
+    public sealed class InsertValueMap : IInsertMap
     {
         // Words that cannot be part of a VALUES row, so a row left open by a typo ends there instead of swallowing the next statement.
-        private static readonly HashSet<string> StopAnywhere = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        internal static readonly HashSet<string> StopAnywhere =new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "INSERT", "UPDATE", "DELETE", "MERGE", "DECLARE", "EXEC", "EXECUTE", "GO", "CREATE", "ALTER", "DROP", "TRUNCATE",
             "IF", "WHILE", "PRINT", "USE", "SET", "RETURN", "THROW", "RAISERROR",
@@ -86,9 +86,7 @@ namespace SqlAssist.Core.Sql
         public static InsertValueMap Find(string text, int caret)
         {
             if (string.IsNullOrEmpty(text) || caret < 0 || caret > text.Length) return null;
-            var all = SqlTokenizer.Tokenize(text);
-            var sig = all.Where(t => t.Kind != TokenKind.Comment).ToList();
-            var comments = all.Where(t => t.Kind == TokenKind.Comment).Select(t => new SourceSpan(t.Start, t.End)).ToList();
+            var sig = Significant(text, out var comments);
 
             int tried = 0;
             for (int k = sig.Count - 1; k >= 0 && tried < MaxCandidates; k--)
@@ -106,9 +104,7 @@ namespace SqlAssist.Core.Sql
         public static InsertValueMap Parse(string text, int insertStart)
         {
             if (string.IsNullOrEmpty(text) || insertStart < 0 || insertStart >= text.Length) return null;
-            var all = SqlTokenizer.Tokenize(text);
-            var sig = all.Where(t => t.Kind != TokenKind.Comment).ToList();
-            var comments = all.Where(t => t.Kind == TokenKind.Comment).Select(t => new SourceSpan(t.Start, t.End)).ToList();
+            var sig = Significant(text, out var comments);
             int k = sig.FindIndex(t => t.Start == insertStart && t.IsWord("INSERT"));
             return k < 0 ? null : TryParse(sig, k, text.Length, comments);
         }
@@ -146,28 +142,48 @@ namespace SqlAssist.Core.Sql
             return null;
         }
 
-        private static InsertValueMap TryParse(List<SqlToken> sig, int k, int textLength, List<SourceSpan> comments)
+        /// <summary>The tokens without comments, and the comments' spans. Shared by every INSERT reader so a text is tokenized once.</summary>
+        internal static List<SqlToken> Significant(string text, out List<SourceSpan> comments)
         {
+            var all = SqlTokenizer.Tokenize(text);
+            comments = all.Where(t => t.Kind == TokenKind.Comment).Select(t => new SourceSpan(t.Start, t.End)).ToList();
+            return all.Where(t => t.Kind != TokenKind.Comment).ToList();
+        }
+
+        /// <summary>"INSERT [INTO] name[.name…] (a, b, …)" starting at the INSERT token <paramref name="k"/>: the column names, and
+        /// <paramref name="next"/> = index of the token after the closing ")". False when it is anything else (no column list, a
+        /// column that is not a plain name, a list still open).</summary>
+        internal static bool TryReadTarget(List<SqlToken> sig, int k, out List<SourceSpan> columns, out int next)
+        {
+            columns = null; next = -1;
             int n = sig.Count, p = k + 1;
             if (p < n && sig[p].IsWord("INTO")) p++;
-            if (p >= n || !IsName(sig[p])) return null;
+            if (p >= n || !IsName(sig[p])) return false;
             p++;
             while (p + 1 < n && sig[p].IsSymbol('.') && IsName(sig[p + 1])) p += 2;
-            if (p >= n || !sig[p].IsSymbol('(')) return null;
+            if (p >= n || !sig[p].IsSymbol('(')) return false;
             p++;
 
-            var columns = new List<SourceSpan>();
+            columns = new List<SourceSpan>();
             while (true)
             {
                 // Anything but one plain name per entry (a trailing comma, a function, an unfinished list) is not understood.
-                if (p >= n || (sig[p].Kind != TokenKind.Word && sig[p].Kind != TokenKind.QuotedIdentifier) || !sig[p].Terminated) return null;
+                if (p >= n || (sig[p].Kind != TokenKind.Word && sig[p].Kind != TokenKind.QuotedIdentifier) || !sig[p].Terminated) return false;
                 columns.Add(new SourceSpan(sig[p].Start, sig[p].End));
                 p++;
-                if (p >= n) return null;
+                if (p >= n) return false;
                 if (sig[p].IsSymbol(',')) { p++; continue; }
                 if (sig[p].IsSymbol(')')) { p++; break; }
-                return null;
+                return false;
             }
+            next = p;
+            return true;
+        }
+
+        internal static InsertValueMap TryParse(List<SqlToken> sig, int k, int textLength, List<SourceSpan> comments)
+        {
+            int n = sig.Count;
+            if (!TryReadTarget(sig, k, out var columns, out int p)) return null;
             if (p >= n || !sig[p].IsWord("VALUES")) return null;
             int end = sig[p].End;
             p++;
@@ -233,6 +249,6 @@ namespace SqlAssist.Core.Sql
             return new InsertValueRow(open, false, slots);
         }
 
-        private static bool IsName(SqlToken t) => t.Kind == TokenKind.Word || t.Kind == TokenKind.QuotedIdentifier || t.Kind == TokenKind.Variable;
+        internal static bool IsName(SqlToken t) => t.Kind == TokenKind.Word || t.Kind == TokenKind.QuotedIdentifier || t.Kind == TokenKind.Variable;
     }
 }

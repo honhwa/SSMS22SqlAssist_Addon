@@ -66,10 +66,10 @@ namespace SqlAssist.Editor
         }
     }
 
-    /// <summary>In "INSERT INTO t (a, b) VALUES (1, 2)" marks the column and the value at the caret's position, as text markers
-    /// (nothing is written to the buffer, the selection and the undo stack are not touched). The statement is read from the
-    /// tokens by Core's <see cref="InsertValueMap"/>; the result is kept per snapshot, so moving the caret inside a statement
-    /// looks up the map again instead of parsing it again.</summary>
+    /// <summary>In "INSERT INTO t (a, b) VALUES (1, 2)" and "INSERT INTO t (a, b) SELECT x, y FROM s" marks the column and the
+    /// value / select item at the caret's position, as text markers (nothing is written to the buffer, the selection and the undo
+    /// stack are not touched). The statement is read from the tokens by Core's <see cref="InsertMaps"/>; the result is kept per
+    /// snapshot, so moving the caret inside a statement looks up the map again instead of parsing it again.</summary>
     internal sealed class InsertColumnHighlightTagger : ITagger<TextMarkerTag>
     {
         public const string ColumnFormat = "SqlAssist.InsertColumn";
@@ -225,7 +225,7 @@ namespace SqlAssist.Editor
                 before = start;
 
                 var parsed = ParsedAt(snapshot, start, caret);
-                if (parsed.Map == null) continue;   // not an INSERT … VALUES we read (INSERT … SELECT, a comment): try the one before
+                if (parsed.Map == null) continue;   // not an INSERT form we read (INSERT … EXEC, UNION, a comment): try the one before
                 // The nearest readable statement is the only one that can hold the caret.
                 var hit = parsed.Map.At(caret - start);
                 return hit == null ? null : ToMarks(snapshot, start, hit);
@@ -290,9 +290,10 @@ namespace SqlAssist.Editor
             return parsed;
         }
 
+        // INSERT … VALUES or INSERT … SELECT: InsertMaps tries both on one tokenization.
         private static Parsed Read(ITextSnapshot snapshot, int start, int end)
         {
-            var map = InsertValueMap.Parse(snapshot.GetText(start, end - start), 0);
+            var map = InsertMaps.Parse(snapshot.GetText(start, end - start), 0);
             return new Parsed(map, end, truncated: map != null && start + map.StatementEnd >= end && end < snapshot.Length);
         }
 
@@ -328,8 +329,8 @@ namespace SqlAssist.Editor
 
         private sealed class Parsed
         {
-            public Parsed(InsertValueMap map, int windowEnd, bool truncated) { Map = map; WindowEnd = windowEnd; Truncated = truncated; }
-            public InsertValueMap Map { get; }
+            public Parsed(IInsertMap map, int windowEnd, bool truncated) { Map = map; WindowEnd = windowEnd; Truncated = truncated; }
+            public IInsertMap Map { get; }
             /// <summary>Buffer position where the text that was read ended.</summary>
             public int WindowEnd { get; }
             /// <summary>The statement was still open where the text that was read ended.</summary>

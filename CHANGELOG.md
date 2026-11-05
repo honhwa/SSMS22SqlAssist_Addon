@@ -8,6 +8,38 @@
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-11-05
+
+### เพิ่ม
+
+- **`GROUP BY` + Tab:** พิมพ์ `GROUP BY ` (caret ต่อท้าย `BY` หรือช่องว่าง และยังไม่มี expression ตามหลัง) แล้วกด Tab จะเติมรายการ grouping expression จาก `SELECT` ของ query block เดียวกันทันที ไม่มี preview หรือกล่องยืนยัน
+  มี hint "Press Tab to insert N grouping expressions" ใต้ `GROUP BY` เฉพาะเมื่อ Tab ขยายได้จริง (hint กับ Tab เรียกการตรวจเดียวกันใน Core (`GroupByExpander.Find`) และ Tab ตรวจข้อความปัจจุบันใหม่ทุกครั้ง)
+  - เรียงตามลำดับใน SELECT ตัด alias ออกทุกแบบ (`expr AS a`, `expr a`, `a = expr`) ได้ expression ต้นฉบับ เช่น `YEAR(o.OrderDate) AS OrderYear` → `YEAR(o.OrderDate)`
+    รองรับคอลัมน์, scalar function, `CASE`, `CONVERT` / `CAST` / `DATEADD` ฯลฯ ข้ามค่าคงที่ ตัวแปร และ aggregate (`COUNT(*)`, `SUM(x)`, `COALESCE(SUM(x), 0)`) SELECT ที่ไม่มี aggregate ก็ใช้ได้
+  - รายการที่ซ้ำกันทุก token (เทียบตัวอักษรตรงตัว ไม่ตัดช่องว่างหรือเปลี่ยนตัวพิมพ์ทั้งก้อน) จะเติมครั้งเดียว
+  - อ่านเฉพาะ SELECT ที่เป็นเจ้าของ `GROUP BY` นั้น (comma ใน string / function / วงเล็บซ้อน / comment ไม่ถูกนับเป็นตัวแบ่ง; SELECT ใน CTE, derived table, subquery ไม่ถูกหยิบมา)
+  - เติมเฉพาะรายการหลัง `GROUP BY` (edit ครั้งเดียว Ctrl+Z ครั้งเดียวย้อนทั้งชุด) caret อยู่ท้าย expression สุดท้าย `HAVING` / `ORDER BY` / `OPTION` / semicolon ที่มีอยู่เดิมไม่ถูกแตะและไม่เติม semicolon เพิ่ม
+    จัดบรรทัดตาม indent และตำแหน่ง comma ที่ตั้งไว้ใน Format SQL (ค่าตั้งต้นคือ comma นำหน้า)
+  - ไม่ขยาย (Tab ทำงานตามปกติ ไม่มี hint): มี expression หลัง `GROUP BY` แล้ว, `SELECT *` / `alias.*`, window function (`OVER`), `UNION` / `EXCEPT` / `INTERSECT`, `ROLLUP` / `CUBE` / `GROUPING SETS` / `GROUPING()`,
+    subquery ใน select item, SQL ที่ยังไม่ครบ, ฟังก์ชันที่ไม่รู้ว่าเป็น scalar หรือ aggregate (รวมฟังก์ชันของผู้ใช้ `dbo.f(...)`), คอลัมน์ปนกับ aggregate (`o.Price * SUM(o.Qty)`) และเมื่อไม่มีรายการเหลือให้เติม
+  - ไม่ต่อฐานข้อมูลและไม่ต้องรอ schema ถ้ารายการแนะนำคอลัมน์เปิดอยู่ Tab ครั้งแรกจะเลือกรายการตามเดิม (กด Esc ก่อนถ้าต้องการขยาย)
+
+- **ไฮไลต์คอลัมน์และรายการที่ตรงกันใน `INSERT … SELECT`:** ต่อยอดจากไฮไลต์ของ `INSERT … VALUES` ใช้สีและกรอบชุดเดิม (ปรับตามธีม Light/Dark เหมือนเดิม) ทำงานเองเมื่อคลิกหรือเลื่อน caret ไม่ต้องกดคำสั่ง
+  - caret ที่ชื่อคอลัมน์ในรายการ `INSERT INTO t (a, b, …)` → กรอบสีฟ้ารอบ select item ที่อยู่ตำแหน่งเดียวกัน (ทั้งก้อน เช่น `CONCAT(…)`)
+    caret อยู่ที่ใดก็ได้ภายใน select item → แรเงาคอลัมน์ปลายทางที่ตรงกัน
+  - select item ที่มี alias (`expr AS a`, `a = expr`, `expr a`) ไฮไลต์ทั้งก้อนรวม alias
+  - จับคู่ตามลำดับตำแหน่ง ไม่ได้ดูจากชื่อหรือข้อความที่เหมือนกัน และไม่ต่อฐานข้อมูล
+  - อ่านเฉพาะรายการ SELECT ชั้นนอกที่ป้อนข้อมูลเข้า INSERT (รองรับ `DISTINCT`, `ALL`, `TOP n` / `TOP (n) [PERCENT] [WITH TIES]`, ชื่อ `[...]` และ schema, comment, หลายบรรทัด):
+    comma ใน string, ฟังก์ชัน, `CASE`, วงเล็บซ้อนและ subquery ไม่ถูกนับเป็นตัวแบ่ง และ SELECT ภายใน CTE, derived table หรือ subquery ไม่ถูกสับสนกับ SELECT ของ INSERT
+  - รุ่นนี้ไม่ขยาย `*` / `alias.*`: จับคู่เฉพาะรายการที่อยู่ก่อน `*` ตัวแรก (ตัว `*` และรายการหลังจากนั้นไม่ไฮไลต์เพราะไม่รู้ตำแหน่งแน่นอน)
+    ไม่รองรับ `UNION` / `EXCEPT` / `INTERSECT`, `INSERT … EXEC`, `OUTPUT` ก่อน SELECT และ `(SELECT …)` ที่ครอบด้วยวงเล็บ — กรณีเหล่านี้ล้างไฮไลต์แทนการเดา
+  - ถ้า SQL ยังพิมพ์ไม่ครบหรือจำนวนคอลัมน์กับ select item ไม่เท่ากัน จะแสดงเฉพาะคู่ที่ยืนยันตำแหน่งได้
+  - เปิด/ปิดด้วยตัวเลือกเดียวกับ `INSERT … VALUES` ที่ Tools › SqlAssist › Options… › Editor
+
+### เปลี่ยน
+
+- ภายใน: ตัวอ่านรายการ SELECT (`SelectListReader`) ถูกแยกออกมาใช้ร่วมกันระหว่างไฮไลต์ `INSERT … SELECT` กับ `GROUP BY` + Tab ไม่เปลี่ยนพฤติกรรมของไฮไลต์เดิม
+
 ## [1.5.2] - 2026-10-30
 
 ### เพิ่ม

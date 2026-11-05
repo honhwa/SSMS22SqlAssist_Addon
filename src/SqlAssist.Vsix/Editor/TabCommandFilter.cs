@@ -16,6 +16,7 @@ using SqlAssist.Connection;
 using SqlAssist.Core.Completion;
 using SqlAssist.Core.Sql;
 using SqlAssist.Schema;
+using SqlAssist.Settings;
 using SqlAssist.Snippets;
 
 namespace SqlAssist.Editor
@@ -45,7 +46,7 @@ namespace SqlAssist.Editor
 
     /// <summary>SSMS routes keys through the IOleCommandTarget chain (WPF key processors never see them),
     /// so this sits at the front of each SQL editor's chain. Tab is decided in this order:
-    /// snippet shortcut → commit the open completion list → expand SELECT * → plain Tab.</summary>
+    /// snippet shortcut → commit the open completion list → expand SELECT * → expand GROUP BY → expand INSERT / UPDATE / EXEC / ALTER → plain Tab.</summary>
     internal sealed class TabCommandFilter : IOleCommandTarget
     {
         private static readonly TimeSpan StarSchemaWait = TimeSpan.FromSeconds(5);
@@ -224,8 +225,42 @@ namespace SqlAssist.Editor
             // 3. SELECT *| → column list.
             if (ExpandStar(caret, window)) return true;
 
-            // 4. INSERT INTO t| / UPDATE t| / EXEC p| / ALTER PROCEDURE p| → the full statement.
+            // 4. GROUP BY | → the grouping expressions of the same SELECT.
+            if (ExpandGroupBy(caret, window)) return true;
+
+            // 5. INSERT INTO t| / UPDATE t| / EXEC p| / ALTER PROCEDURE p| → the full statement.
             return ExpandStatement(caret, window);
+        }
+
+        // Asks Core again on the current text (the same question the hint asks), so a hint that went stale cannot expand anything:
+        // no match means the Tab goes on as a Tab. Needs no connection or schema.
+        private bool ExpandGroupBy(SnapshotPoint caret, TextWindow window)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var found = GroupByExpander.Find(window.Text, window.Caret);
+            if (found == null) return false;
+
+            var snapshot = caret.Snapshot;
+            var line = snapshot.GetLineFromPosition(window.Offset + found.GroupStart);
+            string newLine = line.GetLineBreakText();
+            if (string.IsNullOrEmpty(newLine)) newLine = _view.Options.GetOptionValue(DefaultOptions.NewLineCharacterOptionId);
+            var expansion = found.Build(SettingsProvider.Load().Format, newLine);
+
+            // One replacement, so a single Undo takes the whole list back.
+            var span = new SnapshotSpan(snapshot, window.Offset + found.ReplaceStart, found.ReplaceEnd - found.ReplaceStart);
+            var after = snapshot.TextBuffer.Replace(span, expansion.Text);
+            // An edit the buffer refused (read-only region) comes back as the same snapshot: nothing was written, so Tab goes on as a Tab.
+            if (ReferenceEquals(after, snapshot) || after.Version.VersionNumber == snapshot.Version.VersionNumber) return false;
+            try
+            {
+                _view.Caret.MoveTo(new SnapshotPoint(after, span.Start.Position + expansion.CaretOffset));
+            }
+            catch (Exception ex)
+            {
+                // The text is already written: the Tab is spent either way, so it must not be sent down the chain again.
+                Log.Error("GROUP BY expansion: moving the caret", ex);
+            }
+            return true;
         }
 
         private bool ExpandStatement(SnapshotPoint caret, TextWindow window)
