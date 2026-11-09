@@ -16,6 +16,7 @@ namespace SqlAssist.Core.Settings
         public FormatOptions Format { get; } = new FormatOptions();
         public RiskOptions Risk { get; } = new RiskOptions();
         public EditorOptions Editor { get; } = new EditorOptions();
+        public CrudSettings Crud { get; } = new CrudSettings();
 
         public static SqlAssistSettings Parse(string xml)
         {
@@ -60,6 +61,14 @@ namespace SqlAssist.Core.Settings
                 settings.Editor.HighlightInsertColumns = Flag(editor, "HighlightInsertColumns", settings.Editor.HighlightInsertColumns);
                 settings.Editor.ShowParameterHints = Flag(editor, "ShowParameterHints", settings.Editor.ShowParameterHints);
             }
+
+            var crud = Child(root, "Crud");
+            if (crud != null)
+            {
+                string pattern = Attribute(crud, "NamePattern");
+                if (!string.IsNullOrWhiteSpace(pattern)) settings.Crud.NamePattern = pattern.Trim();
+                settings.Crud.CreateOrAlter = Flag(crud, "CreateOrAlter", settings.Crud.CreateOrAlter);
+            }
             return settings;
         }
 
@@ -74,6 +83,9 @@ namespace SqlAssist.Core.Settings
                     new XElement("Editor",
                         new XAttribute("HighlightInsertColumns", Editor.HighlightInsertColumns),
                         new XAttribute("ShowParameterHints", Editor.ShowParameterHints)),
+                    new XElement("Crud",
+                        new XAttribute("NamePattern", Crud.NamePattern),
+                        new XAttribute("CreateOrAlter", Crud.CreateOrAlter)),
                     new XElement("RiskCheck",
                         new XAttribute("UpdateWithoutWhere", Risk.UpdateWithoutWhere),
                         new XAttribute("DeleteWithoutWhere", Risk.DeleteWithoutWhere),

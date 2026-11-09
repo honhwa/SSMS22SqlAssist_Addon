@@ -15,7 +15,11 @@ using System.Windows.Threading;
 using Microsoft.VisualStudio.PlatformUI;
 using Microsoft.VisualStudio.Shell;
 using SqlAssist.Connection;
+using SqlAssist.Core.Completion;
 using SqlAssist.Core.Search;
+using SqlAssist.Results;
+using SqlAssist.Schema;
+using SqlAssist.Settings;
 
 namespace SqlAssist.Search
 {
@@ -331,8 +335,18 @@ namespace SqlAssist.Search
             open.Click += (s, e) => OpenScript();
             var copy = new MenuItem { Header = "Copy name", InputGestureText = "Ctrl+C" };
             copy.Click += (s, e) => CopyName();
+            // Only a table has a primary key to build Select / Insert / Update / Delete procedures on.
+            var crudSeparator = new Separator();
+            var crud = new MenuItem { Header = "Generate CRUD procedures…" };
+            crud.Click += (s, e) => GenerateCrud();
+            rowMenu.Opened += (s, e) =>
+            {
+                crud.Visibility = crudSeparator.Visibility = SelectedItem?.Type == SearchObjectType.Table ? Visibility.Visible : Visibility.Collapsed;
+            };
             rowMenu.Items.Add(locate);
             rowMenu.Items.Add(open);
+            rowMenu.Items.Add(crudSeparator);
+            rowMenu.Items.Add(crud);
             rowMenu.Items.Add(new Separator());
             rowMenu.Items.Add(copy);
             var rowStyle = new Style(typeof(DataGridRow));
@@ -375,6 +389,56 @@ namespace SqlAssist.Search
             var first = hits != null && hits.Count > 0 ? hits[0] : new TextSpan(-1, 0);
             string problem = SsmsNavigator.OpenScript(_server, item, first.Start, first.Length);
             if (problem != null) SetStatus(problem);
+        }
+
+        /// <summary>Right-click a table › Generate CRUD procedures: loads that table from the schema cache of its database, asks
+        /// what to generate and hands the script over. The script is never executed.</summary>
+        private void GenerateCrud()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var item = SelectedItem;
+            var server = _server;
+            if (item == null || server == null || item.Type != SearchObjectType.Table) return;
+            SetStatus("Loading " + item.Name + " for CRUD procedures…");
+            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+            {
+                try
+                {
+                    var target = server.ForDatabase(item.Database);
+                    var schema = await SchemaCache.Instance.GetAsync(target, TimeSpan.FromSeconds(15), CancellationToken.None);
+                    var table = schema.Find(item.Schema, item.Name);
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    if (table == null || table.IsView)
+                    {
+                        SetStatus("Table " + item.Schema + "." + item.Name + " is not in the loaded schema yet. Press Refresh and try again.");
+                        return;
+                    }
+                    SetStatus("");
+
+                    var saved = SettingsProvider.Load();
+                    var window = new CrudWindow(table, item.Database, saved.Crud, ScriptTarget.NewWindow);
+                    if (DialogHost.ShowDialog(window) != true) return;
+
+                    saved.Crud.NamePattern = string.IsNullOrWhiteSpace(window.Options.NamePattern) ? CrudOptions.DefaultNamePattern : window.Options.NamePattern.Trim();
+                    saved.Crud.CreateOrAlter = window.Options.CreateOrAlter;
+                    try { SettingsProvider.Save(saved); } catch (Exception ex) { Log.Error("Saving CRUD settings", ex); }
+
+                    // The procedures belong to this table's database, whichever one the query window happens to be on.
+                    string text = "USE " + TableScriptBuilder.Bracket(item.Database) + ";\r\nGO\r\n\r\n" + CrudScriptBuilder.Build(table, window.Options).Text;
+                    if (window.Target == ScriptTarget.NewWindow)
+                    {
+                        string problem = SsmsNavigator.OpenQueryWindow(server.UiConnectionInfo, text);
+                        SetStatus(problem ?? "CRUD procedures for " + item.Name + " opened in a new query window (not executed).");
+                    }
+                    else ScriptDelivery.Send(text, window.Target, "CRUD procedures for " + item.Name, "SqlAssist");
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("Generate CRUD procedures", ex);
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    SetStatus("Generate CRUD procedures failed: " + ex.Message);
+                }
+            }).FileAndForget("SqlAssist/Search/GenerateCrud");
         }
 
         private void CopyName()

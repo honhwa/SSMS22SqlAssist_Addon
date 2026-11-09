@@ -33,6 +33,26 @@ namespace SqlAssist.Core.Tests
         }
 
         [Fact]
+        public void CrudSettingsDefaultRoundTripAndFallBack()
+        {
+            var defaults = SqlAssistSettings.Parse("<SqlAssistSettings/>");
+            Assert.Equal("usp_{Table}_{Action}", defaults.Crud.NamePattern);
+            Assert.True(defaults.Crud.CreateOrAlter);
+
+            var settings = new SqlAssistSettings();
+            settings.Crud.NamePattern = "p_{Schema}_{Table}_{Action}";
+            settings.Crud.CreateOrAlter = false;
+            var read = SqlAssistSettings.Parse(settings.ToXml());
+            Assert.Equal("p_{Schema}_{Table}_{Action}", read.Crud.NamePattern);
+            Assert.False(read.Crud.CreateOrAlter);
+
+            // A blank pattern or a flag that is not true/false falls back to the default for that value only.
+            read = SqlAssistSettings.Parse("<SqlAssistSettings><Crud NamePattern=\"  \" CreateOrAlter=\"maybe\"/></SqlAssistSettings>");
+            Assert.Equal("usp_{Table}_{Action}", read.Crud.NamePattern);
+            Assert.True(read.Crud.CreateOrAlter);
+        }
+
+        [Fact]
         public void BadValuesFallBackOneByOne()
         {
             var read = SqlAssistSettings.Parse("<SqlAssistSettings><Format KeywordCase=\"Shouting\" IndentSize=\"many\" CommaStyle=\"Trailing\"/></SqlAssistSettings>");

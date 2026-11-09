@@ -10,6 +10,10 @@
 
 ### เพิ่ม
 
+- **Generate CRUD procedures (หน้าต่าง Search):** คลิกขวาที่ตารางในผลลัพธ์ › **Generate CRUD procedures…** เลือกว่าจะสร้าง `Select` / `Insert` / `Update` / `Delete` ตั้งรูปแบบชื่อได้ (ค่าเริ่มต้น `usp_{Table}_{Action}`, ใช้ `{Schema}` `{Table}` `{Action}`) และเลือก `CREATE OR ALTER` หรือ `CREATE` ดู script ตัวอย่างก่อนส่งไปที่หน้าต่าง query ใหม่ / clipboard / ไฟล์ (มี `USE [database]` นำหน้า) SqlAssist ไม่รัน script ให้
+  - Insert ข้ามคอลัมน์ identity / computed / rowversion และคืนค่า identity ผ่าน `OUTPUT` parameter (`SCOPE_IDENTITY()`) · Select รับ primary key เป็น parameter แบบ `= NULL` (ส่ง NULL = ได้ทุกแถว) · Update / Delete ใช้ primary key (รองรับ Composite Key) และ Update ไม่มีค่าเริ่มต้นของ parameter เพื่อไม่ให้ลืมส่งแล้วกลายเป็น NULL
+  - ตารางที่ไม่มี primary key (หรือมีแต่ key ไม่มีคอลัมน์ให้ SET) จะไม่ได้ Update / Delete และมี comment `-- Skipped ...` บอกเหตุผลบนสุดของ script ไม่เดา key ให้
+  - รูปแบบชื่อและตัวเลือก `CREATE OR ALTER` ถูกจำใน `settings.xml` (`<Crud NamePattern="..." CreateOrAlter="true|false"/>`) · `CREATE OR ALTER` ต้องใช้ SQL Server 2016 SP1 ขึ้นไป
 - **Function Parameter Hints:** พิมพ์ `(` หลังชื่อฟังก์ชันที่รู้จัก หรือคลิก/เลื่อน caret เข้าไปในวงเล็บของฟังก์ชันที่เขียนไว้แล้ว จะมี tooltip ใกล้ caret แสดงรูปแบบการเรียก เช่น `SUBSTRING(expression, start, length)` โดยทำ **ตัวหนา** ที่ parameter ตรงกับตำแหน่ง caret
   และเปลี่ยนตัวหนาเองเมื่อพิมพ์ `,` หรือเลื่อน caret (ไม่ต้องพิมพ์ใหม่) ใช้ tooltip ของ editor เดิม ไม่แย่ง focus ปรับตำแหน่งตามพื้นที่ editor ตามธีม Light/Dark และ DPI
   - นับเฉพาะ comma ที่แบ่ง argument ของ call นั้นเอง: comma ใน string (รวม `N'O''Brien, Smith'`), comment, วงเล็บซ้อน และ call ชั้นในไม่ถูกนับ
