@@ -143,6 +143,16 @@ namespace SqlAssist.Core.Tests
         }
 
         [Fact]
+        public void A_synonym_found_as_a_plain_dependency_is_still_a_synonym()
+        {
+            // sys.sql_expression_dependencies lists synonyms too, with type SN; the same synonym can also arrive from sys.synonyms.
+            var rows = new[] { new RawUsage("dbo", "OrdersSyn", "SN", UsageKind.Dependency), new RawUsage("dbo", "OrdersSyn", "SN ", UsageKind.Synonym) };
+            var usage = UsageFinder.Merge(OrdersTarget, rows, new SearchItem[0]).Single();
+            Assert.Equal(UsageKind.Synonym, usage.Kind);
+            Assert.Equal("Synonym", usage.Referrer.SubKind);
+        }
+
+        [Fact]
         public void Index_items_of_other_kinds_with_the_same_name_are_not_mistaken_for_the_referrer()
         {
             var column = new SearchItem(Db, "dbo", "usp_A", SearchObjectType.Column, "T", null, "CREATE TABLE ...", SearchObjectType.Table);

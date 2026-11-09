@@ -136,7 +136,9 @@ namespace SqlAssist.Core.Search
                 if (string.Equals(row.Schema, target.Schema, StringComparison.OrdinalIgnoreCase) &&
                     string.Equals(row.Name, target.Name, StringComparison.OrdinalIgnoreCase)) continue;
                 string key = Key(row.Schema, row.Name);
-                if (!best.TryGetValue(key, out var seen) || row.Kind < seen.kind) best[key] = (row, row.Kind);
+                // sys.sql_expression_dependencies lists a synonym as an ordinary dependency (type SN): it is still a synonym.
+                var kind = (row.TypeCode ?? "").Trim().ToUpperInvariant() == "SN" ? UsageKind.Synonym : row.Kind;
+                if (!best.TryGetValue(key, out var seen) || kind < seen.kind) best[key] = (row, kind);
             }
 
             var matcher = NameMatcher(target.Name);
@@ -146,7 +148,7 @@ namespace SqlAssist.Core.Search
                 var row = pair.Value.row;
                 if (!known.TryGetValue(pair.Key, out var referrer))
                     referrer = new SearchItem(target.Database, row.Schema, row.Name, TypeOf(row.TypeCode),
-                        subKind: row.Kind == UsageKind.Synonym ? "Synonym" : null);
+                        subKind: pair.Value.kind == UsageKind.Synonym ? "Synonym" : null);
                 usages.Add(new Usage(referrer, pair.Value.kind, matcher.FindAll(referrer.Definition)));
             }
             return usages
