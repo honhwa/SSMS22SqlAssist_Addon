@@ -169,6 +169,9 @@ schema จะถูกโหลดครั้งแรกที่ใช้ง�
 - **ผลลัพธ์:** ตารางคอลัมน์ Name, Schema, Type, Parent, Database, Matched in คลิกที่หัวคอลัมน์เพื่อเรียงได้ แสดงสูงสุด 5,000 รายการ
 - **Preview:** แสดง definition และ highlight คำที่เจอ ถ้าเป็นตารางจะแสดง `CREATE TABLE` แบบย่อ (คอลัมน์, type, NULL/NOT NULL, primary key) ส่วนคอลัมน์จะแสดงของตาราง/view ที่คอลัมน์นั้นอยู่
 
+- **Find Usages:** คลิกขวาที่ตาราง, view, procedure, function, คอลัมน์ หรือ user-defined type › **Find Usages** (หรือกด **Shift+F12** ขณะโฟกัสอยู่ที่ตารางผลลัพธ์ ถ้า SSMS ไม่ส่งปุ่มนี้มาให้หน้าต่าง Search ให้ใช้เมนูคลิกขวา) ตารางผลลัพธ์จะเปลี่ยนเป็น "Usages of …" แสดง view / procedure / function / trigger / foreign key / synonym ที่อ้างถึง object นั้น คอลัมน์ **How** บอกว่ารู้ได้จากอะไร (Dependency, Foreign key, Trigger on it, Synonym of it, Name only, Text match) preview จะไฮไลต์ชื่อที่เจอใน definition กด **← Back to results** หรือ **Esc** เพื่อกลับไปผลค้นหาเดิม ถ้าเริ่มค้นใหม่จะออกจากมุมมองนี้เอง
+- **Generate CRUD procedures:** คลิกขวาที่ตาราง › **Generate CRUD procedures…** เลือก Select / Insert / Update / Delete, รูปแบบชื่อ (`usp_{Table}_{Action}` ใช้ `{Schema}` `{Table}` `{Action}` ได้) และ `CREATE OR ALTER` / `CREATE` ดู script ก่อนส่งไปหน้าต่าง query ใหม่ (มี `USE [database]` นำหน้า) / clipboard / ไฟล์ SqlAssist **ไม่รัน** script ให้ Insert ข้าม identity / computed / rowversion และคืนค่า identity ทาง `OUTPUT` · Select รับ primary key แบบ `= NULL` (ไม่ส่ง = ได้ทุกแถว) · Update / Delete ใช้ primary key (Composite Key ได้) ตารางที่ไม่มี primary key จะไม่ได้ Update / Delete และมี comment บอกเหตุผลบนสุดของ script · รูปแบบชื่อและตัวเลือกถูกจำไว้ใน `settings.xml`
+
 ข้อมูลที่ใช้ค้นจะถูกโหลดมาเก็บไว้ใน memory ทีละ database แล้ว cache ไว้ 10 นาที (เกิน 10 นาทีจะโหลดใหม่เบื้องหลัง) ถ้าต้องการโหลดใหม่ทันทีให้กดปุ่ม **Refresh** ในหน้าต่าง หรือกด Ctrl+Shift+R / **Tools › SqlAssist › Refresh Schema Cache**
 
 ทุกครั้งที่เปิด SSMS ใหม่ หน้าต่าง Search จะเริ่มจากค่าเริ่มต้นเสมอ (ทุกชนิด object, ไม่ติ๊กตัวเลือกการค้น, database ปัจจุบัน) ค่าที่เลือกไว้จะใช้ได้จนกว่าจะปิด SSMS
@@ -204,6 +207,8 @@ snippet เก็บอยู่ที่ไฟล์ `%APPDATA%\SqlAssist\snipp
 - คอลัมน์ของ CTE ที่คำนวณจาก expression (เช่น `YEAR(OrderDate) AS SalesYear`) จะไม่มีชนิดข้อมูล รู้ชนิดเฉพาะคอลัมน์ที่ดึงมาจากตารางตรง ๆ
 - Search: ยังไม่ค้นข้อมูลในตาราง (data search) ยังไม่รวม columnstore / XML / spatial index ส่วน constraint ค้นจากชื่อ ไม่ได้ค้นจากเงื่อนไขข้างใน และ preview หรือ script ของตารางเป็น `CREATE TABLE` แบบย่อ ไม่ใช่ script เต็มแบบของ SSMS ส่วน definition ที่เปิดใน query window เป็นข้อความ `CREATE` ตามที่ SQL Server เก็บไว้ ถ้าจะแก้ต้องเปลี่ยนเป็น `ALTER` เอง
 - Search: ถ้าไม่มีหน้าต่าง query ที่ active อยู่ จะใช้ connection ล่าสุดที่เคยเห็น
+- Find Usages: ดูเฉพาะ database ของ object นั้น ไม่พบ dynamic SQL, การอ้างจาก database / server อื่น และจากโปรแกรมที่ต่อเข้ามา การอ้างที่ SQL Server ยังไม่ resolve (object ถูกสร้างหลัง module) จับจากชื่ออย่างเดียวและติดป้าย "Name only" ส่วนของ **คอลัมน์** เป็นการค้นชื่อใน definition ของ object ที่อ้างตารางเจ้าของ (ป้าย "Text match") คอลัมน์ชื่อเดียวกันของตารางอื่นและชื่อที่อยู่ใน comment ก็ติดมาได้ ชื่อ object ที่สั้นกว่า 2 ตัวอักษรจะไม่ถูกไฮไลต์
+- Generate CRUD procedures: เป็นจุดเริ่มต้น ไม่ใส่ transaction, error handling หรือ `GRANT` ให้ · `CREATE OR ALTER` ต้องใช้ SQL Server 2016 SP1 ขึ้นไป (ไม่ติ๊กเพื่อใช้ `CREATE`) · Update / Delete ต้องมี primary key
 - Function Parameter Hints: รู้จักเฉพาะฟังก์ชัน built-in ที่อยู่ในตารางของ SqlAssist (ไม่เดา signature) ไม่เลือก overload ตามชนิดของ argument และ call ที่ยาวเกินประมาณ 8,000 ตัวอักษรก่อนถึง caret จะไม่แสดง hint ส่วน parameter ของฟังก์ชันผู้ใช้ไม่บอกว่าตัวไหนมีค่า default เพราะ SQL Server ไม่เก็บข้อมูลนี้ให้ T-SQL function
 
 ## เมื่อมีปัญหา

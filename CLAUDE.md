@@ -48,10 +48,10 @@ Three projects (`SqlAssist.sln`) plus tests:
 
 - **`src/SqlAssist.Core`** (netstandard2.0) — pure logic, no VS/SSMS references: `Sql/` (tokenizer, context
   analyzer that figures out which tables/aliases are in scope and what kind of completion the caret wants),
-  `Completion/` (fuzzy matcher, alias generator, JOIN suggester, star expander), `Snippets/`, `Results/` (scripts from result-grid cells,
+  `Completion/` (fuzzy matcher, alias generator, JOIN suggester, star expander, `CrudScriptBuilder` for the Search window's CRUD procedures), `Snippets/`, `Results/` (scripts from result-grid cells,
   the UPDATE script builder, a cell cache), `Schema/` (schema model,
   SQL type formatting), `Search/` (search matcher with match-case/whole-word/wildcards, `CREATE TABLE` preview
-  builder), `Formatting/` (the SQL formatter), `Hints/` (function parameter hints: `FunctionCallFinder` finds the innermost call and argument index from the tokens before the caret,
+  builder, `UsageFinder`/`UsageTarget`: merges the rows the database says refer to an object with the Search Index, and finds a column's usages by text), `Formatting/` (the SQL formatter), `Hints/` (function parameter hints: `FunctionCallFinder` finds the innermost call and argument index from the tokens before the caret,
   `BuiltInSignatures` is the table of known built-in syntaxes, `ParameterHints` resolves a call to a signature — built-in, or a user function from
   `SchemaModel` — and builds the line with the active parameter), `Risk/` (UPDATE/DELETE without WHERE, TRUNCATE, DROP TABLE analyzer) and `Settings/`
   (`settings.xml`). `Sql/SqlStatementScanner` splits text into GO batches and statements (no grammar: a statement starts at a
@@ -75,6 +75,11 @@ Three projects (`SqlAssist.sln`) plus tests:
   - `Search/` — the Search tool window (`SearchToolWindow`/`SearchControl`), `SearchIndexLoader`/`SearchIndexCache`
     (per-database in-memory index, 10-minute stale-while-revalidate, loads databases one by one and streams results),
     `SearchSettings` (object-type/match options, in memory only: every SSMS session starts from the defaults).
+    The result row's context menu adds two things: **Find Usages** (`UsageLoader` runs read-only catalog queries with the names as parameters for the
+    target's own database only; `SearchControl` swaps the grid into a Usages view, keeping the search results aside for Back / Esc, and a new search
+    or an in-flight one drops/stops it) and **Generate CRUD procedures** (`CrudWindow`; the script goes through `ScriptDelivery` with a `USE [db]`
+    in front, never executed; the name pattern and `CREATE OR ALTER` are remembered in `settings.xml` `<Crud>`). The Usages SQL and the Shift+F12 key
+    in the grid have not been confirmed against every SSMS build; the shell may take Shift+F12 before the grid sees it.
   - `Results/` — results grid › Generate Script As (INSERT / INSERT #tmpTable / WHERE IN() / WHERE AND OR / UPDATE
     to new window, clipboard or file). `ResultsGridReader` reads the focused grid by reflection
     (`Microsoft.SqlServer.GridControl`'s GridControl: `SelectedCells`, `GridStorage` = SQLEditors' `QEResultSet`, whose

@@ -41,3 +41,15 @@ _Avoid_: Filter, search string
 **Match**:
 A Search Item that a Search Query hit, with where it hit (Name, Definition or both) and the ranges to highlight.
 _Avoid_: Result, hit (for the whole item)
+
+**Usage**:
+An object that refers to another one (the Usage Target): a view, procedure, function, trigger, table (by foreign key, computed column or constraint) or synonym. It carries how SqlAssist knows (Dependency, Foreign key, Trigger, Synonym, Name only, Text match) and where the target's name appears in its Definition.
+_Avoid_: Reference, dependency (that is only one kind of evidence)
+
+**Usage Target**:
+The object whose Usages are wanted: a table, view, procedure, function, user-defined type, or a column (found through its owner, by text). Usages cover its own database only.
+_Avoid_: Referenced object
+
+**CRUD Procedure Set**:
+The Select, Insert, Update and Delete stored procedures generated for one table from its columns and primary key. Only generated and delivered as text, never executed; a table without a primary key gets no Update or Delete.
+_Avoid_: CRUD script, stored procedure template

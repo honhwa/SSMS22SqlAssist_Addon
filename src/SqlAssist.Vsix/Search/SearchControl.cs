@@ -553,9 +553,12 @@ namespace SqlAssist.Search
             if (_usagesTarget == null)
             {
                 // Entering from the search results: keep them for Back. Asking again from inside the view keeps the first set.
+                // A search still streaming in from further databases is stopped, or its rows would be added to the usages.
+                bool interrupted = _status.Text != null && _status.Text.StartsWith("Searching ", StringComparison.Ordinal);
+                _cts?.Cancel();
                 _stashedResults = _results.ToList();
                 _stashedSelection = _grid.SelectedIndex;
-                _stashedStatus = _status.Text;
+                _stashedStatus = interrupted ? _results.Count + " results so far (the search was stopped by Find Usages)" : _status.Text;
                 _stashedMatcher = _matcher;
             }
             _usagesTarget = target;
@@ -599,8 +602,7 @@ namespace SqlAssist.Search
         {
             // Only while focus is in the grid or the search box: Esc closing a context menu must not also leave the view.
             bool inside = _grid.IsKeyboardFocusWithin || _searchBox.IsKeyboardFocusWithin;
-            if (_usagesTarget != null && inside && Keyboard.Modifiers == ModifierKeys.None &&
-                (e.Key == Key.Escape || (e.Key == Key.Back && _grid.IsKeyboardFocusWithin)))
+            if (_usagesTarget != null && inside && Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.Escape)
             {
                 ExitUsagesMode(restore: true);
                 e.Handled = true;
