@@ -213,7 +213,7 @@ namespace SqlAssist.Core.Completion
 
         /// <summary>"@" and the column name with anything a variable name cannot hold turned into "_"; a name
         /// already taken by an earlier key column gets a number.</summary>
-        private static string ParameterName(string column, HashSet<string> used)
+        internal static string ParameterName(string column, HashSet<string> used)
         {
             var sb = new StringBuilder("@");
             foreach (char c in column) sb.Append(char.IsLetterOrDigit(c) || c == '_' ? c : '_');
@@ -288,7 +288,8 @@ namespace SqlAssist.Core.Completion
             }
         }
 
-        private static bool Writable(DbColumn c) =>
+        /// <summary>Whether INSERT / UPDATE templates may set the column (not identity, computed or rowversion).</summary>
+        internal static bool Writable(DbColumn c) =>
             !c.IsIdentity && !c.IsComputed &&
             !string.Equals(c.TypeName, "timestamp", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(c.TypeName, "rowversion", StringComparison.OrdinalIgnoreCase);
