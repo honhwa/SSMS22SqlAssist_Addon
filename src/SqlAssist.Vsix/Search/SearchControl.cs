@@ -38,6 +38,32 @@ namespace SqlAssist.Search
             MatchedIn = match.Location == (MatchLocation.Name | MatchLocation.Definition) ? "Name, Definition" : match.Location.ToString();
         }
 
+        /// <summary>A row of the Usages view: the referrer, and in "Matched in" (shown as "How") the evidence for it.</summary>
+        public ResultRow(Usage usage)
+        {
+            var item = usage.Referrer;
+            Match = new SearchMatch(item, new TextSpan[0], usage.Hits);
+            Name = item.Name;
+            Schema = item.Schema ?? "";
+            Type = item.Type == SearchObjectType.None && item.SubKind == "Synonym" ? "Synonym" : SearchControl.TypeLabel(item);
+            Parent = item.Parent ?? "";
+            Database = item.Database;
+            MatchedIn = Describe(usage.Kind);
+        }
+
+        private static string Describe(UsageKind kind)
+        {
+            switch (kind)
+            {
+                case UsageKind.Dependency: return "Dependency";
+                case UsageKind.ForeignKey: return "Foreign key";
+                case UsageKind.Trigger: return "Trigger on it";
+                case UsageKind.Synonym: return "Synonym of it";
+                case UsageKind.NameOnly: return "Name only (unresolved)";
+                default: return "Text match";
+            }
+        }
+
         public SearchMatch Match { get; }
         public string Name { get; }
         public string Schema { get; }
@@ -95,6 +121,18 @@ namespace SqlAssist.Search
         private CancellationTokenSource _cts;
         private SearchMatcher _matcher;
 
+        // Usages view: the grid shows who refers to one object instead of the search results, which are kept aside and
+        // come back with Back / Esc. Null target = the normal search results.
+        private UsageTarget _usagesTarget;
+        private CancellationTokenSource _usagesCts;
+        private List<ResultRow> _stashedResults;
+        private int _stashedSelection;
+        private string _stashedStatus;
+        private SearchMatcher _stashedMatcher;
+        private readonly DockPanel _usagesBar;
+        private readonly TextBlock _usagesTitle;
+        private readonly DataGridColumn _howColumn;
+
         public SearchControl()
         {
             SetResourceReference(BackgroundProperty, EnvironmentColors.ToolWindowBackgroundBrushKey);
@@ -136,6 +174,17 @@ namespace SqlAssist.Search
             _status = new TextBlock { Margin = new Thickness(6, 0, 6, 4), Opacity = 0.8, TextTrimming = TextTrimming.CharacterEllipsis };
 
             _grid = BuildGrid();
+            _howColumn = _grid.Columns[5];   // "Matched in", called "How" in the Usages view
+
+            var back = new Button { Content = "← Back to results", Padding = new Thickness(8, 1, 8, 1) };
+            back.Click += (s, e) => ExitUsagesMode(restore: true);
+            _usagesTitle = new TextBlock { Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
+            _usagesBar = new DockPanel { Margin = new Thickness(6, 0, 6, 4), Visibility = Visibility.Collapsed };
+            SetDock(back, Dock.Left);
+            _usagesBar.Children.Add(back);
+            _usagesBar.Children.Add(_usagesTitle);
+            PreviewKeyDown += OnControlKey;
+
             _preview = new RichTextBox
             {
                 IsReadOnly = true,
@@ -165,8 +214,10 @@ namespace SqlAssist.Search
 
             SetDock(searchRow, Dock.Top);
             SetDock(_status, Dock.Top);
+            SetDock(_usagesBar, Dock.Top);
             Children.Add(searchRow);
             Children.Add(_status);
+            Children.Add(_usagesBar);
             Children.Add(split);
 
             SetStatus("Type at least " + SearchQuery.MinLength + " characters to search.");
@@ -335,17 +386,24 @@ namespace SqlAssist.Search
             open.Click += (s, e) => OpenScript();
             var copy = new MenuItem { Header = "Copy name", InputGestureText = "Ctrl+C" };
             copy.Click += (s, e) => CopyName();
-            // Only a table has a primary key to build Select / Insert / Update / Delete procedures on.
-            var crudSeparator = new Separator();
+            // Find Usages needs an object other objects can refer to; CRUD needs a table, which has a primary key to build on.
+            var toolsSeparator = new Separator();
+            var usages = new MenuItem { Header = "Find Usages", InputGestureText = "Shift+F12" };
+            usages.Click += (s, e) => FindUsages();
             var crud = new MenuItem { Header = "Generate CRUD procedures…" };
             crud.Click += (s, e) => GenerateCrud();
             rowMenu.Opened += (s, e) =>
             {
-                crud.Visibility = crudSeparator.Visibility = SelectedItem?.Type == SearchObjectType.Table ? Visibility.Visible : Visibility.Collapsed;
+                var selected = SelectedItem;
+                bool canUsages = UsageTarget.CanFind(selected), canCrud = selected?.Type == SearchObjectType.Table;
+                usages.Visibility = canUsages ? Visibility.Visible : Visibility.Collapsed;
+                crud.Visibility = canCrud ? Visibility.Visible : Visibility.Collapsed;
+                toolsSeparator.Visibility = canUsages || canCrud ? Visibility.Visible : Visibility.Collapsed;
             };
             rowMenu.Items.Add(locate);
             rowMenu.Items.Add(open);
-            rowMenu.Items.Add(crudSeparator);
+            rowMenu.Items.Add(toolsSeparator);
+            rowMenu.Items.Add(usages);
             rowMenu.Items.Add(crud);
             rowMenu.Items.Add(new Separator());
             rowMenu.Items.Add(copy);
@@ -371,6 +429,8 @@ namespace SqlAssist.Search
             var item = SelectedItem;
             var server = _server;
             if (item == null || server == null) return;
+            // A synonym (only listed by Find Usages) has no Search type, so there is no Object Explorer path to build for it.
+            if (item.Type == SearchObjectType.None) { SetStatus("Locating a " + (item.SubKind ?? "this object") + " in Object Explorer is not supported."); return; }
             SetStatus("Locating " + item.Name + " in Object Explorer…");
             ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
             {
@@ -385,8 +445,9 @@ namespace SqlAssist.Search
             ThreadHelper.ThrowIfNotOnUIThread();
             var item = SelectedItem;
             if (item == null || _server == null) return;
-            var hits = _matcher?.FindAll(item.PreviewText);
-            var first = hits != null && hits.Count > 0 ? hits[0] : new TextSpan(-1, 0);
+            if (item.Type == SearchObjectType.None) { SetStatus("A " + (item.SubKind ?? "this object") + " has no script to open."); return; }
+            var hits = HitsFor((_grid.SelectedItem as ResultRow)?.Match);
+            var first = hits.Count > 0 ? hits[0] : new TextSpan(-1, 0);
             string problem = SsmsNavigator.OpenScript(_server, item, first.Start, first.Length);
             if (problem != null) SetStatus(problem);
         }
@@ -439,6 +500,116 @@ namespace SqlAssist.Search
                     SetStatus("Generate CRUD procedures failed: " + ex.Message);
                 }
             }).FileAndForget("SqlAssist/Search/GenerateCrud");
+        }
+
+        /// <summary>Find Usages of the selected result: asks its database which objects refer to it, joins that with the Search
+        /// Index (for their definitions) and shows them in place of the search results. Read-only.</summary>
+        private void FindUsages()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var item = SelectedItem;
+            var server = _server;
+            if (server == null || !UsageTarget.CanFind(item)) return;
+            var target = new UsageTarget(item);
+            _usagesCts?.Cancel();
+            var cts = _usagesCts = new CancellationTokenSource();
+            var token = cts.Token;
+            SetStatus("Finding usages of " + target.DisplayName + "…");
+            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+            {
+                try
+                {
+                    var rows = await UsageLoader.LoadAsync(server, target, token);
+                    IReadOnlyList<SearchItem> index;
+                    try { index = await SearchIndexCache.Instance.GetAsync(server, target.Database, token); }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception) { index = new SearchItem[0]; }   // already logged by the cache: list the referrers without their definitions
+                    var usages = await Task.Run(() =>
+                    {
+                        var all = UsageFinder.Merge(target, rows, index);
+                        return target.IsColumn ? UsageFinder.ForColumn(target, all) : all;
+                    }, token);
+
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    if (token.IsCancellationRequested) return;
+                    ShowUsages(target, usages);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Superseded by a newer search or Find Usages.
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("Find usages", ex);
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    if (!token.IsCancellationRequested) SetStatus("Find usages failed: " + ex.Message);
+                }
+            }).FileAndForget("SqlAssist/Search/FindUsages");
+        }
+
+        private void ShowUsages(UsageTarget target, IReadOnlyList<Usage> usages)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (_usagesTarget == null)
+            {
+                // Entering from the search results: keep them for Back. Asking again from inside the view keeps the first set.
+                _stashedResults = _results.ToList();
+                _stashedSelection = _grid.SelectedIndex;
+                _stashedStatus = _status.Text;
+                _stashedMatcher = _matcher;
+            }
+            _usagesTarget = target;
+            _results.Clear();
+            foreach (var usage in usages) _results.Add(new ResultRow(usage));
+            _howColumn.Header = "How";
+            _usagesBar.Visibility = Visibility.Visible;
+            _usagesTitle.Text = "Usages of " + target.DisplayName + " (" + usages.Count + ")";
+
+            if (usages.Count == 0)
+                SetStatus("Nothing in " + target.Database + " refers to " + target.DisplayName + ". Dynamic SQL, other databases and applications are not covered.");
+            else
+                SetStatus(target.IsColumn
+                    ? "Found by searching definitions for the column name: a column of the same name in another table can match too. Esc returns to the search results."
+                    : usages.Count + " in " + target.Database + ". Esc returns to the search results.");
+            if (usages.Count > 0) _grid.SelectedIndex = 0;
+            _grid.Focus();
+        }
+
+        /// <summary>Leaves the Usages view: Back / Esc restore the search results; a new search just drops them.</summary>
+        private void ExitUsagesMode(bool restore)
+        {
+            if (_usagesTarget == null) return;
+            _usagesCts?.Cancel();
+            _usagesTarget = null;
+            _usagesBar.Visibility = Visibility.Collapsed;
+            _howColumn.Header = "Matched in";
+            _results.Clear();
+            var stashed = _stashedResults;
+            _stashedResults = null;
+            if (!restore || stashed == null) return;
+
+            _matcher = _stashedMatcher;
+            foreach (var row in stashed) _results.Add(row);
+            SetStatus(_stashedStatus);
+            if (_stashedSelection >= 0 && _stashedSelection < _results.Count) _grid.SelectedIndex = _stashedSelection;
+            _grid.Focus();
+        }
+
+        private void OnControlKey(object sender, KeyEventArgs e)
+        {
+            // Only while focus is in the grid or the search box: Esc closing a context menu must not also leave the view.
+            bool inside = _grid.IsKeyboardFocusWithin || _searchBox.IsKeyboardFocusWithin;
+            if (_usagesTarget != null && inside && Keyboard.Modifiers == ModifierKeys.None &&
+                (e.Key == Key.Escape || (e.Key == Key.Back && _grid.IsKeyboardFocusWithin)))
+            {
+                ExitUsagesMode(restore: true);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.F12 && Keyboard.Modifiers == ModifierKeys.Shift && _grid.IsKeyboardFocusWithin)
+            {
+                FindUsages();
+                e.Handled = true;
+            }
         }
 
         private void CopyName()
@@ -526,6 +697,8 @@ namespace SqlAssist.Search
             _cts?.Cancel();
             var cts = _cts = new CancellationTokenSource();
             var token = cts.Token;
+            _usagesCts?.Cancel();
+            ExitUsagesMode(restore: false);   // a new search replaces the Usages view and the results kept behind it
             _results.Clear();
             ShowPreview(null);
 
@@ -671,6 +844,16 @@ namespace SqlAssist.Search
 
         private void SetStatus(string text) => _status.Text = text;
 
+        /// <summary>What to highlight in the item's preview: the places the current query hits, or in the Usages view the
+        /// places that name the object (only inside a Definition: a table's script is generated, not written by anyone).</summary>
+        private IReadOnlyList<TextSpan> HitsFor(SearchMatch match)
+        {
+            var none = new TextSpan[0];
+            if (match == null) return none;
+            if (_usagesTarget != null) return match.Item.Definition != null ? match.DefinitionHits : none;
+            return _matcher?.FindAll(match.Item.PreviewText) ?? none;
+        }
+
         /// <summary>Shows the item's definition (or generated script) with every hit of the current query highlighted,
         /// scrolled to the first hit.</summary>
         private void ShowPreview(SearchMatch match)
@@ -689,7 +872,7 @@ namespace SqlAssist.Search
                 return;
             }
 
-            var hits = _matcher?.FindAll(text) ?? (IReadOnlyList<TextSpan>)new TextSpan[0];
+            var hits = HitsFor(match);
             Run first = null;
             int hit = 0, pos = 0;
             while (pos <= text.Length)

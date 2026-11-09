@@ -10,6 +10,10 @@
 
 ### เพิ่ม
 
+- **Find Usages (หน้าต่าง Search):** คลิกขวาที่ตาราง / view / procedure / function / คอลัมน์ / user-defined type ในผลลัพธ์ › **Find Usages** (หรือ **Shift+F12** ขณะโฟกัสอยู่ที่ตารางผลลัพธ์) จะแสดงว่า object ไหนอ้างถึงมัน ตารางผลลัพธ์เปลี่ยนเป็น "Usages of [dbo].[X] (n)" คอลัมน์ "Matched in" เป็น "How" preview ไฮไลต์ชื่อที่เจอใน definition ปุ่ม **← Back to results** หรือ **Esc** กลับไปผลค้นหาเดิม (Enter / Ctrl+Enter / คลิกขวาใช้กับแถวใน Usages ได้เหมือนเดิม)
+  - ดูจาก database ของ object นั้นเท่านั้น อ่านอย่างเดียวจาก catalog view: dependency ของ SQL Server (รวมการอ้างที่ยังไม่ resolve ซึ่งจับจากชื่ออย่างเดียวและติดป้าย "Name only"), foreign key ที่ชี้มาที่ตาราง, trigger ของตาราง, synonym และ default / check constraint (แสดงเป็นตารางเจ้าของ) · user-defined type ดูจากคอลัมน์ / parameter ที่ใช้ type นั้น และ module ที่ประกาศตัวแปรชนิดนั้น
+  - **คอลัมน์** SQL Server เก็บ dependency ระดับคอลัมน์เฉพาะ object แบบ schema-bound จึงใช้วิธีหา object ที่อ้างตารางเจ้าของ แล้วค้นชื่อคอลัมน์ใน definition (แสดงเป็น "Text match" คอลัมน์ชื่อเดียวกันของตารางอื่นอาจติดมาด้วย)
+  - ไม่พบ: dynamic SQL, การอ้างจาก database / server อื่น และจากโปรแกรมที่ต่อเข้ามา
 - **Generate CRUD procedures (หน้าต่าง Search):** คลิกขวาที่ตารางในผลลัพธ์ › **Generate CRUD procedures…** เลือกว่าจะสร้าง `Select` / `Insert` / `Update` / `Delete` ตั้งรูปแบบชื่อได้ (ค่าเริ่มต้น `usp_{Table}_{Action}`, ใช้ `{Schema}` `{Table}` `{Action}`) และเลือก `CREATE OR ALTER` หรือ `CREATE` ดู script ตัวอย่างก่อนส่งไปที่หน้าต่าง query ใหม่ / clipboard / ไฟล์ (มี `USE [database]` นำหน้า) SqlAssist ไม่รัน script ให้
   - Insert ข้ามคอลัมน์ identity / computed / rowversion และคืนค่า identity ผ่าน `OUTPUT` parameter (`SCOPE_IDENTITY()`) · Select รับ primary key เป็น parameter แบบ `= NULL` (ส่ง NULL = ได้ทุกแถว) · Update / Delete ใช้ primary key (รองรับ Composite Key) และ Update ไม่มีค่าเริ่มต้นของ parameter เพื่อไม่ให้ลืมส่งแล้วกลายเป็น NULL
   - ตารางที่ไม่มี primary key (หรือมีแต่ key ไม่มีคอลัมน์ให้ SET) จะไม่ได้ Update / Delete และมี comment `-- Skipped ...` บอกเหตุผลบนสุดของ script ไม่เดา key ให้
