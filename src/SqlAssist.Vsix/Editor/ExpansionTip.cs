@@ -236,16 +236,18 @@ namespace SqlAssist.Editor
         {
             Hide();
             _presenter = _toolTips.CreatePresenter(_view, new ToolTipParameters(trackMouse: false, ignoreBufferChange: false));
-            _presenter.Dismissed += (s, e) => { if (ReferenceEquals(s, _presenter)) { _presenter = null; _shownAt = -1; _shownAction = null; } };
+            _presenter.Dismissed += (s, e) => { if (ReferenceEquals(s, _presenter)) { _presenter = null; _shownAt = -1; _shownAction = null; _view.Properties.RemoveProperty(ParameterHintTip.ExpansionTipKey); } };
             var text = new ClassifiedTextElement(
                 new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, "Press "),
                 new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, "Tab", ClassifiedTextRunStyle.Bold),
                 new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, " to " + action));
             _presenter.StartOrUpdate(span.Snapshot.CreateTrackingSpan(span, SpanTrackingMode.EdgeInclusive), new object[] { text });
+            _view.Properties[ParameterHintTip.ExpansionTipKey] = true;   // the parameter hint stays down while this one is up
         }
 
         private void Hide()
         {
+            _view.Properties.RemoveProperty(ParameterHintTip.ExpansionTipKey);
             var presenter = _presenter;
             _presenter = null;
             _shownAt = -1;

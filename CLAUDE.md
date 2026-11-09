@@ -51,7 +51,9 @@ Three projects (`SqlAssist.sln`) plus tests:
   `Completion/` (fuzzy matcher, alias generator, JOIN suggester, star expander), `Snippets/`, `Results/` (scripts from result-grid cells,
   the UPDATE script builder, a cell cache), `Schema/` (schema model,
   SQL type formatting), `Search/` (search matcher with match-case/whole-word/wildcards, `CREATE TABLE` preview
-  builder), `Formatting/` (the SQL formatter), `Risk/` (UPDATE/DELETE without WHERE, TRUNCATE, DROP TABLE analyzer) and `Settings/`
+  builder), `Formatting/` (the SQL formatter), `Hints/` (function parameter hints: `FunctionCallFinder` finds the innermost call and argument index from the tokens before the caret,
+  `BuiltInSignatures` is the table of known built-in syntaxes, `ParameterHints` resolves a call to a signature — built-in, or a user function from
+  `SchemaModel` — and builds the line with the active parameter), `Risk/` (UPDATE/DELETE without WHERE, TRUNCATE, DROP TABLE analyzer) and `Settings/`
   (`settings.xml`). `Sql/SqlStatementScanner` splits text into GO batches and statements (no grammar: a statement starts at a
   statement keyword unless the word before it continues the current one); the formatter and the risk check both build on it.
   All unit tests target this layer; put testable logic here, not in the Vsix project.
@@ -61,6 +63,9 @@ Three projects (`SqlAssist.sln`) plus tests:
   - `Editor/` — MEF exports for the async-completion API (`SqlCompletionSource`, `SqlItemManager`,
     `SqlCommitManager`, `SqlCompletionPresenter`) bound to the SQL content type, plus `TabCommandFilter`, which owns
     the Tab key order: snippet → commit open completion → expand `*` → plain Tab.
+    Also here: `ParameterHintTip` (function parameter hints, an `IToolTipPresenter` like `ExpansionTip`; reads only the text before the caret,
+    never queries the database — a user function needs an already loaded schema; Esc closes it without being marked handled; yields to completion,
+    quick info and the expansion tip, which flags itself in `view.Properties[ParameterHintTip.ExpansionTipKey]`).
   - `Connection/ActiveConnection.cs` — reads the active query window's server/database/login from SSMS's
     `SQLEditors` assembly **by reflection** (no public API; no SSMS DLL referenced at build). Every step must
     tolerate members disappearing in later SSMS builds. Falls back to the last known connection. Windows/SQL auth

@@ -8,6 +8,26 @@
 
 ## [Unreleased]
 
+### เพิ่ม
+
+- **Function Parameter Hints:** พิมพ์ `(` หลังชื่อฟังก์ชันที่รู้จัก หรือคลิก/เลื่อน caret เข้าไปในวงเล็บของฟังก์ชันที่เขียนไว้แล้ว จะมี tooltip ใกล้ caret แสดงรูปแบบการเรียก เช่น `SUBSTRING(expression, start, length)` โดยทำ **ตัวหนา** ที่ parameter ตรงกับตำแหน่ง caret
+  และเปลี่ยนตัวหนาเองเมื่อพิมพ์ `,` หรือเลื่อน caret (ไม่ต้องพิมพ์ใหม่) ใช้ tooltip ของ editor เดิม ไม่แย่ง focus ปรับตำแหน่งตามพื้นที่ editor ตามธีม Light/Dark และ DPI
+  - นับเฉพาะ comma ที่แบ่ง argument ของ call นั้นเอง: comma ใน string (รวม `N'O''Brien, Smith'`), comment, วงเล็บซ้อน และ call ชั้นในไม่ถูกนับ
+    ฟังก์ชันซ้อนแสดงของ call ชั้นในสุดที่ caret อยู่ พอ caret ออกจาก call ชั้นใน (เช่นอยู่ที่ `N','` ใน `REPLACE(SUBSTRING(…), N',', N' ')`) จะกลับไปแสดง `REPLACE` โดยเน้น argument ที่สอง
+  - วงเล็บของ `IN (...)`, `VALUES (...)`, `OVER (...)` และวงเล็บจัดกลุ่ม expression ไม่ถูกมองเป็น function call (มองทะลุไปยัง call ที่ล้อมอยู่ ถ้ามี) วงเล็บของ subquery / derived table เป็นกำแพง caret อยู่ข้างในจะไม่แสดง hint ของ call ที่อยู่นอก subquery
+    ชื่อตารางหรือ procedure ที่ตามด้วยวงเล็บ (`INSERT INTO t (a, b)`, `CREATE FUNCTION f (@a int)`) ไม่ใช่ call
+  - ฟังก์ชัน built-in: `SUBSTRING`, `REPLACE`, `CHARINDEX`, `PATINDEX`, `LEFT`, `RIGHT`, `LEN`, `UPPER`, `LOWER`, `LTRIM`, `RTRIM`, `REVERSE`, `REPLICATE`, `STUFF`, `CONCAT`, `CONCAT_WS`, `FORMAT`, `ISNULL`, `COALESCE`, `NULLIF`, `IIF`, `CHOOSE`,
+    `DATEADD`, `DATEDIFF`, `DATEDIFF_BIG`, `DATEPART`, `DATENAME`, `YEAR`, `MONTH`, `DAY`, `EOMONTH`, `DATEFROMPARTS`, `ROUND`, `ABS`, `CEILING`, `FLOOR`, `POWER`, `ISNUMERIC`, `ISDATE`, `CONVERT`, `TRY_CONVERT`
+    ชื่อและลำดับ parameter ตาม syntax ใน T-SQL reference รองรับ optional (`[, start_location]`) และ variadic (`COALESCE(expression [, ...n])`, `CONCAT(…, argument2 [, argumentN]...)`) ฟังก์ชันที่ไม่อยู่ในตารางจะไม่แสดง hint (ไม่เดา signature) และไม่เลือก overload ตามชนิดของ argument
+  - ฟังก์ชันที่ syntax ไม่ใช่รายการคั่นด้วย comma (`CAST(x AS type)`, `TRY_CAST`, `TRIM(chars FROM s)`, `PARSE`, `STRING_AGG` ฯลฯ) ข้ามอย่างชัดเจน ไม่ใช้กติกา comma ทั่วไป
+  - scalar / table-valued function ของผู้ใช้ที่ระบุ schema (`dbo.fnTax(`, `[dbo].[fnTax](`) ใช้ชื่อ parameter และชนิดข้อมูลจาก schema ที่โหลดไว้แล้ว (ไม่รวม return value; แสดง MS_Description และชนิดที่ return) ไม่ query ฐานข้อมูลเพิ่มทุกครั้งที่พิมพ์หรือขยับ caret (ใช้ schema cache เดิม: โหลดตามปกติครั้งเดียวต่อ database ทุก 10 นาทีเหมือนรายการแนะนำ ชื่อที่มี schema นำหน้าก่อนวงเล็บ เช่น `FROM dbo.Orders (` ก็อาจเป็นตัวเริ่มโหลดครั้งแรกนั้น)
+    ถ้า schema ยังไม่พร้อมหรือไม่พบ function จะไม่แสดง hint รุ่นนี้ไม่รวม `EXEC` stored procedure
+  - SQL ที่ยังพิมพ์ไม่ครบ (วงเล็บยังไม่ปิด, argument ว่าง) แสดงเฉพาะที่ระบุได้แน่นอน วงเล็บที่ค้างไว้ไม่ลามไปยัง statement ถัดไป (`;`, `GO`, หรือคำสั่ง `SELECT` / `INSERT` / `UPDATE` ... ที่โผล่ในวงเล็บของ function)
+  - กด **Esc** เพื่อปิด (ไม่แก้ข้อความ ไม่เปลี่ยน selection ไม่เพิ่ม Undo) จะไม่เปิดซ้ำจนกว่า caret จะออกจาก call นั้นแล้วเข้าไปใหม่ ไม่ดักปุ่ม Tab / Enter / comma และไม่แตะ snippet, INSERT / UPDATE / EXEC expansion, ไฮไลต์คอลัมน์ INSERT
+    hint ซ่อนเองเมื่อรายการแนะนำ (completion) หรือ tooltip ตอนชี้เมาส์เปิดอยู่ หรือเมื่อ tooltip "Press Tab to …" ของการขยายกำลังแสดง แล้วกลับมาเองเมื่อปิด
+  - อ่านเฉพาะข้อความก่อน caret (ไม่เกิน 8,000 ตัวอักษร) ไม่ parse เอกสารทั้งฉบับ ตรวจใหม่หลัง caret หรือข้อความนิ่ง ~0.3 วินาที ถอด event / timer และยกเลิกงานที่ค้างเมื่อปิด editor
+  - เปิด/ปิดได้ที่ **Tools › SqlAssist › Options… › Editor** (`<Editor ShowParameterHints="true|false"/>` ใน `settings.xml`, เปิดเป็นค่าเริ่มต้น)
+
 ## [1.5.4] - 2026-11-05
 
 ### เปลี่ยน

@@ -41,6 +41,19 @@ namespace SqlAssist.Settings
             }
         }
 
+        /// <summary>Whether the function parameter hint is on. Asked on every caret move, like <see cref="HighlightInsertColumns"/>.</summary>
+        public static bool ShowParameterHints
+        {
+            get
+            {
+                lock (Gate)
+                {
+                    Refresh(throttled: true);
+                    return _current.Editor.ShowParameterHints;
+                }
+            }
+        }
+
         /// <param name="throttled">For callers on a hot path (every caret move): look at the file at most once a second.</param>
         private static void Refresh(bool throttled = false)
         {

@@ -39,6 +39,7 @@ namespace SqlAssist.Settings
         private readonly CheckBox _drop = new CheckBox { Content = "DROP TABLE", Margin = new Thickness(0, 0, 0, 6) };
         private readonly CheckBox _skipTemp = new CheckBox { Content = "ข้ามตาราง temp (#...) และ table variable (@...)", Margin = new Thickness(0, 6, 0, 0) };
         private readonly CheckBox _highlightInsert = new CheckBox { Content = "ไฮไลต์คอลัมน์และค่าที่ตรงกันใน INSERT … VALUES / INSERT … SELECT", FontWeight = FontWeights.SemiBold };
+        private readonly CheckBox _parameterHints = new CheckBox { Content = "แสดง Function Parameter Hints (รูปแบบการเรียกฟังก์ชันขณะพิมพ์)", FontWeight = FontWeights.SemiBold };
         private readonly CheckBox _warn = new CheckBox { Content = "เตือนก่อนกด Execute (ทดลอง)", FontWeight = FontWeights.SemiBold };
         private readonly TextBlock _guardStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(18, 6, 0, 0) };
         private bool _loading = true;
@@ -73,6 +74,7 @@ namespace SqlAssist.Settings
             _skipTemp.IsChecked = _settings.Risk.SkipTempTables;
             _warn.IsChecked = _settings.Risk.WarnBeforeExecute;
             _highlightInsert.IsChecked = _settings.Editor.HighlightInsertColumns;
+            _parameterHints.IsChecked = _settings.Editor.ShowParameterHints;
             _guardStatus.Text = "สถานะตอนนี้: " + ExecuteGuard.Status;
 
             // Building the layout needs no UI-thread check: it only creates WPF controls, which is also what lets this window be
@@ -193,6 +195,18 @@ namespace SqlAssist.Settings
                        "ผลของตัวเลือกนี้เริ่มหลังกดบันทึกและขยับ caret",
                 TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(18, 6, 0, 0),
             });
+            panel.Children.Add(new Separator { Margin = new Thickness(0, 14, 0, 14) });
+            panel.Children.Add(_parameterHints);
+            panel.Children.Add(new TextBlock
+            {
+                Text = "เมื่อพิมพ์ ( หลังชื่อฟังก์ชัน หรือคลิก/เลื่อน caret เข้าไปในวงเล็บของฟังก์ชัน จะแสดงรูปแบบการเรียก เช่น SUBSTRING(expression, start, length) โดยทำตัวหนาที่ parameter ตรงกับตำแหน่ง caret " +
+                       "และเปลี่ยนตามเมื่อพิมพ์ comma หรือเลื่อน caret กด Esc เพื่อปิด\n\n" +
+                       "รองรับฟังก์ชัน built-in ที่ใช้บ่อย (SUBSTRING, REPLACE, CHARINDEX, LEFT, RIGHT, ISNULL, COALESCE, DATEADD, DATEDIFF, ROUND, CONCAT ฯลฯ) " +
+                       "และ scalar / table-valued function ของผู้ใช้ที่ระบุ schema (เช่น dbo.fnTax(...)) จาก schema ที่โหลดไว้แล้ว ไม่ query ฐานข้อมูลเพิ่มทุกครั้งที่พิมพ์ " +
+                       "ฟังก์ชันที่ยังไม่รู้จักหรือมี syntax พิเศษ (เช่น CAST ... AS ...) จะไม่แสดง hint และไม่รวม EXEC stored procedure\n\n" +
+                       "ผลของตัวเลือกนี้เริ่มหลังกดบันทึกและขยับ caret",
+                TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(18, 6, 0, 0),
+            });
             return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         }
 
@@ -265,6 +279,7 @@ namespace SqlAssist.Settings
                 _settings.Risk.SkipTempTables = _skipTemp.IsChecked == true;
                 _settings.Risk.WarnBeforeExecute = _warn.IsChecked == true;
                 _settings.Editor.HighlightInsertColumns = _highlightInsert.IsChecked == true;
+                _settings.Editor.ShowParameterHints = _parameterHints.IsChecked == true;
                 SettingsProvider.Save(_settings);
 
                 ExecuteGuard.Apply(_settings.Risk);
