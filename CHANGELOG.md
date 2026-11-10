@@ -8,6 +8,8 @@
 
 ## [Unreleased]
 
+## [1.5.6] - 2026-11-10
+
 ### เพิ่ม
 
 - **Find Usages (หน้าต่าง Search):** คลิกขวาที่ตาราง / view / procedure / function / คอลัมน์ / user-defined type ในผลลัพธ์ › **Find Usages** (หรือ **Shift+F12** ขณะโฟกัสอยู่ที่ตารางผลลัพธ์ ถ้า SSMS ส่งปุ่มนี้มาให้หน้าต่าง Search) จะแสดงว่า object ไหนอ้างถึงมัน ตารางผลลัพธ์เปลี่ยนเป็น "Usages of [dbo].[X] (n)" คอลัมน์ "Matched in" เป็น "How" preview ไฮไลต์ชื่อที่เจอใน definition ปุ่ม **← Back to results** หรือ **Esc** กลับไปผลค้นหาเดิม (Enter / Ctrl+Enter / คลิกขวาใช้กับแถวใน Usages ได้เหมือนเดิม)
