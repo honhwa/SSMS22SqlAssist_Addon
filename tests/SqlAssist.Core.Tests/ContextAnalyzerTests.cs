@@ -13,6 +13,17 @@ namespace SqlAssist.Core.Tests
             return SqlContextAnalyzer.Analyze(sql.Remove(caret, 1), caret);
         }
 
+        [Theory]
+        [InlineData("SELECT * FROM JOB_General jg w|", true)]
+        [InlineData("SELECT * FROM JOB_General AS jg |", true)]
+        [InlineData("SELECT * FROM a x JOIN b y |", true)]
+        [InlineData("SELECT * FROM (SELECT 1 AS n) d w|", true)]
+        [InlineData("SELECT * FROM JOB_General jg|", false)]      // still typing the alias
+        [InlineData("SELECT * FROM JOB_General |", false)]        // the alias may come next
+        [InlineData("SELECT * FROM JOB_General jg WHERE w|", false)]
+        [InlineData("SELECT w| FROM JOB_General jg", false)]
+        public void AfterTableSource(string sql, bool expected) => Assert.Equal(expected, At(sql).IsAfterTableSource);
+
         [Fact]
         public void AfterFrom_IsTableNameWithAlias()
         {

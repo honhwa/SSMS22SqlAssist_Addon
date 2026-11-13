@@ -54,6 +54,19 @@ namespace SqlAssist.Settings
             }
         }
 
+        /// <summary>Whether completion learns from what is committed. Asked on every keystroke while a list is open.</summary>
+        public static bool LearnFromUsage
+        {
+            get
+            {
+                lock (Gate)
+                {
+                    Refresh(throttled: true);
+                    return _current.Editor.LearnFromUsage;
+                }
+            }
+        }
+
         /// <param name="throttled">For callers on a hot path (every caret move): look at the file at most once a second.</param>
         private static void Refresh(bool throttled = false)
         {

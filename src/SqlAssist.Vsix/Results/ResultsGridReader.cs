@@ -137,7 +137,9 @@ namespace SqlAssist.Results
                 var schema = Call(storage, "GetSchemaRow", i) as DataRow;
                 columns.Add(new ResultColumn(name, type,
                     SchemaValue(schema, "BaseSchemaName") as string,
-                    SchemaValue(schema, "BaseTableName") as string));
+                    SchemaValue(schema, "BaseTableName") as string,
+                    // SqlClient's schema table has both; either one missing or null reads as "not an IDENTITY column".
+                    SchemaValue(schema, "IsIdentity") is bool identity ? identity : SchemaValue(schema, "IsAutoIncrement") is bool auto && auto));
             }
             return columns;
         }

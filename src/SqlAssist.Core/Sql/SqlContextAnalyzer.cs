@@ -85,6 +85,9 @@ namespace SqlAssist.Core.Sql
         /// <summary>Directly after SELECT / DISTINCT (or, with a FROM, after a comma of the list), so typing the space
         /// there opens the table tree / column picker.</summary>
         public bool IsRightAfterSelect { get; internal set; }
+        /// <summary>Right after a table source and its alias ("FROM Orders o |", "JOIN (SELECT ...) d |"), where the next word
+        /// is usually a clause keyword such as WHERE rather than a column.</summary>
+        public bool IsAfterTableSource { get; internal set; }
         /// <summary>The CTEs defined by the statement's WITH clause, in order.</summary>
         public IReadOnlyList<DerivedTable> CommonTableExpressions { get; internal set; } = new DerivedTable[0];
         /// <summary>For <see cref="CaretContextKind.JoinCondition"/>: the table this ON belongs to.</summary>
@@ -196,6 +199,9 @@ namespace SqlAssist.Core.Sql
                 ctx.IsJoin = table.Value.isJoin;
             }
             ctx.IsAliasPosition = stmt.AliasSlots.Contains(p) || (sig[p].IsWord("AS") && p > 0 && stmt.AliasSlots.Contains(p - 1));
+            // Only an alias ends a table source for certain: right after a bare name the user may still be typing one.
+            ctx.IsAfterTableSource = ctx.Kind == CaretContextKind.General && !ctx.IsAliasPosition &&
+                stmt.Tables.Any(t => t.Group == stmt.CaretGroup && t.Segment == stmt.CaretSegment && t.AliasEnd >= 0 && t.AliasEnd == sig[p].End);
             if (ctx.Kind == CaretContextKind.General && ctx.SiblingTables.Count == 0)
             {
                 int clause = stmt.ClauseIndexOf(p + 1);

@@ -36,6 +36,82 @@ namespace SqlAssist.Core.Tests
                 "GO\n", Build(ResultScriptKind.Insert, 1));
         }
 
+        private static readonly ResultColumn[] WithIdentity =
+        {
+            new ResultColumn("ProductID", "int", isIdentity: true),
+            new ResultColumn("ProductNumber", "nvarchar(25)"),
+            new ResultColumn("Color", "nvarchar(15)"),
+        };
+
+        [Fact]
+        public void Insert_IdentityColumnKeepsItsValuesBetweenIdentityInsertOnAndOff()
+        {
+            Assert.Equal(
+                "SET DATEFORMAT ymd\n\n" +
+                "SET IDENTITY_INSERT [Table] ON\n" +
+                "GO\n\n" +
+                "INSERT INTO [Table] (ProductID, ProductNumber) VALUES\n" +
+                "(680, N'FR-R92B-58'),\n" +
+                "(706, N'FR-R92R-58'),\n" +
+                "(707, N'HL-U509-R')\n" +
+                "GO\n\n" +
+                "SET IDENTITY_INSERT [Table] OFF\n" +
+                "GO\n", ResultScriptBuilder.Build(ResultScriptKind.Insert, WithIdentity, new[] { 0, 1 }, Rows, "\n"));
+        }
+
+        [Fact]
+        public void Insert_IdentityInsertNamesTheSourceTableWhenItIsKnown()
+        {
+            var columns = new[]
+            {
+                new ResultColumn("Id", "int", "dbo", "Order Line", isIdentity: true),
+                new ResultColumn("Qty", "int", "dbo", "Order Line"),
+            };
+            string script = ResultScriptBuilder.Build(ResultScriptKind.Insert, columns, new[] { 0, 1 }, new[] { new object[] { 1, 2 } }, "\n");
+            Assert.Contains("SET IDENTITY_INSERT dbo.[Order Line] ON\nGO\n", script);
+            Assert.Contains("INSERT INTO dbo.[Order Line] (Id, Qty) VALUES\n(1, 2)\nGO\n", script);
+            Assert.EndsWith("SET IDENTITY_INSERT dbo.[Order Line] OFF\nGO\n", script);
+        }
+
+        [Fact]
+        public void Insert_SkipLeavesTheIdentityColumnOut()
+        {
+            Assert.Equal(
+                "SET DATEFORMAT ymd\n\n" +
+                "-- IDENTITY column ProductID is left out: the table numbers the new rows itself.\n" +
+                "INSERT INTO [Table] (ProductNumber) VALUES\n" +
+                "(N'FR-R92B-58'),\n" +
+                "(N'FR-R92R-58'),\n" +
+                "(N'HL-U509-R')\n" +
+                "GO\n", ResultScriptBuilder.Build(ResultScriptKind.Insert, WithIdentity, new[] { 0, 1 }, Rows, "\n", InsertIdentityMode.Skip));
+        }
+
+        [Fact]
+        public void Insert_SkipWithOnlyTheIdentityColumnSelectedSaysWhyThereIsNothing()
+        {
+            string script = ResultScriptBuilder.Build(ResultScriptKind.Insert, WithIdentity, new[] { 0 }, Rows, "\n", InsertIdentityMode.Skip);
+            Assert.StartsWith("-- Nothing to insert: ProductID is an IDENTITY column", script);
+            Assert.DoesNotContain("INSERT INTO", script);
+        }
+
+        [Theory]
+        [InlineData(InsertIdentityMode.KeepValues)]
+        [InlineData(InsertIdentityMode.Skip)]
+        public void Insert_IdentityColumnThatIsNotSelectedChangesNothing(InsertIdentityMode mode)
+        {
+            Assert.Equal(Build(ResultScriptKind.Insert, 1), ResultScriptBuilder.Build(ResultScriptKind.Insert, WithIdentity, new[] { 1 }, Rows, "\n", mode));
+        }
+
+        [Theory]
+        [InlineData(InsertIdentityMode.KeepValues)]
+        [InlineData(InsertIdentityMode.Skip)]
+        public void InsertTempTable_KeepsIdentityColumnsAsPlainColumns(InsertIdentityMode mode)
+        {
+            string script = ResultScriptBuilder.Build(ResultScriptKind.InsertTempTable, WithIdentity, new[] { 0, 1 }, Rows, "\n", mode);
+            Assert.Equal(Build(ResultScriptKind.InsertTempTable, 0, 1), script);
+            Assert.DoesNotContain("IDENTITY", script);
+        }
+
         [Fact]
         public void InsertTempTable()
         {

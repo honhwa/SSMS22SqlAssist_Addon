@@ -17,12 +17,21 @@ namespace SqlAssist.Core.Results
         Update,
     }
 
+    /// <summary>What INSERT does with a selected IDENTITY column, which SQL Server refuses a value for unless asked.</summary>
+    public enum InsertIdentityMode
+    {
+        /// <summary>Keep the values: the INSERTs sit between SET IDENTITY_INSERT ... ON and OFF.</summary>
+        KeepValues,
+        /// <summary>Leave the column out, so the target table numbers the rows itself.</summary>
+        Skip,
+    }
+
     /// <summary>One data column of a result set (the grid's row-number column is not one).</summary>
     public sealed class ResultColumn
     {
-        public ResultColumn(string name, string typeName, string baseSchema = null, string baseTable = null)
+        public ResultColumn(string name, string typeName, string baseSchema = null, string baseTable = null, bool isIdentity = false)
         {
-            Name = name; TypeName = typeName; BaseSchema = baseSchema; BaseTable = baseTable;
+            Name = name; TypeName = typeName; BaseSchema = baseSchema; BaseTable = baseTable; IsIdentity = isIdentity;
         }
 
         /// <summary>As the grid shows it; may be empty ("(No column name)") or repeated.</summary>
@@ -31,6 +40,8 @@ namespace SqlAssist.Core.Results
         public string TypeName { get; }
         public string BaseSchema { get; }
         public string BaseTable { get; }
+        /// <summary>The result set says the column is an IDENTITY column of the table it was read from.</summary>
+        public bool IsIdentity { get; }
     }
 
     /// <summary>Builds INSERT / INSERT #tmpTable / WHERE IN() / WHERE AND OR / UPDATE scripts from result-grid cells,
@@ -50,8 +61,10 @@ namespace SqlAssist.Core.Results
         /// <paramref name="selected"/> entries are read.</param>
         /// <exception cref="ArgumentException">For <see cref="ResultScriptKind.Update"/>, which needs a target table and
         /// key columns the user chose: see <see cref="UpdateScriptBuilder"/>.</exception>
+        /// <param name="identity">For <see cref="ResultScriptKind.Insert"/> only: what happens to selected IDENTITY columns.
+        /// INSERT #tmpTable is not affected, since the temp table it creates has no IDENTITY column.</param>
         public static string Build(ResultScriptKind kind, IReadOnlyList<ResultColumn> columns, IReadOnlyList<int> selected,
-            IReadOnlyList<object[]> rows, string newline = "\r\n")
+            IReadOnlyList<object[]> rows, string newline = "\r\n", InsertIdentityMode identity = InsertIdentityMode.KeepValues)
         {
             if (kind == ResultScriptKind.Update)
                 throw new ArgumentException("UPDATE needs a target table and key columns; use UpdateScriptBuilder.", nameof(kind));
@@ -59,12 +72,42 @@ namespace SqlAssist.Core.Results
             var names = ColumnNames(columns);
             switch (kind)
             {
-                case ResultScriptKind.Insert: return Insert(TargetTable(columns, selected), columns, names, selected, rows, newline);
+                case ResultScriptKind.Insert: return InsertWithIdentity(TargetTable(columns, selected), columns, names, selected, rows, newline, identity);
                 case ResultScriptKind.InsertTempTable: return InsertTempTable(columns, names, selected, rows, newline);
                 case ResultScriptKind.WhereIn: return WhereIn(columns, names, selected, rows, newline);
                 case ResultScriptKind.WhereAndOr: return WhereAndOr(columns, names, selected, rows, newline);
                 default: throw new ArgumentOutOfRangeException(nameof(kind));
             }
+        }
+
+        /// <summary>INSERT into a real table: a selected IDENTITY column is either kept, with SET IDENTITY_INSERT around the
+        /// INSERTs (each in its own batch, so OFF still runs when an INSERT fails), or left out. The table name is the same
+        /// one the INSERTs use, the [Table] placeholder included: whoever fills that in fills it in here too.</summary>
+        private static string InsertWithIdentity(string table, IReadOnlyList<ResultColumn> columns, string[] names, IReadOnlyList<int> selected,
+            IReadOnlyList<object[]> rows, string nl, InsertIdentityMode mode)
+        {
+            var identity = selected.Where(i => columns[i].IsIdentity).ToList();
+            if (identity.Count == 0) return Insert(table, columns, names, selected, rows, nl);
+
+            var sb = new StringBuilder();
+            if (mode == InsertIdentityMode.Skip)
+            {
+                string skipped = string.Join(", ", identity.Select(i => names[i]));
+                var rest = selected.Where(i => !columns[i].IsIdentity).ToList();
+                if (rest.Count == 0)
+                    return "-- Nothing to insert: " + skipped + " is an IDENTITY column and no other column is selected." + nl +
+                           "-- Select more columns, or choose to keep IDENTITY values in Tools > SqlAssist > Options > Results." + nl;
+                sb.Append("SET DATEFORMAT ymd").Append(nl).Append(nl);
+                sb.Append("-- IDENTITY column ").Append(skipped).Append(" is left out: the table numbers the new rows itself.").Append(nl);
+                sb.Append(Insert(table, columns, names, rest, rows, nl, header: false));
+                return sb.ToString();
+            }
+
+            sb.Append("SET DATEFORMAT ymd").Append(nl).Append(nl);
+            sb.Append("SET IDENTITY_INSERT ").Append(table).Append(" ON").Append(nl).Append("GO").Append(nl).Append(nl);
+            sb.Append(Insert(table, columns, names, selected, rows, nl, header: false));
+            sb.Append(nl).Append("SET IDENTITY_INSERT ").Append(table).Append(" OFF").Append(nl).Append("GO").Append(nl);
+            return sb.ToString();
         }
 
         /// <param name="header">Starts with SET DATEFORMAT ymd, which the space-separated datetime literals rely on.</param>

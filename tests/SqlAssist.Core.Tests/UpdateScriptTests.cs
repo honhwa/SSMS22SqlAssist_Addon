@@ -25,6 +25,15 @@ namespace SqlAssist.Core.Tests
             UpdateScriptBuilder.Build(columns ?? Items, rows ?? Rows, new UpdateScriptOptions(table, set, keys), "\n");
 
         [Fact]
+        public void IdentityColumnsInSetAreNamed()
+        {
+            var columns = new[] { new ResultColumn("Id", "int", isIdentity: true), new ResultColumn("", "int", isIdentity: true), new ResultColumn("Name", "nvarchar(50)") };
+            Assert.Equal(new[] { "Id", "Column2" }, UpdateScriptBuilder.IdentityColumnsInSet(columns, new[] { 0, 1, 2 }));
+            Assert.Empty(UpdateScriptBuilder.IdentityColumnsInSet(columns, new[] { 2 }));
+            Assert.Empty(UpdateScriptBuilder.IdentityColumnsInSet(columns, new[] { 9 }));
+        }
+
+        [Fact]
         public void BuildsOneUpdatePerRow()
         {
             var result = Build("dbo.Items", new[] { 2, 3 }, new[] { 0 });

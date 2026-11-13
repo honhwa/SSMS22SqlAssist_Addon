@@ -105,6 +105,15 @@ namespace SqlAssist.Core.Results
             return order.Where(c => groups[c].Count > 1).Select(c => new DuplicateKey(c, groups[c])).ToList();
         }
 
+        /// <summary>Script names of the SET columns the result set marks as IDENTITY. SQL Server cannot update an IDENTITY
+        /// column, but only the user knows whether the table they typed is the one the column was read from, so this is for
+        /// a warning, not an error.</summary>
+        public static IReadOnlyList<string> IdentityColumnsInSet(IReadOnlyList<ResultColumn> columns, IReadOnlyList<int> setColumns)
+        {
+            var names = ResultScriptBuilder.ColumnNames(columns);
+            return setColumns.Where(i => i >= 0 && i < columns.Count && columns[i].IsIdentity).Select(i => names[i]).ToList();
+        }
+
         private static string KeyCondition(IReadOnlyList<ResultColumn> columns, string[] names, IReadOnlyList<int> keys, object[] row) =>
             string.Join(" AND ", keys.Select(i => ResultScriptBuilder.Condition(names[i], row[i], columns[i].TypeName)));
 

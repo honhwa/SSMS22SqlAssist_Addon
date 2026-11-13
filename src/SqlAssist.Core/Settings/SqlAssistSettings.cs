@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.Xml.Linq;
 using SqlAssist.Core.Formatting;
+using SqlAssist.Core.Results;
 using SqlAssist.Core.Risk;
 
 namespace SqlAssist.Core.Settings
@@ -17,6 +18,7 @@ namespace SqlAssist.Core.Settings
         public RiskOptions Risk { get; } = new RiskOptions();
         public EditorOptions Editor { get; } = new EditorOptions();
         public CrudSettings Crud { get; } = new CrudSettings();
+        public ResultOptions Results { get; } = new ResultOptions();
 
         public static SqlAssistSettings Parse(string xml)
         {
@@ -60,6 +62,7 @@ namespace SqlAssist.Core.Settings
             {
                 settings.Editor.HighlightInsertColumns = Flag(editor, "HighlightInsertColumns", settings.Editor.HighlightInsertColumns);
                 settings.Editor.ShowParameterHints = Flag(editor, "ShowParameterHints", settings.Editor.ShowParameterHints);
+                settings.Editor.LearnFromUsage = Flag(editor, "LearnFromUsage", settings.Editor.LearnFromUsage);
             }
 
             var crud = Child(root, "Crud");
@@ -69,6 +72,11 @@ namespace SqlAssist.Core.Settings
                 if (!string.IsNullOrWhiteSpace(pattern)) settings.Crud.NamePattern = pattern.Trim();
                 settings.Crud.CreateOrAlter = Flag(crud, "CreateOrAlter", settings.Crud.CreateOrAlter);
             }
+
+            var results = Child(root, "Results");
+            if (results != null &&
+                Enum.TryParse(Attribute(results, "InsertIdentity"), true, out InsertIdentityMode insertIdentity) && Enum.IsDefined(typeof(InsertIdentityMode), insertIdentity))
+                settings.Results.InsertIdentity = insertIdentity;
             return settings;
         }
 
@@ -82,10 +90,13 @@ namespace SqlAssist.Core.Settings
                         new XAttribute("CommaStyle", Format.CommaStyle.ToString())),
                     new XElement("Editor",
                         new XAttribute("HighlightInsertColumns", Editor.HighlightInsertColumns),
-                        new XAttribute("ShowParameterHints", Editor.ShowParameterHints)),
+                        new XAttribute("ShowParameterHints", Editor.ShowParameterHints),
+                        new XAttribute("LearnFromUsage", Editor.LearnFromUsage)),
                     new XElement("Crud",
                         new XAttribute("NamePattern", Crud.NamePattern),
                         new XAttribute("CreateOrAlter", Crud.CreateOrAlter)),
+                    new XElement("Results",
+                        new XAttribute("InsertIdentity", Results.InsertIdentity.ToString())),
                     new XElement("RiskCheck",
                         new XAttribute("UpdateWithoutWhere", Risk.UpdateWithoutWhere),
                         new XAttribute("DeleteWithoutWhere", Risk.DeleteWithoutWhere),

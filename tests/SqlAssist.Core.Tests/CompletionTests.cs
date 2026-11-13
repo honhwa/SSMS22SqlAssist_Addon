@@ -21,6 +21,36 @@ namespace SqlAssist.Core.Tests
         [InlineData("customers2", "Customers")]
         public void DoesNotMatch(string typed, string name) => Assert.Equal(0, FuzzyMatcher.Score(typed, name));
 
+        // How SqlItemManager ranks: score + bonus, highest first, ties in list order.
+        private static string[] Ranked(string sql, params string[] candidates)
+        {
+            int caret = sql.IndexOf('|');
+            var ctx = SqlContextAnalyzer.Analyze(sql.Remove(caret, 1), caret);
+            return candidates
+                .Select((c, i) => (c, i, score: FuzzyMatcher.Score(ctx.TypedText, c)))
+                .Where(x => x.score > 0)
+                .OrderByDescending(x => x.score + KeywordPreference.Bonus(ctx, x.c))
+                .ThenBy(x => x.i)
+                .Select(x => x.c)
+                .ToArray();
+        }
+
+        private static readonly string[] WKeywords = { "wh", "WHEN", "WITH", "WHERE", "WHILE" }; // "wh" stands for the snippet
+
+        [Fact]
+        public void WhereComesRightAfterTheSnippetAfterATableSource()
+        {
+            Assert.Equal(new[] { "wh", "WHERE", "WHEN", "WITH", "WHILE" }, Ranked("SELECT * FROM JOB_General jg w|", WKeywords));
+            Assert.Equal(new[] { "wh", "WHERE", "WHEN", "WHILE", "WITH" }, Ranked("SELECT * FROM JOB_General jg wh|", WKeywords));
+            Assert.Equal("WHERE", Ranked("SELECT * FROM JOB_General jg whe|", WKeywords).First());
+        }
+
+        [Fact]
+        public void WhereGetsNoBonusElsewhere()
+        {
+            Assert.Equal(new[] { "wh", "WHEN", "WITH", "WHERE", "WHILE" }, Ranked("SELECT * FROM t x WHERE a = 1 AND w|", WKeywords));
+        }
+
         [Fact]
         public void Ranking_ExactPrefixInitialsSubsequence()
         {

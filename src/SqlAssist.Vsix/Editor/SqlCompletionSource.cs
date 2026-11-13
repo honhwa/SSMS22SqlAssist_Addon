@@ -47,6 +47,10 @@ namespace SqlAssist.Editor
         public const string IsKeyword = "SqlAssist.IsKeyword";
         /// <summary>Lazy&lt;TableDetails&gt; on table/view items: the column panel beside the list.</summary>
         public const string Table = "SqlAssist.Table";
+        /// <summary>int added to the fuzzy score of a matching item (<see cref="KeywordPreference"/>).</summary>
+        public const string ScoreBonus = "SqlAssist.ScoreBonus";
+        /// <summary>string: the <see cref="UsageStats"/> key the item is counted under when committed.</summary>
+        public const string UsageKey = "SqlAssist.UsageKey";
     }
 
     internal sealed class SqlCompletionSource : IAsyncCompletionSource
@@ -155,12 +159,26 @@ namespace SqlAssist.Editor
                         AddVariableItems(items, variables, "2");
                         break;
                 }
+                AddUsageKeys(items, target);
                 return new CompletionContext(items.ToImmutableArray());
             }
             catch (Exception ex)
             {
                 Log.Error("GetCompletionContextAsync", ex);
                 return CompletionContext.Empty;
+            }
+        }
+
+        /// <summary>What <see cref="UsageStore"/> counts each item under: keywords and snippets for every database, anything else
+        /// (tables, columns, routines) for this server and database only. Items without a key are neither counted nor lifted.</summary>
+        private static void AddUsageKeys(List<CompletionItem> items, ConnectionTarget target)
+        {
+            foreach (var item in items)
+            {
+                string key = item.Properties.TryGetProperty(ItemProps.Snippet, out Snippet snippet) ? UsageStats.GlobalKey("snippet:" + snippet.Key)
+                    : item.Properties.ContainsProperty(ItemProps.IsKeyword) ? UsageStats.GlobalKey(item.DisplayText)
+                    : UsageStats.ScopedKey(target?.Server?.ToLowerInvariant(), target?.Database?.ToLowerInvariant(), item.DisplayText);
+                if (key != null) item.Properties.AddProperty(ItemProps.UsageKey, key);
             }
         }
 
@@ -336,6 +354,8 @@ namespace SqlAssist.Editor
             {
                 var item = Item(k, Icons.Keyword, k, "3", k.Replace(" ", ""), null, null);
                 item.Properties.AddProperty(ItemProps.IsKeyword, true);
+                int bonus = KeywordPreference.Bonus(ctx, k);
+                if (bonus != 0) item.Properties.AddProperty(ItemProps.ScoreBonus, bonus);
                 items.Add(item);
             }
 

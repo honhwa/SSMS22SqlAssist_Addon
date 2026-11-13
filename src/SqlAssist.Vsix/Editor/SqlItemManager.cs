@@ -76,9 +76,12 @@ namespace SqlAssist.Editor
                 var candidates = picker == null ? data.InitialSortedItemList.ToList() : data.InitialSortedItemList
                     .SelectMany(i => TreeState.NodeOf(i) is TreeNode n && n.IsTable ? new[] { i }.Concat(picker.ChildrenOf(i, n)) : new[] { i })
                     .ToList();
+                // Only once something is typed: an empty list (after "." or "JOIN ") keeps the source's order, FK joins first.
+                bool learn = UsageStore.Enabled;
                 items = candidates
                     .Select((item, index) => (item, index, score: FuzzyMatcher.Score(typed, item.FilterText)))
                     .Where(x => x.score > 0)
+                    .Select(x => (x.item, x.index, score: x.score + Bonus(x.item, learn)))
                     .OrderByDescending(x => x.score)
                     .ThenBy(x => x.index) // ties keep group order: JOIN suggestions before the plain table list
                     .Select(x => x.item)
@@ -104,6 +107,15 @@ namespace SqlAssist.Editor
 
             return Task.FromResult(new FilteredCompletionModel(items.Select(i => new CompletionItemWithHighlight(i)).ToImmutableArray(),
                 selected, data.SelectedFilters, hint, centerSelection: true, uniqueItem: null));
+        }
+
+        /// <summary>The context bonus (<see cref="KeywordPreference"/>) plus, when on, the usage bonus. Both are a few points against
+        /// fuzzy tiers 100 apart, so they only reorder items that match about equally well.</summary>
+        private static int Bonus(CompletionItem item, bool learn)
+        {
+            int bonus = item.Properties.TryGetProperty(ItemProps.ScoreBonus, out int context) ? context : 0;
+            if (learn && item.Properties.TryGetProperty(ItemProps.UsageKey, out string key)) bonus += UsageStore.Bonus(key);
+            return bonus;
         }
 
         // The columns of each expanded table, right under it.

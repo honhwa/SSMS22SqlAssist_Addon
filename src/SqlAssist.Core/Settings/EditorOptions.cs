@@ -8,5 +8,8 @@ namespace SqlAssist.Core.Settings
 
         /// <summary>Inside "SUBSTRING(a, |)" show the function's syntax near the caret with the current parameter in bold.</summary>
         public bool ShowParameterHints { get; set; } = true;
+
+        /// <summary>Rank completion items the user commits often a little higher (see Completion.UsageStats).</summary>
+        public bool LearnFromUsage { get; set; } = true;
     }
 }

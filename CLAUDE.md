@@ -87,6 +87,9 @@ Three projects (`SqlAssist.sln`) plus tests:
     (`{33F13AC3-80BB-4ECB-85BC-225435603A5E}:0x70`). Ctrl+J,<key> is caught in `ComponentDispatcher.ThreadPreprocessMessage`
     only while a grid has focus. Script text comes from Core `Results/ResultScriptBuilder`; UPDATE is the exception: it opens
     `UpdateScriptWindow` (target table and key columns chosen by the user, never guessed) and uses `UpdateScriptBuilder`.
+    `ResultColumn.IsIdentity` comes from the grid's schema row (`IsIdentity` / `IsAutoIncrement`; not yet confirmed in real SSMS):
+    INSERT wraps a selected IDENTITY column in `SET IDENTITY_INSERT` or leaves it out (`settings.xml` `<Results InsertIdentity>`,
+    Options › Results), and the UPDATE window starts such a column as a key instead of SET.
     `ScriptDelivery` sends any generated text to a new query window, the clipboard or a file (never executes it).
   - `Formatting/` — `FormatSqlCommand` (Ctrl+K, Ctrl+Shift+F, the Tools menu, and a second command `cmdFormatSqlContext` on the
     query editor's right-click menu: SSMS's `IDM_SQLWB_SQLSCRIPT_CONTEXT` = 0x50 in the same `{33F13AC3-…}` group as the grid's
@@ -124,6 +127,12 @@ Three projects (`SqlAssist.sln`) plus tests:
 
 Conventions that matter inside SSMS: exceptions must never escape into the editor — catch and write to `Log`
 instead. Connection/reflection code runs on the UI thread (`ThreadHelper.ThrowIfNotOnUIThread`).
+
+Completion ranking (`SqlItemManager`, once something is typed): `FuzzyMatcher` score (tiers 100 apart) plus small bonuses carried on
+the item — `ItemProps.ScoreBonus` from Core `KeywordPreference` (WHERE after `FROM t alias`, via `CaretContext.IsAfterTableSource`) and,
+when Options › Editor › LearnFromUsage is on, `UsageStore.Bonus(ItemProps.UsageKey)` (Core `UsageStats`: frecency, ≤ 8 points, keywords/snippets
+global, everything else per server+database; recorded in `SqlCommitManager`, saved to `%LOCALAPPDATA%\SqlAssist\usage.txt`, never logged).
+Keep every bonus well under a tier gap so it only reorders equally good matches.
 
 Statement boundaries for completion are `;`, `GO` or a blank line — except a blank line inside parentheses or right
 after a CTE (`WITH x AS (...)` ⏎⏎ `SELECT`). CTE and derived-table columns come from the query text

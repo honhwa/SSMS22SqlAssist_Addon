@@ -69,7 +69,8 @@ namespace SqlAssist.Results
                 else
                 {
                     var rows = selection.Rows.Select(r => selection.ReadRow(r, selection.Selected)).ToList();
-                    script = ResultScriptBuilder.Build(kind, selection.Columns, selection.Selected, rows);
+                    script = ResultScriptBuilder.Build(kind, selection.Columns, selection.Selected, rows,
+                        identity: Settings.SettingsProvider.Load().Results.InsertIdentity);
                 }
                 int count = selection.Rows.Count;
                 string what = Describe(kind) + " script (" + count + (count == 1 ? " row)" : " rows)");

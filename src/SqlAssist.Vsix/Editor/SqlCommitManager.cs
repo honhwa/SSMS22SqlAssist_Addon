@@ -55,7 +55,10 @@ namespace SqlAssist.Editor
                         // Same rule as below: Enter commits only a fully typed word, and still starts the new line.
                         bool enterKey = typedChar == '\n' || typedChar == '\r';
                         if (!enterKey || string.Equals(span.GetText().TrimStart('['), item.FilterText, StringComparison.OrdinalIgnoreCase))
+                        {
                             buffer.Replace(span, item.InsertText);
+                            RecordUse(item);
+                        }
                         return new CommitResult(true, enterKey ? CommitBehavior.RaiseFurtherReturnKeyAndTabKeyCommandHandlers : CommitBehavior.None);
                     }
                 }
@@ -63,6 +66,7 @@ namespace SqlAssist.Editor
                 if (item.Properties.TryGetProperty(ItemProps.Snippet, out Snippet snippet))
                 {
                     SnippetInserter.Insert(_view, _broker, span, snippet);
+                    RecordUse(item);
                     return new CommitResult(true, CommitBehavior.None);
                 }
 
@@ -82,6 +86,7 @@ namespace SqlAssist.Editor
                     string sql = SelectBuilder.Build(tree.Schema, tree.Picks(node), linePrefix, newLine, tree.TakenAliases);
                     var after = buffer.Replace(span, sql);
                     _view.Caret.MoveTo(new SnapshotPoint(after, span.Start.Position + sql.Length));
+                    RecordUse(item);
                     return new CommitResult(true, CommitBehavior.None);
                 }
 
@@ -89,14 +94,22 @@ namespace SqlAssist.Editor
                 if (enter && string.Equals(span.GetText().TrimStart('['), item.FilterText, StringComparison.OrdinalIgnoreCase))
                 {
                     buffer.Replace(span, item.InsertText);
+                    RecordUse(item);
                     return new CommitResult(true, CommitBehavior.RaiseFurtherReturnKeyAndTabKeyCommandHandlers);
                 }
+                // Tab, a click or a commit character: the editor's default commit writes the item.
+                if (!enter) RecordUse(item);
             }
             catch (Exception ex)
             {
                 Log.Error("TryCommit", ex);
             }
             return CommitResult.Unhandled;
+        }
+
+        private static void RecordUse(CompletionItem item)
+        {
+            if (item.Properties.TryGetProperty(ItemProps.UsageKey, out string key)) UsageStore.Record(key);
         }
     }
 }

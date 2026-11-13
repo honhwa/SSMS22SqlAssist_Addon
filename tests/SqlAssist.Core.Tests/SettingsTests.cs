@@ -53,6 +53,32 @@ namespace SqlAssist.Core.Tests
         }
 
         [Fact]
+        public void LearnFromUsageIsOnByDefaultAndKeepsWhatWasChosen()
+        {
+            Assert.True(SqlAssistSettings.Parse(null).Editor.LearnFromUsage);
+            var settings = new SqlAssistSettings();
+            settings.Editor.LearnFromUsage = false;
+            Assert.False(SqlAssistSettings.Parse(settings.ToXml()).Editor.LearnFromUsage);
+            Assert.True(SqlAssistSettings.Parse("<SqlAssistSettings><Editor LearnFromUsage=\"maybe\"/></SqlAssistSettings>").Editor.LearnFromUsage);
+        }
+
+        [Fact]
+        public void InsertIdentityDefaultRoundTripAndFallBack()
+        {
+            Assert.Equal(SqlAssist.Core.Results.InsertIdentityMode.KeepValues, SqlAssistSettings.Parse(null).Results.InsertIdentity);
+
+            var settings = new SqlAssistSettings();
+            settings.Results.InsertIdentity = SqlAssist.Core.Results.InsertIdentityMode.Skip;
+            Assert.Equal(SqlAssist.Core.Results.InsertIdentityMode.Skip, SqlAssistSettings.Parse(settings.ToXml()).Results.InsertIdentity);
+
+            foreach (string value in new[] { "", "nonsense", "7" })
+                Assert.Equal(SqlAssist.Core.Results.InsertIdentityMode.KeepValues,
+                    SqlAssistSettings.Parse("<SqlAssistSettings><Results InsertIdentity=\"" + value + "\"/></SqlAssistSettings>").Results.InsertIdentity);
+            Assert.Equal(SqlAssist.Core.Results.InsertIdentityMode.Skip,
+                SqlAssistSettings.Parse("<SqlAssistSettings><results insertidentity=\"skip\"/></SqlAssistSettings>").Results.InsertIdentity);
+        }
+
+        [Fact]
         public void BadValuesFallBackOneByOne()
         {
             var read = SqlAssistSettings.Parse("<SqlAssistSettings><Format KeywordCase=\"Shouting\" IndentSize=\"many\" CommaStyle=\"Trailing\"/></SqlAssistSettings>");

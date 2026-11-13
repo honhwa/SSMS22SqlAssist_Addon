@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using Microsoft.VisualStudio.Shell;
 using SqlAssist.Core.Formatting;
+using SqlAssist.Core.Results;
 using SqlAssist.Core.Risk;
 using SqlAssist.Core.Settings;
 using SqlAssist.Risk;
@@ -40,7 +41,10 @@ namespace SqlAssist.Settings
         private readonly CheckBox _skipTemp = new CheckBox { Content = "ข้ามตาราง temp (#...) และ table variable (@...)", Margin = new Thickness(0, 6, 0, 0) };
         private readonly CheckBox _highlightInsert = new CheckBox { Content = "ไฮไลต์คอลัมน์และค่าที่ตรงกันใน INSERT … VALUES / INSERT … SELECT", FontWeight = FontWeights.SemiBold };
         private readonly CheckBox _parameterHints = new CheckBox { Content = "แสดง Function Parameter Hints (รูปแบบการเรียกฟังก์ชันขณะพิมพ์)", FontWeight = FontWeights.SemiBold };
-        private readonly CheckBox _warn = new CheckBox { Content = "เตือนก่อนกด Execute (ทดลอง)", FontWeight = FontWeights.SemiBold };
+        private readonly CheckBox _learnFromUsage = new CheckBox { Content = "เรียงรายการแนะนำตามที่ใช้บ่อย", FontWeight = FontWeights.SemiBold };
+        private readonly RadioButton _identityKeep = new RadioButton { Content = "เก็บค่าเดิมไว้ — ครอบด้วย SET IDENTITY_INSERT ... ON / OFF", GroupName = "identity", Margin = new Thickness(0, 0, 0, 6) };
+        private readonly RadioButton _identitySkip = new RadioButton { Content = "ตัดคอลัมน์ IDENTITY ออก — ให้ตารางปลายทางออกเลขใหม่เอง", GroupName = "identity" };
+        private readonly CheckBox _warn =new CheckBox { Content = "เตือนก่อนกด Execute (ทดลอง)", FontWeight = FontWeights.SemiBold };
         private readonly TextBlock _guardStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(18, 6, 0, 0) };
         private bool _loading = true;
 
@@ -75,6 +79,9 @@ namespace SqlAssist.Settings
             _warn.IsChecked = _settings.Risk.WarnBeforeExecute;
             _highlightInsert.IsChecked = _settings.Editor.HighlightInsertColumns;
             _parameterHints.IsChecked = _settings.Editor.ShowParameterHints;
+            _learnFromUsage.IsChecked = _settings.Editor.LearnFromUsage;
+            _identityKeep.IsChecked = _settings.Results.InsertIdentity == InsertIdentityMode.KeepValues;
+            _identitySkip.IsChecked = _settings.Results.InsertIdentity == InsertIdentityMode.Skip;
             _guardStatus.Text = "สถานะตอนนี้: " + ExecuteGuard.Status;
 
             // Building the layout needs no UI-thread check: it only creates WPF controls, which is also what lets this window be
@@ -127,6 +134,7 @@ namespace SqlAssist.Settings
             tabs.Items.Add(new TabItem { Header = "จัดรูปแบบ SQL", Content = FormatTab() });
             tabs.Items.Add(new TabItem { Header = "ตรวจจุดเสี่ยง", Content = RiskTab() });
             tabs.Items.Add(new TabItem { Header = "Editor", Content = EditorTab() });
+            tabs.Items.Add(new TabItem { Header = "Results", Content = ResultsTab() });
             root.Children.Add(tabs);
             return root;
         }
@@ -207,6 +215,43 @@ namespace SqlAssist.Settings
                        "ผลของตัวเลือกนี้เริ่มหลังกดบันทึกและขยับ caret",
                 TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(18, 6, 0, 0),
             });
+            panel.Children.Add(new Separator { Margin = new Thickness(0, 14, 0, 14) });
+            panel.Children.Add(_learnFromUsage);
+            panel.Children.Add(new TextBlock
+            {
+                Text = "นับว่าเลือกรายการไหนจากรายการแนะนำบ่อยแค่ไหนและล่าสุดเมื่อไร (keyword, snippet, ตาราง, คอลัมน์, function) แล้วดันรายการที่ใช้บ่อยขึ้นมาเล็กน้อย " +
+                       "เฉพาะเมื่อพิมพ์แล้วอย่างน้อย 1 ตัวอักษร และเฉพาะในกลุ่มที่ตรงกับคำที่พิมพ์พอ ๆ กัน: คำที่พิมพ์ครบยังขึ้นก่อนเสมอ ต้องเลือกอย่างน้อย 3 ครั้งถึงเริ่มมีผล และที่เลิกใช้จะค่อย ๆ ลดลง\n\n" +
+                       "keyword และ snippet นับรวมทุกฐานข้อมูล ส่วนตาราง คอลัมน์ และ function นับแยกตาม server + database " +
+                       "เก็บในเครื่องนี้เท่านั้นที่ " + UsageFilePath + " (มีชื่อตารางและคอลัมน์ ไม่ส่งไปที่ไหนและไม่เขียนลง log)",
+                TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(18, 6, 0, 0),
+            });
+            var clear = new Button { Content = "ล้างประวัติการใช้งาน", Height = 26, Padding = new Thickness(12, 0, 12, 0), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(18, 8, 0, 0) };
+            clear.Click += (s, e) => ClearUsage();
+            panel.Children.Add(clear);
+            return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        }
+
+        private UIElement ResultsTab()
+        {
+            var panel = new StackPanel { Margin = new Thickness(12) };
+            panel.Children.Add(new TextBlock
+            {
+                Text = "Generate Script As › INSERT เมื่อคอลัมน์ที่เลือกมีคอลัมน์ IDENTITY", FontWeight = FontWeights.SemiBold,
+                Margin = new Thickness(0, 0, 0, 10), TextWrapping = TextWrapping.Wrap,
+            });
+            panel.Children.Add(_identityKeep);
+            panel.Children.Add(_identitySkip);
+            panel.Children.Add(new TextBlock
+            {
+                Text = "SQL Server ไม่รับค่าที่ระบุเองในคอลัมน์ IDENTITY เว้นแต่เปิด IDENTITY_INSERT ของตารางนั้นไว้\n\n" +
+                       "• เก็บค่าเดิม: เหมาะกับการย้ายข้อมูลไปอีกฐานข้อมูลโดยให้เลข ID ตรงกัน script จะมี SET IDENTITY_INSERT ตาราง ON ก่อน INSERT และ OFF ตอนท้าย " +
+                       "(ต้องมีสิทธิ์ ALTER บนตาราง และเปิดได้ทีละตารางต่อ session) ชื่อตารางใช้ชื่อเดียวกับใน INSERT ถ้าเป็น [Table] ให้แก้ทั้งสามที่\n" +
+                       "• ตัดออก: เหมาะกับการ copy แถวเป็นข้อมูลใหม่ script จะมี comment บอกว่าตัดคอลัมน์ไหนออก\n\n" +
+                       "รู้ว่าคอลัมน์ไหนเป็น IDENTITY จากข้อมูลของผลลัพธ์ที่ SSMS เก็บไว้ (ไม่ query ฐานข้อมูลเพิ่ม) คอลัมน์ที่เป็นผลจากการคำนวณ เช่น ID + 0 จะไม่ถูกมองเป็น IDENTITY " +
+                       "INSERT #tmpTable ไม่ได้รับผลจากตัวเลือกนี้ เพราะตาราง temp ที่สร้างไม่มีคอลัมน์ IDENTITY\n\n" +
+                       "ผลของตัวเลือกนี้เริ่มหลังกดบันทึก",
+                TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(18, 8, 0, 0),
+            });
             return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         }
 
@@ -220,6 +265,24 @@ namespace SqlAssist.Settings
             holder.Children.Add(control);
             row.Children.Add(holder);
             return row;
+        }
+
+        private static string UsageFilePath => Editor.UsageStore.FilePath;
+
+        private void ClearUsage()
+        {
+            if (MessageBox.Show(this, "ล้างประวัติว่าเลือกรายการแนะนำไหนบ่อย? ลำดับจะกลับไปเป็นแบบเดิมจนกว่าจะใช้งานใหม่ (ย้อนกลับไม่ได้)",
+                    Title, MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.Cancel) != MessageBoxResult.OK) return;
+            try
+            {
+                Editor.UsageStore.Clear();
+                MessageBox.Show(this, "ล้างประวัติแล้ว", Title, MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Clear usage history", ex);
+                MessageBox.Show(this, "ล้างประวัติไม่สำเร็จ:\n" + ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         private void OpenLog()
@@ -280,6 +343,8 @@ namespace SqlAssist.Settings
                 _settings.Risk.WarnBeforeExecute = _warn.IsChecked == true;
                 _settings.Editor.HighlightInsertColumns = _highlightInsert.IsChecked == true;
                 _settings.Editor.ShowParameterHints = _parameterHints.IsChecked == true;
+                _settings.Editor.LearnFromUsage = _learnFromUsage.IsChecked == true;
+                _settings.Results.InsertIdentity = _identitySkip.IsChecked == true ? InsertIdentityMode.Skip : InsertIdentityMode.KeepValues;
                 SettingsProvider.Save(_settings);
 
                 ExecuteGuard.Apply(_settings.Risk);

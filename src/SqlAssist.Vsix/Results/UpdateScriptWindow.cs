@@ -14,7 +14,8 @@ namespace SqlAssist.Results
 {
     /// <summary>Results grid › Generate Script As › UPDATE: asks for the target table and which columns are SET and which
     /// are the key (WHERE), and previews the first rows before the script goes anywhere. Nothing is guessed from the
-    /// result set: the table starts empty and no column starts as a key.
+    /// result set: the table starts empty and no column starts as a key, except a column the result set itself marks as
+    /// IDENTITY, which SQL Server cannot SET and which starts as a key instead (the user can still change both).
     /// A plain WPF Window (see <see cref="DialogHost"/>), like the Snippets Manager.</summary>
     internal sealed class UpdateScriptWindow : Window
     {
@@ -25,9 +26,9 @@ namespace SqlAssist.Results
             private bool _isSet;
             private bool _isKey;
 
-            public ColumnRow(int index, string name, string type, bool isSet)
+            public ColumnRow(int index, string name, string type, bool isSet, bool isKey)
             {
-                Index = index; Name = name; Type = type; _isSet = isSet;
+                Index = index; Name = name; Type = type; _isSet = isSet; _isKey = isKey;
             }
 
             public int Index { get; }
@@ -100,7 +101,10 @@ namespace SqlAssist.Results
             var names = ResultScriptBuilder.ColumnNames(columns);
             for (int i = 0; i < columns.Count; i++)
             {
-                var row = new ColumnRow(i, names[i], columns[i].TypeName ?? "", selected.Contains(i));
+                // An IDENTITY column cannot be SET; it starts as a key when it was among the selected cells.
+                bool identity = columns[i].IsIdentity;
+                var row = new ColumnRow(i, names[i], (columns[i].TypeName ?? "") + (identity ? "  IDENTITY" : ""),
+                    selected.Contains(i) && !identity, selected.Contains(i) && identity);
                 row.PropertyChanged += (s, e) => { if (!_loading) Refresh(); };
                 _rows.Add(row);
             }
@@ -153,7 +157,8 @@ namespace SqlAssist.Results
             notes.Children.Add(new TextBlock
             {
                 Text = "Key ที่เลือกเป็นการระบุของคุณเอง SqlAssist ไม่รับประกันว่าไม่ซ้ำ (unique) ในฐานข้อมูลจริง — ถ้า Key ซ้ำ UPDATE จะกระทบหลายแถว ตรวจ PRIMARY KEY / UNIQUE ของตารางก่อนรัน " +
-                       "และเมื่อติ๊ก Key คอลัมน์นั้นจะถูกเอาออกจาก SET ให้ก่อน (ติ๊ก SET กลับเองได้)",
+                       "และเมื่อติ๊ก Key คอลัมน์นั้นจะถูกเอาออกจาก SET ให้ก่อน (ติ๊ก SET กลับเองได้) " +
+                       "คอลัมน์ IDENTITY ที่เลือกมาจะเริ่มเป็น Key แทน SET เพราะ SQL Server ไม่ให้ UPDATE คอลัมน์ IDENTITY",
                 TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11,
             });
             notes.Children.Add(_warnings);
@@ -249,6 +254,10 @@ namespace SqlAssist.Results
             var both = _rows.Where(r => r.IsSet && r.IsKey).Select(r => r.Name).ToList();
             if (both.Count > 0)
                 warnings.Append(warnings.Length > 0 ? "\r\n" : "").Append("⚠ ").Append(string.Join(", ", both)).Append(" ถูกใช้ทั้ง SET และ Key");
+            var identity = UpdateScriptBuilder.IdentityColumnsInSet(_columns, options.SetColumns);
+            if (identity.Count > 0)
+                warnings.Append(warnings.Length > 0 ? "\r\n" : "").Append("⚠ ").Append(string.Join(", ", identity))
+                    .Append(" เป็นคอลัมน์ IDENTITY ในผลลัพธ์: SQL Server ไม่ให้ UPDATE คอลัมน์ IDENTITY ถ้าตารางปลายทางเป็นตารางเดียวกัน script จะ error (Cannot update identity column)");
             _warnings.Text = warnings.ToString();
         }
 
