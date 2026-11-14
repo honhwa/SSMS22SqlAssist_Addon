@@ -19,7 +19,15 @@ namespace SqlAssist.Ai
         public static bool CanRun()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            return ActiveSqlEditor.Find() != null;
+            try
+            {
+                return ActiveSqlEditor.Find() != null;
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Explain SQL: query status", ex);
+                return false;
+            }
         }
 
         public static void Run()

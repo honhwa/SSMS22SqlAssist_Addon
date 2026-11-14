@@ -59,11 +59,14 @@ namespace SqlAssist.Ai
             ShowInTaskbar = false;
             FontFamily = new FontFamily("Segoe UI");
             FontSize = 13;
+            // Only creates WPF controls (which also lets the window be rendered outside SSMS); handlers that touch SSMS check for themselves.
+#pragma warning disable VSTHRD010
             Content = BuildLayout();
+#pragma warning restore VSTHRD010
             Closed += (s, e) =>
             {
-                _cts?.Cancel();
                 if (_current == this) _current = null;
+                CancelPending();
             };
         }
 
@@ -73,12 +76,14 @@ namespace SqlAssist.Ai
             ThreadHelper.ThrowIfNotOnUIThread();
             if (_current == null)
             {
-                _current = new ExplainWindow();
-                DialogHost.SetOwner(_current);
-                _current.Show();
+                // Remembered only once it is on screen, so a failed Show does not leave an invisible window behind.
+                var created = new ExplainWindow();
+                DialogHost.SetOwner(created);
+                created.Show();
+                _current = created;
             }
             var window = _current;
-            window._cts?.Cancel();
+            window.CancelPending();
             var cts = new CancellationTokenSource();
             window._cts = cts;
             window.ShowPending(view, request, endpoint, isSelection);
@@ -125,7 +130,7 @@ namespace SqlAssist.Ai
             buttons.Children.Add(close);
             _cancel.Click += (s, e) =>
             {
-                _cts?.Cancel();
+                CancelPending();
                 _status.Text = "ยกเลิกแล้ว";
                 _cancel.Visibility = Visibility.Collapsed;
             };
@@ -169,6 +174,13 @@ namespace SqlAssist.Ai
             };
             root.Children.Add(_list);
             return root;
+        }
+
+        /// <summary>Cancel() runs HttpClient's registered callbacks inline and can throw; never from a WPF handler into SSMS.</summary>
+        private void CancelPending()
+        {
+            try { _cts?.Cancel(); }
+            catch (Exception ex) { Log.Error("Explain SQL: cancel", ex); }
         }
 
         private void ShowPending(IWpfTextView view, ExplainRequest request, string endpoint, bool isSelection)

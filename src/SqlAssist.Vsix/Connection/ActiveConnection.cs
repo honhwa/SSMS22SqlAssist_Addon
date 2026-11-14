@@ -6,6 +6,7 @@ using System.Security;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Threading;
 using SqlAssist.Core.Schema;
 
 namespace SqlAssist.Connection
@@ -52,12 +53,16 @@ namespace SqlAssist.Connection
         /// (the caller disposes it); a connection that fails to open is disposed before the exception is passed on.</summary>
         public async Task<SqlConnection> OpenAsync(CancellationToken token)
         {
+            // Off the caller's thread first: asking SSMS for a token may go to the network, and some callers start on the UI thread.
+            await TaskScheduler.Default;
+            token.ThrowIfCancellationRequested();
             var conn = new SqlConnection(ConnectionString);
             try
             {
                 if (AccessToken != null)
                 {
                     string accessToken = AccessToken();
+                    token.ThrowIfCancellationRequested();
                     if (string.IsNullOrEmpty(accessToken)) throw new InvalidOperationException("No access token for " + Server);
                     conn.AccessToken = accessToken;
                 }
@@ -106,7 +111,7 @@ namespace SqlAssist.Connection
                 object renewableToken = Get(info, "RenewableToken");
                 if (renewableToken != null)
                 {
-                    EntraProbe.Describe(renewableToken, info);   // TEMPORARY: Entra ID plan, Task 0
+                    EntraProbe.Describe(renewableToken);   // TEMPORARY: Entra ID plan, Task 0
                     return Unsupported("Connection to " + server + " uses Entra ID authentication, which SqlAssist does not support yet");
                 }
 
