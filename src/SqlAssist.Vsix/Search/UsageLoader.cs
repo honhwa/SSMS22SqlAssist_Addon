@@ -85,9 +85,8 @@ WHERE d.referencing_class = 1 AND d.referenced_class = 6 AND d.referenced_id = @
         {
             var rows = new List<RawUsage>();
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            using (var conn = new SqlConnection(SearchIndexLoader.ForDatabase(server.ConnectionString, target.Database)))
+            using (var conn = await server.ForDatabase(target.Database).OpenAsync(token).ConfigureAwait(false))
             {
-                await conn.OpenAsync(token).ConfigureAwait(false);
                 bool isType = target.Type == SearchObjectType.UserDefinedType;
                 using (var cmd = new SqlCommand(isType ? TypeSql : ObjectSql, conn) { CommandTimeout = 30 })
                 {

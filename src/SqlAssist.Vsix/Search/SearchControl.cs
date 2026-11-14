@@ -727,7 +727,7 @@ namespace SqlAssist.Search
 
                 if (_selected.Count == 0 && !_allDatabases)
                 {
-                    string current = await SearchIndexLoader.CurrentDatabaseAsync(server.ConnectionString, token);
+                    string current = await SearchIndexLoader.CurrentDatabaseAsync(server, token);
                     if (token.IsCancellationRequested) return;
                     if (!string.IsNullOrEmpty(current)) _selected.Add(current);
                     UpdateDatabasesButton();
@@ -736,7 +736,7 @@ namespace SqlAssist.Search
                 List<string> databases;
                 if (_allDatabases)
                 {
-                    var loaded = _databases ?? await SearchIndexLoader.LoadDatabasesAsync(server.ConnectionString, token);
+                    var loaded = _databases ?? await SearchIndexLoader.LoadDatabasesAsync(server, token);
                     if (token.IsCancellationRequested) return;
                     // UpdateServer clears the list when the server changes: one that finished loading after a switch isn't kept.
                     if (_server?.ServerKey == server.ServerKey) _databases = loaded;
@@ -798,7 +798,7 @@ namespace SqlAssist.Search
             {
                 try
                 {
-                    databases = await SearchIndexLoader.LoadDatabasesAsync(server.ConnectionString, CancellationToken.None);
+                    databases = await SearchIndexLoader.LoadDatabasesAsync(server, CancellationToken.None);
                 }
                 catch (Exception ex)
                 {

@@ -77,7 +77,7 @@ namespace SqlAssist.Editor
             {
                 string database;
                 using (var cts = new CancellationTokenSource(DefinitionWait))
-                    database = target.Database ?? await SearchIndexLoader.CurrentDatabaseAsync(target.ConnectionString, cts.Token);
+                    database = target.Database ?? await SearchIndexLoader.CurrentDatabaseAsync(target, cts.Token);
                 error = await SsmsNavigator.LocateAsync(target, new SearchItem(database, schema, name, SearchObjectType.Table), CancellationToken.None);
             }
             catch (Exception ex)
@@ -97,8 +97,8 @@ namespace SqlAssist.Editor
                 try
                 {
                     // OpenScript writes "USE [database]" first, so a window without a database needs the login's default.
-                    string database = target.Database ?? await SearchIndexLoader.CurrentDatabaseAsync(target.ConnectionString, cts.Token);
-                    string definition = await DefinitionLoader.LoadAsync(target.ConnectionString, schema, name, cts.Token);
+                    string database = target.Database ?? await SearchIndexLoader.CurrentDatabaseAsync(target, cts.Token);
+                    string definition = await DefinitionLoader.LoadAsync(target, schema, name, cts.Token);
                     await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                     if (definition == null)
                     {

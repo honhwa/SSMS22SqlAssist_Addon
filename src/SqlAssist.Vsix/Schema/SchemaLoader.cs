@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Threading;
 using System.Threading.Tasks;
+using SqlAssist.Connection;
 using SqlAssist.Core.Schema;
 
 namespace SqlAssist.Schema
@@ -60,7 +61,7 @@ LEFT JOIN sys.extended_properties d ON d.class = 1 AND d.major_id = o.object_id 
 WHERE o.type IN ('P', 'PC', 'FN', 'IF', 'TF', 'FS', 'FT') AND o.is_ms_shipped = 0
 ORDER BY s.name, o.name, p.parameter_id;";
 
-        public static async Task<SchemaModel> LoadAsync(string connectionString, CancellationToken token)
+        public static async Task<SchemaModel> LoadAsync(ConnectionTarget target, CancellationToken token)
         {
             var objects = new List<DbObject>();
             var byKey = new Dictionary<string, DbObject>(System.StringComparer.OrdinalIgnoreCase);
@@ -68,9 +69,8 @@ ORDER BY s.name, o.name, p.parameter_id;";
             var routines = new List<DbRoutine>();
             var functionColumns = new Dictionary<string, DbColumn[]>(System.StringComparer.OrdinalIgnoreCase);
 
-            using (var conn = new SqlConnection(connectionString))
+            using (var conn = await target.OpenAsync(token).ConfigureAwait(false))
             {
-                await conn.OpenAsync(token).ConfigureAwait(false);
                 using (var cmd = new SqlCommand(Sql, conn) { CommandTimeout = 30 })
                 using (var reader = await cmd.ExecuteReaderAsync(token).ConfigureAwait(false))
                 {

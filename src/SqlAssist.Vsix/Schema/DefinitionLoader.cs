@@ -1,6 +1,7 @@
 using System.Data.SqlClient;
 using System.Threading;
 using System.Threading.Tasks;
+using SqlAssist.Connection;
 
 namespace SqlAssist.Schema
 {
@@ -8,11 +9,10 @@ namespace SqlAssist.Schema
     internal static class DefinitionLoader
     {
         /// <summary>Null when the object does not exist, is not a module, or is WITH ENCRYPTION.</summary>
-        public static async Task<string> LoadAsync(string connectionString, string schema, string name, CancellationToken token)
+        public static async Task<string> LoadAsync(ConnectionTarget target, string schema, string name, CancellationToken token)
         {
-            using (var conn = new SqlConnection(connectionString))
+            using (var conn = await target.OpenAsync(token).ConfigureAwait(false))
             {
-                await conn.OpenAsync(token).ConfigureAwait(false);
                 using (var cmd = new SqlCommand("SELECT m.definition FROM sys.sql_modules m WHERE m.object_id = OBJECT_ID(@name);", conn) { CommandTimeout = 15 })
                 {
                     cmd.Parameters.AddWithValue("@name", (schema != null ? Quote(schema) + "." : "") + Quote(name));

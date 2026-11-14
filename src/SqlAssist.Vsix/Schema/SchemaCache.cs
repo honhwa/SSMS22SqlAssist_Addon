@@ -77,7 +77,7 @@ namespace SqlAssist.Schema
                     var sw = System.Diagnostics.Stopwatch.StartNew();
                     try
                     {
-                        var model = await SchemaLoader.LoadAsync(target.ConnectionString, CancellationToken.None).ConfigureAwait(false);
+                        var model = await SchemaLoader.LoadAsync(target, CancellationToken.None).ConfigureAwait(false);
                         entry.Model = model;
                         entry.LastLoadFailed = false;
                         Log.Info($"Loaded schema of {target}: {model.Objects.Count} tables/views, {model.ForeignKeys.Count} foreign keys in {sw.ElapsedMilliseconds} ms");

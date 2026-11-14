@@ -289,7 +289,7 @@ namespace SqlAssist.Editor
                 try
                 {
                     using (var cts = new CancellationTokenSource(DefinitionWait))
-                        definition = ThreadHelper.JoinableTaskFactory.Run(() => DefinitionLoader.LoadAsync(target.ConnectionString, found.Schema, found.Name, cts.Token));
+                        definition = ThreadHelper.JoinableTaskFactory.Run(() => DefinitionLoader.LoadAsync(target, found.Schema, found.Name, cts.Token));
                 }
                 catch (Exception ex)
                 {

@@ -3,6 +3,7 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using SqlAssist.Connection;
 using SqlAssist.Core.Schema;
 using SqlAssist.Core.Search;
 
@@ -88,16 +89,12 @@ ORDER BY name;";
             public PrimaryKey Key;
         }
 
-        public static string ForDatabase(string connectionString, string database) =>
-            new SqlConnectionStringBuilder(connectionString) { InitialCatalog = database }.ConnectionString;
-
         /// <summary>User databases that are online and that this login can open. System databases are left out.</summary>
-        public static async Task<List<string>> LoadDatabasesAsync(string connectionString, CancellationToken token)
+        public static async Task<List<string>> LoadDatabasesAsync(ConnectionTarget server, CancellationToken token)
         {
             var names = new List<string>();
-            using (var conn = new SqlConnection(connectionString))
+            using (var conn = await server.OpenAsync(token).ConfigureAwait(false))
             {
-                await conn.OpenAsync(token).ConfigureAwait(false);
                 using (var cmd = new SqlCommand(DatabasesSql, conn) { CommandTimeout = 30 })
                 using (var reader = await cmd.ExecuteReaderAsync(token).ConfigureAwait(false))
                     while (await reader.ReadAsync(token).ConfigureAwait(false))
@@ -107,26 +104,24 @@ ORDER BY name;";
         }
 
         /// <summary>The login's default database, for a query window whose connection names none.</summary>
-        public static async Task<string> CurrentDatabaseAsync(string connectionString, CancellationToken token)
+        public static async Task<string> CurrentDatabaseAsync(ConnectionTarget server, CancellationToken token)
         {
-            using (var conn = new SqlConnection(connectionString))
+            using (var conn = await server.OpenAsync(token).ConfigureAwait(false))
             {
-                await conn.OpenAsync(token).ConfigureAwait(false);
                 using (var cmd = new SqlCommand("SELECT DB_NAME();", conn) { CommandTimeout = 10 })
                     return (string)await cmd.ExecuteScalarAsync(token).ConfigureAwait(false);
             }
         }
 
-        public static async Task<List<SearchItem>> LoadAsync(string connectionString, string database, CancellationToken token)
+        public static async Task<List<SearchItem>> LoadAsync(ConnectionTarget server, string database, CancellationToken token)
         {
             var items = new List<SearchItem>();
             var objects = new List<ObjectRow>();
             var byId = new Dictionary<int, ObjectRow>();
             var extra = new List<SearchItem>();
 
-            using (var conn = new SqlConnection(ForDatabase(connectionString, database)))
+            using (var conn = await server.ForDatabase(database).OpenAsync(token).ConfigureAwait(false))
             {
-                await conn.OpenAsync(token).ConfigureAwait(false);
                 // Module source of a big database can be large; allow longer than the schema load.
                 using (var cmd = new SqlCommand(IndexSql, conn) { CommandTimeout = 120 })
                 using (var reader = await cmd.ExecuteReaderAsync(token).ConfigureAwait(false))

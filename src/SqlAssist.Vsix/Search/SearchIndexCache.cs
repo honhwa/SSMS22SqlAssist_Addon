@@ -72,7 +72,7 @@ namespace SqlAssist.Search
                     try
                     {
                         // Not the caller's token: a search cancelled by the next keystroke still wants this index.
-                        var items = await SearchIndexLoader.LoadAsync(server.ConnectionString, database, CancellationToken.None).ConfigureAwait(false);
+                        var items = await SearchIndexLoader.LoadAsync(server, database, CancellationToken.None).ConfigureAwait(false);
                         entry.Items = items;
                         entry.LastError = null;
                         long chars = 0;

@@ -3,7 +3,10 @@ using System.Data.SqlClient;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.Shell;
+using SqlAssist.Core.Schema;
 
 namespace SqlAssist.Connection
 {
@@ -17,9 +20,13 @@ namespace SqlAssist.Connection
         /// <summary>Like <see cref="Key"/> without the database: the same server and login, whichever database is in use.</summary>
         public string ServerKey { get; set; }
         public bool IntegratedSecurity { get; set; }
+        public AuthKind Auth { get; set; }
         public string UserName { get; set; }
         /// <summary>SSMS's own UIConnectionInfo for this connection, for opening a new query window on it.</summary>
         public object UiConnectionInfo { get; set; }
+        /// <summary>For an Entra ID connection: asks SSMS for a current access token each time a connection is opened (SSMS renews it;
+        /// SqlAssist never keeps one). Null for Windows and SQL logins, whose connection string carries everything.</summary>
+        public Func<string> AccessToken { get; set; }
         public override string ToString() => Server + "/" + (Database ?? "(default)");
 
         /// <summary>The same server and login in another database (a script's <c>USE</c>): its own schema cache entry.</summary>
@@ -31,12 +38,37 @@ namespace SqlAssist.Connection
                 Server = Server,
                 Database = database,
                 ConnectionString = new SqlConnectionStringBuilder(ConnectionString) { InitialCatalog = database }.ConnectionString,
-                Key = (Server + "|" + database + "|" + (IntegratedSecurity ? "windows" : UserName)).ToLowerInvariant(),
+                Key = ConnectionKey.ForDatabase(Server, database, Auth, UserName),
                 ServerKey = ServerKey,
                 IntegratedSecurity = IntegratedSecurity,
+                Auth = Auth,
                 UserName = UserName,
                 UiConnectionInfo = UiConnectionInfo,
+                AccessToken = AccessToken,
             };
+        }
+
+        /// <summary>Every database access goes through here, so each kind of login is handled in one place. Returns an open connection
+        /// (the caller disposes it); a connection that fails to open is disposed before the exception is passed on.</summary>
+        public async Task<SqlConnection> OpenAsync(CancellationToken token)
+        {
+            var conn = new SqlConnection(ConnectionString);
+            try
+            {
+                if (AccessToken != null)
+                {
+                    string accessToken = AccessToken();
+                    if (string.IsNullOrEmpty(accessToken)) throw new InvalidOperationException("No access token for " + Server);
+                    conn.AccessToken = accessToken;
+                }
+                await conn.OpenAsync(token).ConfigureAwait(false);
+                return conn;
+            }
+            catch
+            {
+                conn.Dispose();
+                throw;
+            }
         }
     }
 
@@ -71,8 +103,12 @@ namespace SqlAssist.Connection
 
                 string server = Get(info, "ServerName") as string;
                 if (string.IsNullOrEmpty(server)) return null;
-                if (Get(info, "RenewableToken") != null)
+                object renewableToken = Get(info, "RenewableToken");
+                if (renewableToken != null)
+                {
+                    EntraProbe.Describe(renewableToken, info);   // TEMPORARY: Entra ID plan, Task 0
                     return Unsupported("Connection to " + server + " uses Entra ID authentication, which SqlAssist does not support yet");
+                }
 
                 string database = GetAdvancedOption(info, "DATABASE");
                 var builder = new SqlConnectionStringBuilder
@@ -99,14 +135,16 @@ namespace SqlAssist.Connection
                 }
 
                 _lastProblem = null;
+                var auth = builder.IntegratedSecurity ? AuthKind.Windows : AuthKind.Sql;
                 _lastKnown = new ConnectionTarget
                 {
                     Server = server,
                     Database = database,
                     ConnectionString = builder.ConnectionString,
-                    Key = (server + "|" + database + "|" + (builder.IntegratedSecurity ? "windows" : user)).ToLowerInvariant(),
-                    ServerKey = (server + "|" + (builder.IntegratedSecurity ? "windows" : user)).ToLowerInvariant(),
+                    Key = ConnectionKey.ForDatabase(server, database, auth, user),
+                    ServerKey = ConnectionKey.ForServer(server, auth, user),
                     IntegratedSecurity = builder.IntegratedSecurity,
+                    Auth = auth,
                     UserName = builder.IntegratedSecurity ? null : user,
                     UiConnectionInfo = info,
                 };
