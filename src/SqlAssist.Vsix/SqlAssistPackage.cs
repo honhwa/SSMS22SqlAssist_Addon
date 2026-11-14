@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
+using SqlAssist.Ai;
 using SqlAssist.Formatting;
 using SqlAssist.Results;
 using SqlAssist.Risk;
@@ -20,7 +21,7 @@ namespace SqlAssist
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [Guid(PackageGuidString)]
     // Bump the number whenever the .vsct changes, or SSMS keeps showing the old cached menu.
-    [ProvideMenuResource("Menus.ctmenu", 13)]
+    [ProvideMenuResource("Menus.ctmenu", 14)]
     // Loads in the background once SSMS is up, so the daily update check runs without a menu click first.
     [ProvideAutoLoad(VSConstants.UICONTEXT.ShellInitialized_string, PackageAutoLoadFlags.BackgroundLoad)]
     // Puts the extension folder on SSMS's assembly probing path. The image service resolves the toolbar logo's
@@ -42,6 +43,8 @@ namespace SqlAssist
         private const int CmdOptions = 0x0109;
         private const int CmdCheckRisks = 0x010A;
         private const int CmdFormatSqlContext = 0x010B;
+        private const int CmdExplainSql = 0x010C;
+        private const int CmdExplainSqlContext = 0x010D;
         /// <summary>The Output window: the Search window docks as a tab beside it on first open.</summary>
         private const string OutputWindowGuid = "34e76e81-ee4a-11d0-ae2e-00a0c90fffc3";
 
@@ -69,6 +72,12 @@ namespace SqlAssist
                 var risks = new OleMenuCommand((s, e) => RiskCheckCommand.Run(), new CommandID(CommandSet, CmdCheckRisks));
                 risks.BeforeQueryStatus += (s, e) => ((OleMenuCommand)s).Enabled = RiskCheckCommand.CanRun();
                 commands.AddCommand(risks);
+                foreach (int id in new[] { CmdExplainSql, CmdExplainSqlContext })
+                {
+                    var explain = new OleMenuCommand((s, e) => ExplainSqlCommand.Run(), new CommandID(CommandSet, id));
+                    explain.BeforeQueryStatus += (s, e) => ((OleMenuCommand)s).Enabled = ExplainSqlCommand.CanRun();
+                    commands.AddCommand(explain);
+                }
                 ExecuteGuard.Apply(SettingsProvider.Load().Risk);   // off unless chosen in Options
                 commands.AddCommand(new MenuCommand((s, e) => ShowAbout(), new CommandID(CommandSet, CmdAbout)));
                 commands.AddCommand(new MenuCommand((s, e) => JoinableTaskFactory.RunAsync(() => UpdateService.CheckManuallyAsync(this, DisposalToken)).FileAndForget("SqlAssist/CheckUpdates"), new CommandID(CommandSet, CmdCheckUpdates)));

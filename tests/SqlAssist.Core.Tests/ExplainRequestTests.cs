@@ -43,6 +43,7 @@ namespace SqlAssist.Core.Tests
                 var root = doc.RootElement;
                 string content = root.GetProperty("messages")[0].GetProperty("content").GetString();
                 Assert.Equal("SQL:\n1| SELECT \"a\\b\"\n2| FROM [ตาราง] -- คอมเมนต์\u0001\n\nSchema:\n(none available)", content);
+                Assert.Equal(content, r.UserContent);   // what the consent window shows readably is what the body carries
                 Assert.Equal(16000, root.GetProperty("max_tokens").GetInt32());
                 Assert.Equal("json_schema", root.GetProperty("output_config").GetProperty("format").GetProperty("type").GetString());
                 Assert.Equal(ExplainRequest.SystemPrompt, root.GetProperty("system").GetString());

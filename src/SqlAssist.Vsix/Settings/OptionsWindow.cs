@@ -46,6 +46,15 @@ namespace SqlAssist.Settings
         private readonly RadioButton _identitySkip = new RadioButton { Content = "ตัดคอลัมน์ IDENTITY ออก — ให้ตารางปลายทางออกเลขใหม่เอง", GroupName = "identity" };
         private readonly CheckBox _warn =new CheckBox { Content = "เตือนก่อนกด Execute (ทดลอง)", FontWeight = FontWeights.SemiBold };
         private readonly TextBlock _guardStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(18, 6, 0, 0) };
+        private readonly CheckBox _aiEnabled = new CheckBox { Content = "เปิดใช้ Explain SQL (ส่ง SQL ไปยังบริการ AI ภายนอก)", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 10) };
+        private readonly TextBox _aiEndpoint = new TextBox { Width = 380, Height = 26, VerticalContentAlignment = VerticalAlignment.Center };
+        private readonly TextBox _aiModel = new TextBox { Width = 220, Height = 26, VerticalContentAlignment = VerticalAlignment.Center };
+        private readonly PasswordBox _aiKey = new PasswordBox { Width = 200, Height = 26, VerticalContentAlignment = VerticalAlignment.Center };
+        private readonly TextBlock _aiKeyStatus = new TextBlock { Foreground = Brushes.Gray, FontSize = 11, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 8, 0) };
+        private readonly CheckBox _aiMask = new CheckBox { Content = "แทนค่า string และตัวเลขใน SQL ด้วย '?' และ 0 ก่อนส่ง", Margin = new Thickness(0, 4, 0, 6) };
+        private readonly CheckBox _aiDescriptions = new CheckBox { Content = "ส่งคำอธิบายของตาราง/คอลัมน์ (MS__Description) ไปด้วย", Margin = new Thickness(0, 0, 0, 6) };
+        private bool _aiClearKey;
+        private bool _aiResetConsent;
         private bool _loading = true;
 
         public OptionsWindow()
@@ -83,6 +92,12 @@ namespace SqlAssist.Settings
             _identityKeep.IsChecked = _settings.Results.InsertIdentity == InsertIdentityMode.KeepValues;
             _identitySkip.IsChecked = _settings.Results.InsertIdentity == InsertIdentityMode.Skip;
             _guardStatus.Text = "สถานะตอนนี้: " + ExecuteGuard.Status;
+            _aiEnabled.IsChecked = _settings.Ai.Enabled;
+            _aiEndpoint.Text = _settings.Ai.Endpoint;
+            _aiModel.Text = _settings.Ai.Model;
+            _aiMask.IsChecked = _settings.Ai.MaskLiterals;
+            _aiDescriptions.IsChecked = _settings.Ai.SendDescriptions;
+            _aiKeyStatus.Text = Ai.AiKeyStore.HasKey ? "มี key แล้ว (พิมพ์ใหม่เพื่อเปลี่ยน)" : "ยังไม่มี key";
 
             // Building the layout needs no UI-thread check: it only creates WPF controls, which is also what lets this window be
             // opened outside SSMS to look at it. Everything that touches SSMS (Save) checks for itself.
@@ -135,6 +150,7 @@ namespace SqlAssist.Settings
             tabs.Items.Add(new TabItem { Header = "ตรวจจุดเสี่ยง", Content = RiskTab() });
             tabs.Items.Add(new TabItem { Header = "Editor", Content = EditorTab() });
             tabs.Items.Add(new TabItem { Header = "Results", Content = ResultsTab() });
+            tabs.Items.Add(new TabItem { Header = "AI", Content = AiTab() });
             root.Children.Add(tabs);
             return root;
         }
@@ -255,6 +271,52 @@ namespace SqlAssist.Settings
             return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         }
 
+        private UIElement AiTab()
+        {
+            var panel = new StackPanel { Margin = new Thickness(12) };
+            panel.Children.Add(_aiEnabled);
+            panel.Children.Add(Row("Endpoint", _aiEndpoint));
+            panel.Children.Add(Row("Model", _aiModel));
+            var key = new StackPanel { Orientation = Orientation.Horizontal };
+            key.Children.Add(_aiKey);
+            key.Children.Add(_aiKeyStatus);
+            var clearKey = new Button { Content = "ลบ key", Height = 26, Padding = new Thickness(10, 0, 10, 0) };
+            clearKey.Click += (s, e) =>
+            {
+                _aiClearKey = true;
+                _aiKey.Clear();
+                _aiKeyStatus.Text = "จะลบ key เมื่อกดบันทึก";
+            };
+            key.Children.Add(clearKey);
+            panel.Children.Add(Row("API key", key));
+            panel.Children.Add(_aiMask);
+            panel.Children.Add(_aiDescriptions);
+            var resetConsent = new Button
+            {
+                Content = "ถามยืนยันอีกครั้งในการส่งครั้งถัดไป", Height = 26, Padding = new Thickness(12, 0, 12, 0),
+                HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 4, 0, 0),
+                IsEnabled = _settings.Ai.ConsentGiven,
+            };
+            resetConsent.Click += (s, e) =>
+            {
+                _aiResetConsent = true;
+                resetConsent.IsEnabled = false;
+            };
+            panel.Children.Add(resetConsent);
+            panel.Children.Add(new TextBlock
+            {
+                Text = "เลือก SQL ในหน้า query แล้วกด Tools › SqlAssist › Explain SQL (AI)… หรือคลิกขวา › Explain SQL (SqlAssist AI)… จะได้คำอธิบายเป็นภาษาไทย " +
+                       "และรายการจุดที่น่าจะผิดหรือช้า (คลิกเพื่อไปที่บรรทัดนั้น) SqlAssist ไม่รัน SQL ให้\n\n" +
+                       "เมื่อเปิดใช้ SqlAssist จะส่งข้อความ SQL ที่คุณเลือก และชื่อตาราง/คอลัมน์/ชนิดข้อมูลของตารางที่ SQL นั้นอ้างถึง (เฉพาะที่โหลดไว้แล้ว) ไปยัง endpoint ด้านบน " +
+                       "ไม่ส่งข้อมูลในตาราง ผลลัพธ์ query ชื่อ server ชื่อ database หรือ login\n" +
+                       "comment ใน SQL ถูกส่งไปตามเดิม ถ้ามีข้อมูลที่ไม่ควรออกนอกองค์กร ให้ลบออกก่อน\n\n" +
+                       "ครั้งแรกที่ส่งจะแสดงข้อความทั้งหมดที่จะส่งให้ดูก่อน API key เก็บที่ " + Ai.AiKeyStore.FilePath + " เข้ารหัสด้วย Windows (DPAPI) " +
+                       "อ่านได้เฉพาะ user นี้บนเครื่องนี้ และไม่เขียนลง log ค่าใช้จ่ายของการเรียก API คิดกับบัญชีของ key นั้น",
+                TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(0, 12, 0, 0),
+            });
+            return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        }
+
         private static UIElement Row(string label, UIElement control)
         {
             var row = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
@@ -345,7 +407,20 @@ namespace SqlAssist.Settings
                 _settings.Editor.ShowParameterHints = _parameterHints.IsChecked == true;
                 _settings.Editor.LearnFromUsage = _learnFromUsage.IsChecked == true;
                 _settings.Results.InsertIdentity = _identitySkip.IsChecked == true ? InsertIdentityMode.Skip : InsertIdentityMode.KeepValues;
+                _settings.Ai.Enabled = _aiEnabled.IsChecked == true;
+                _settings.Ai.Endpoint = AiOptions.CleanEndpoint(_aiEndpoint.Text);
+                _settings.Ai.Model = AiOptions.CleanModel(_aiModel.Text);
+                _settings.Ai.MaskLiterals = _aiMask.IsChecked == true;
+                _settings.Ai.SendDescriptions = _aiDescriptions.IsChecked == true;
+                if (_aiResetConsent) _settings.Ai.ConsentGiven = false;
+                if (!string.IsNullOrWhiteSpace(_aiKey.Password)) Ai.AiKeyStore.Save(_aiKey.Password);
+                else if (_aiClearKey) Ai.AiKeyStore.Save(null);
                 SettingsProvider.Save(_settings);
+
+                if (!string.IsNullOrWhiteSpace(_aiEndpoint.Text) && _settings.Ai.Endpoint != _aiEndpoint.Text.Trim())
+                    MessageBox.Show(this, "Endpoint ต้องขึ้นต้นด้วย https:// จึงใช้ค่าเริ่มต้นแทน: " + _settings.Ai.Endpoint, Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+                if (_settings.Ai.Enabled && !Ai.AiKeyStore.HasKey)
+                    MessageBox.Show(this, "เปิดใช้ Explain SQL แล้ว แต่ยังไม่มี API key จึงยังใช้ไม่ได้", Title, MessageBoxButton.OK, MessageBoxImage.Information);
 
                 ExecuteGuard.Apply(_settings.Risk);
                 if (_settings.Risk.WarnBeforeExecute && !ExecuteGuard.IsHooked)

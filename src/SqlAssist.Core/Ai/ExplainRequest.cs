@@ -37,13 +37,15 @@ namespace SqlAssist.Core.Ai
             "\"title\":{\"type\":\"string\"}," +
             "\"detail\":{\"type\":\"string\"}}}}}}";
 
-        private ExplainRequest(string body, string sentSql, int sentLineCount, int tableCount, bool schemaTruncated)
+        private ExplainRequest(string body, string userContent, string sentSql, int sentLineCount, int tableCount, bool schemaTruncated)
         {
-            Body = body; SentSql = sentSql; SentLineCount = sentLineCount; TableCount = tableCount; SchemaTruncated = schemaTruncated;
+            Body = body; UserContent = userContent; SentSql = sentSql; SentLineCount = sentLineCount; TableCount = tableCount; SchemaTruncated = schemaTruncated;
         }
 
         /// <summary>The JSON request body, exactly as sent.</summary>
         public string Body { get; }
+        /// <summary>The user message inside <see cref="Body"/> (numbered SQL and the schema digest) as plain text, for people to read.</summary>
+        public string UserContent { get; }
         /// <summary>The SQL as sent (masked or not), before the line numbers were added.</summary>
         public string SentSql { get; }
         public int SentLineCount { get; }
@@ -74,7 +76,7 @@ namespace SqlAssist.Core.Ai
                 .Append(",\"output_config\":{\"effort\":\"").Append(Effort).Append("\",\"format\":{\"type\":\"json_schema\",\"schema\":").Append(ResponseSchema).Append("}}")
                 .Append(",\"system\":").Append(JsonString(SystemPrompt))
                 .Append(",\"messages\":[{\"role\":\"user\",\"content\":").Append(JsonString(content.ToString())).Append("}]}");
-            return new ExplainRequest(body.ToString(), sent, lines.Length, digest.TableCount, digest.Truncated);
+            return new ExplainRequest(body.ToString(), content.ToString(), sent, lines.Length, digest.TableCount, digest.Truncated);
         }
 
         /// <summary>A JSON string literal. Non-ASCII text (Thai) stays as is; the body is sent as UTF-8.</summary>
