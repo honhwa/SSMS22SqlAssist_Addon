@@ -8,6 +8,10 @@ An SSMS 22 add-in with editor completion, snippets and a database-object search 
 The server, database and login of the query window SSMS considers active. Everything SqlAssist reads from a database goes through it.
 _Avoid_: Current connection, session
 
+**Access Token**:
+For a query window connected with Microsoft Entra ID, the token SSMS holds for that connection. SqlAssist asks SSMS for it each time it opens a connection and never stores, renews or logs it.
+_Avoid_: Password, credential (an Entra connection has neither in its connection string)
+
 **Schema**:
 For completion, the tables, views, columns and foreign keys of one database. In Search, a database schema (dbo, Sales) that is itself an object you can find.
 _Avoid_: Metadata, model (when talking to users)
@@ -53,3 +57,13 @@ _Avoid_: Referenced object
 **CRUD Procedure Set**:
 The Select, Insert, Update and Delete stored procedures generated for one table from its columns and primary key. Only generated and delivered as text, never executed; a table without a primary key gets no Update or Delete.
 _Avoid_: CRUD script, stored procedure template
+
+## Explain SQL
+
+**Explain Request**:
+What Explain SQL sends to the AI service: the selected SQL (literals masked unless turned off, lines numbered) and the Schema of the tables it names, if already loaded. Never data, results, server, database or login. The same text is shown to the user before the first send.
+_Avoid_: Prompt (that is only part of it), query (that is the SQL)
+
+**Finding**:
+One point in the answer to an Explain Request: a line (or the whole script), a severity (Warning or Info), a title and a detail. Judged from the text alone, so it is advice to check, not a measured fact.
+_Avoid_: Risk (that is Check SQL Risks), error, issue
