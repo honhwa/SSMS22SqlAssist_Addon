@@ -19,6 +19,7 @@ namespace SqlAssist.Core.Settings
         public EditorOptions Editor { get; } = new EditorOptions();
         public CrudSettings Crud { get; } = new CrudSettings();
         public ResultOptions Results { get; } = new ResultOptions();
+        public AiOptions Ai { get; } = new AiOptions();
 
         public static SqlAssistSettings Parse(string xml)
         {
@@ -77,6 +78,17 @@ namespace SqlAssist.Core.Settings
             if (results != null &&
                 Enum.TryParse(Attribute(results, "InsertIdentity"), true, out InsertIdentityMode insertIdentity) && Enum.IsDefined(typeof(InsertIdentityMode), insertIdentity))
                 settings.Results.InsertIdentity = insertIdentity;
+
+            var ai = Child(root, "Ai");
+            if (ai != null)
+            {
+                settings.Ai.Enabled = Flag(ai, "Enabled", settings.Ai.Enabled);
+                settings.Ai.Endpoint = AiOptions.CleanEndpoint(Attribute(ai, "Endpoint"));
+                settings.Ai.Model = AiOptions.CleanModel(Attribute(ai, "Model"));
+                settings.Ai.MaskLiterals = Flag(ai, "MaskLiterals", settings.Ai.MaskLiterals);
+                settings.Ai.SendDescriptions = Flag(ai, "SendDescriptions", settings.Ai.SendDescriptions);
+                settings.Ai.ConsentGiven = Flag(ai, "ConsentGiven", settings.Ai.ConsentGiven);
+            }
             return settings;
         }
 
@@ -97,6 +109,13 @@ namespace SqlAssist.Core.Settings
                         new XAttribute("CreateOrAlter", Crud.CreateOrAlter)),
                     new XElement("Results",
                         new XAttribute("InsertIdentity", Results.InsertIdentity.ToString())),
+                    new XElement("Ai",
+                        new XAttribute("Enabled", Ai.Enabled),
+                        new XAttribute("Endpoint", AiOptions.CleanEndpoint(Ai.Endpoint)),
+                        new XAttribute("Model", AiOptions.CleanModel(Ai.Model)),
+                        new XAttribute("MaskLiterals", Ai.MaskLiterals),
+                        new XAttribute("SendDescriptions", Ai.SendDescriptions),
+                        new XAttribute("ConsentGiven", Ai.ConsentGiven)),
                     new XElement("RiskCheck",
                         new XAttribute("UpdateWithoutWhere", Risk.UpdateWithoutWhere),
                         new XAttribute("DeleteWithoutWhere", Risk.DeleteWithoutWhere),

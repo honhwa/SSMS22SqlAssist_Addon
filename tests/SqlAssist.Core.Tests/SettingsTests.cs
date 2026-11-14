@@ -19,6 +19,36 @@ namespace SqlAssist.Core.Tests
         }
 
         [Fact]
+        public void Ai_defaults_are_off_and_masking()
+        {
+            var s = SqlAssistSettings.Parse("<SqlAssistSettings />");
+            Assert.False(s.Ai.Enabled);
+            Assert.False(s.Ai.ConsentGiven);
+            Assert.True(s.Ai.MaskLiterals);
+            Assert.True(s.Ai.SendDescriptions);
+            Assert.Equal("https://api.anthropic.com/v1/messages", s.Ai.Endpoint);
+            Assert.Equal("claude-opus-5-5", s.Ai.Model);
+        }
+
+        [Fact]
+        public void Ai_round_trips_and_ignores_bad_endpoint()
+        {
+            var s = new SqlAssistSettings();
+            s.Ai.Enabled = true; s.Ai.Model = "claude-haiku-5-5"; s.Ai.MaskLiterals = false; s.Ai.ConsentGiven = true;
+            var back = SqlAssistSettings.Parse(s.ToXml());
+            Assert.True(back.Ai.Enabled);
+            Assert.Equal("claude-haiku-5-5", back.Ai.Model);
+            Assert.False(back.Ai.MaskLiterals);
+            Assert.True(back.Ai.ConsentGiven);
+
+            var bad = SqlAssistSettings.Parse("<SqlAssistSettings><Ai Endpoint=\"http://example.com/x\" Model=\"  \" /></SqlAssistSettings>");
+            Assert.Equal(AiOptions.DefaultEndpoint, bad.Ai.Endpoint);
+            Assert.Equal(AiOptions.DefaultModel, bad.Ai.Model);
+            Assert.Equal("https://my.example.com/v1/messages",
+                SqlAssistSettings.Parse("<SqlAssistSettings><Ai Endpoint=\" https://my.example.com/v1/messages \" /></SqlAssistSettings>").Ai.Endpoint);
+        }
+
+        [Fact]
         public void RoundTrip()
         {
             var settings = new SqlAssistSettings();

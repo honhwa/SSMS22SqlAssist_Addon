@@ -299,7 +299,8 @@ Literal values may have been replaced with '?' and 0 before the SQL was sent; do
 The schema lists only the tables the script names; a table missing from it is not an error.
 ```
 
-`UserContent`: `"SQL:\n" + sentSql + "\n\nSchema:\n" + (digest.Text == "" ? "(none available)" : digest.Text)` โดย `sentSql` คือ `LiteralMasker.Mask(sql)` เมื่อ `options.MaskLiterals` ไม่เช่นนั้นคือ `sql`
+`UserContent`: `"SQL:\n" + (sentSql ทีละบรรทัด ขึ้นต้นด้วยเลขบรรทัดชิดขวา + "| ") + "\n\nSchema:\n" + (digest.Text == "" ? "(none available)" : digest.Text)` โดย `sentSql` คือ `LiteralMasker.Mask(sql)` เมื่อ `options.MaskLiterals` ไม่เช่นนั้นคือ `sql`
+(เปลี่ยนตอนลงมือ: ใส่เลขบรรทัดนำหน้า เพราะ model นับบรรทัดเองในสคริปต์ยาวพลาดได้ ซึ่งทำให้กระโดดผิดบรรทัด system prompt บอกว่าเลขนำหน้าไม่ใช่ส่วนของ SQL)
 
 **กฎของ `Parse`:**
 
