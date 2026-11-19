@@ -53,9 +53,7 @@ Three projects (`SqlAssist.sln`) plus tests:
   SQL type formatting), `Search/` (search matcher with match-case/whole-word/wildcards, `CREATE TABLE` preview
   builder, `UsageFinder`/`UsageTarget`: merges the rows the database says refer to an object with the Search Index, and finds a column's usages by text), `Formatting/` (the SQL formatter), `Hints/` (function parameter hints: `FunctionCallFinder` finds the innermost call and argument index from the tokens before the caret,
   `BuiltInSignatures` is the table of known built-in syntaxes, `ParameterHints` resolves a call to a signature — built-in, or a user function from
-  `SchemaModel` — and builds the line with the active parameter), `Ai/` (Explain SQL: `LiteralMasker` replaces string/number literals keeping
-  line breaks, `SchemaDigest` lists only the tables a script names, `ExplainRequest` builds the exact JSON body for the Claude Messages API with
-  numbered lines, `ExplainResponse` turns status + body into an `ExplainResult` and never throws), `Risk/` (UPDATE/DELETE without WHERE, TRUNCATE, DROP TABLE analyzer) and `Settings/`
+  `SchemaModel` — and builds the line with the active parameter), `Risk/` (UPDATE/DELETE without WHERE, TRUNCATE, DROP TABLE analyzer) and `Settings/`
   (`settings.xml`). `Sql/SqlStatementScanner` splits text into GO batches and statements (no grammar: a statement starts at a
   statement keyword unless the word before it continues the current one); the formatter and the risk check both build on it.
   All unit tests target this layer; put testable logic here, not in the Vsix project.
@@ -75,11 +73,6 @@ Three projects (`SqlAssist.sln`) plus tests:
     temporary Task 0 diagnostic). DB access uses the in-box `System.Data.SqlClient`, and every loader opens its connection
     through `ConnectionTarget.OpenAsync` (the one place that will add an Entra access token); cache keys come from Core
     `Schema/ConnectionKey`.
-  - `Ai/` — Explain SQL: `ExplainSqlCommand` (Tools menu + editor right-click), `AiConsentWindow` (shows the readable SQL/schema
-    and the exact JSON body before the first send, and on request), `ExplainWindow` (one at a time, findings jump via tracking spans),
-    `AiClient` (plain `HttpClient`, not the Anthropic SDK, so nothing extra loads into SSMS; logs status/size/time only), `AiKeyStore`
-    (DPAPI file `%LOCALAPPDATA%\SqlAssist\ai.key`, never in settings.xml or the log). Off until Options › AI turns it on; uses only an
-    already loaded schema and never queries the database. Not yet tried against the real API from SSMS.
   - `Schema/` — `SchemaLoader` queries catalog views; `SchemaCache` keys by server+login+database, 10-minute TTL,
     and reloads (≥30s apart) when a query names a table the cache doesn't know.
   - `Search/` — the Search tool window (`SearchToolWindow`/`SearchControl`), `SearchIndexLoader`/`SearchIndexCache`

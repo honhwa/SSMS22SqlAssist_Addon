@@ -108,13 +108,14 @@ namespace SqlAssist.Editor
                 var star = SqlContextAnalyzer.FindStar(window.Text, window.Caret);
                 var stmt = star == null ? StatementExpander.Find(window.Text, window.Caret) : null;
                 var target = star == null && stmt == null ? null : EditorConnection.Get(window);
-                if (target == null)
+                bool localOnly = star != null && star.Tables.All(r => SchemaModel.IsLocalName(r.Name));
+                if (target == null && !localOnly)
                 {
                     Hide();
                     return;
                 }
 
-                var schema = SchemaCache.Instance.TryGetLoaded(target);
+                var schema = localOnly ? SchemaModel.Empty : SchemaCache.Instance.TryGetLoaded(target);
                 if (schema == null)
                 {
                     Hide();
@@ -127,7 +128,7 @@ namespace SqlAssist.Editor
                 string action;
                 if (star != null)
                 {
-                    int count = CountColumns(star, schema);
+                    int count = StarExpander.Count(star, schema.WithLocalTables(EditorLocalTables.At(caret)));
                     if (count == 0)
                     {
                         Hide();
@@ -223,13 +224,6 @@ namespace SqlAssist.Editor
                 default:
                     return false;
             }
-        }
-
-        private static int CountColumns(StarContext star, SchemaModel schema)
-        {
-            // Mirrors StarExpander: Tab only expands when every table resolves.
-            var tables = star.Tables.Select(schema.Find).ToList();
-            return tables.Any(t => t == null) ? 0 : tables.Sum(t => t.Columns.Count);
         }
 
         private void Show(SnapshotSpan span, string action)

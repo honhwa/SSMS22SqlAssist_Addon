@@ -97,6 +97,10 @@
       </Group>
     </Groups>
     <Buttons>
+      <Button guid="guidSqlAssistCmdSet" id="cmdAiAssistant" priority="0x009A" type="Button">
+        <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
+        <Strings><ButtonText>AI Assistant...</ButtonText><ToolTipText>Chat with OpenRouter or Ollama using explicitly attached SQL</ToolTipText></Strings>
+      </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdRefreshSchema" priority="0x0100" type="Button">
         <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
         <Icon guid="ImageCatalogGuid" id="Refresh" />
@@ -147,23 +151,6 @@
           <ButtonText>Check SQL Risks...</ButtonText>
           <CommandName>SqlAssist.CheckSqlRisks</CommandName>
           <ToolTipText>List UPDATE / DELETE without WHERE, TRUNCATE TABLE and DROP TABLE in the selection (or the whole query window); nothing is changed or run</ToolTipText>
-        </Strings>
-      </Button>
-      <Button guid="guidSqlAssistCmdSet" id="cmdExplainSql" priority="0x009D" type="Button">
-        <Parent guid="guidSqlAssistCmdSet" id="SubmenuGroup" />
-        <Strings>
-          <ButtonText>Explain SQL (AI)...</ButtonText>
-          <CommandName>SqlAssist.ExplainSql</CommandName>
-          <ToolTipText>Send the selection (or the whole query window) to the AI service set in Options and explain what it does; nothing is run</ToolTipText>
-        </Strings>
-      </Button>
-      <!-- The query editor's right-click copy of Explain SQL; same handler, its own text so it is clear the item belongs to SqlAssist. -->
-      <Button guid="guidSqlAssistCmdSet" id="cmdExplainSqlContext" priority="0x0101" type="Button">
-        <Parent guid="guidSqlAssistCmdSet" id="EditorContextGroup" />
-        <Strings>
-          <ButtonText>Explain SQL (SqlAssist AI)...</ButtonText>
-          <CommandName>SqlAssist.ExplainSqlContext</CommandName>
-          <ToolTipText>Send the selection (or the whole query window) to the AI service set in Options and explain what it does; nothing is run</ToolTipText>
         </Strings>
       </Button>
       <Button guid="guidSqlAssistCmdSet" id="cmdOptions" priority="0x0105" type="Button">
@@ -327,8 +314,7 @@
       <IDSymbol name="cmdOptions" value="0x0109" />
       <IDSymbol name="cmdCheckRisks" value="0x010A" />
       <IDSymbol name="cmdFormatSqlContext" value="0x010B" />
-      <IDSymbol name="cmdExplainSql" value="0x010C" />
-      <IDSymbol name="cmdExplainSqlContext" value="0x010D" />
+      <IDSymbol name="cmdAiAssistant" value="0x010C" />
       <IDSymbol name="EditorContextGroup" value="0x1043" />
       <IDSymbol name="GridContextGroup" value="0x1040" />
       <IDSymbol name="GenerateScriptMenu" value="0x1041" />

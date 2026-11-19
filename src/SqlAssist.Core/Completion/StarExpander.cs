@@ -30,6 +30,8 @@ namespace SqlAssist.Core.Completion
             return string.Join(newLine + commaIndent + ",", columns);
         }
 
+        public static int Count(StarContext star, SchemaModel schema) => Columns(star, schema)?.Count ?? 0;
+
         private static List<string> Columns(StarContext star, SchemaModel schema)
         {
             var resolved = new List<(TableRef r, DbObject o)>();

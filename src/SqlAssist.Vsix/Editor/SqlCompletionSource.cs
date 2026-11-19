@@ -113,14 +113,18 @@ namespace SqlAssist.Editor
                 var variables = SqlVariables.DeclaredBefore(window.Text, window.Caret);
 
                 // "@|": only what the script declared — no schema needed.
-                if (ctx.TypedText.StartsWith("@"))
+                if (ctx.TypedText.StartsWith("@") && ctx.Kind != CaretContextKind.TableName && ctx.Kind != CaretContextKind.Qualified)
                 {
                     var varItems = new List<CompletionItem>();
                     AddVariableItems(varItems, variables, "0");
                     return new CompletionContext(varItems.ToImmutableArray());
                 }
 
-                var schema = await SchemaCache.Instance.GetAsync(target, SchemaWait, token).ConfigureAwait(false);
+                var locals = EditorLocalTables.At(triggerLocation);
+                bool localOnly = ctx.Kind == CaretContextKind.TableName && SchemaModel.IsLocalName(ctx.TypedText) ||
+                    ctx.Kind == CaretContextKind.Qualified && ctx.TablesInScope.Any(t => t.Answers(ctx.Qualifier) && SchemaModel.IsLocalName(t.Name));
+                var schema = (localOnly ? SchemaModel.Empty :
+                    await SchemaCache.Instance.GetAsync(target, SchemaWait, token).ConfigureAwait(false)).WithLocalTables(locals);
 
                 if (schema.Objects.Count > 0 && schema.HasUnknownTables(ctx.TablesInScope))
                     SchemaCache.Instance.RefreshIfOlderThanThrottle(target);
@@ -203,6 +207,10 @@ namespace SqlAssist.Editor
 
         private void AddTableItems(List<CompletionItem> items, CaretContext ctx, SchemaModel schema)
         {
+            foreach (var local in schema.LocalTables)
+                if (!SchemaModel.IsLocalName(ctx.TypedText) || local.Name[0] == ctx.TypedText[0])
+                    items.Add(ObjectItem(schema, local, SchemaModel.DisplayName(local), ctx, group: "1!"));
+            if (SchemaModel.IsLocalName(ctx.TypedText)) return;
             if (ctx.IsJoin)
             {
                 foreach (var j in JoinSuggester.Suggest(schema, ctx.SiblingTables, ctx.AliasesInStatement))
@@ -282,6 +290,8 @@ namespace SqlAssist.Editor
             var noAlias = SqlContextAnalyzer.Analyze("", 0); // AllowAlias is false here; the commit writes the query anyway
             foreach (var o in ctx.CommonTableExpressions.Select(c => c.Resolve(schema)).Where(o => o != null))
                 items.Add(TreeTableItem(schema, o, noAlias, "1!"));
+            foreach (var local in schema.LocalTables)
+                items.Add(TreeTableItem(schema, local, noAlias, "1!"));
             foreach (var o in schema.Objects)
                 items.Add(TreeTableItem(schema, o, noAlias, "1"));
         }

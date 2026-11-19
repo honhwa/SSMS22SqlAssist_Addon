@@ -8,16 +8,22 @@
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-19
+
 ### เพิ่ม
 
-- **Explain SQL (AI) (ปิดอยู่เป็นค่าเริ่มต้น):** เลือก SQL ในหน้า query แล้วกด **Tools › SqlAssist › Explain SQL (AI)…** หรือ **คลิกขวา › Explain SQL (SqlAssist AI)…** จะได้คำอธิบายเป็นภาษาไทยว่า query ทำอะไร และรายการข้อสังเกต (จุดที่น่าจะผิดหรือช้า) คลิกแถวเพื่อไปที่บรรทัดนั้น SqlAssist ไม่รัน SQL ให้
-  - เปิดใช้และใส่ API key ของ Claude ที่ **Options › AI** key เก็บแบบเข้ารหัสด้วย Windows เฉพาะ user นี้ และไม่เขียนลง log
-  - ส่งเฉพาะข้อความ SQL ที่เลือก (ค่า string และตัวเลขถูกแทนด้วย `'?'` และ `0` ก่อนส่ง ปิดได้) กับชื่อตาราง/คอลัมน์/ชนิดข้อมูลของตารางที่ SQL อ้างถึงซึ่งโหลดไว้แล้ว ไม่ส่งข้อมูลในตาราง ผลลัพธ์ query ชื่อ server ชื่อ database หรือ login แต่ **comment ใน SQL ถูกส่งไปตามเดิม**
-  - ครั้งแรกที่ส่งจะแสดงข้อความทั้งหมดที่จะส่งให้ดูและยืนยันก่อน หลังจากนั้นกด **ดูสิ่งที่ส่ง** ในหน้าต่างผลลัพธ์ได้ทุกครั้ง
-  - ข้อสังเกตมาจากการอ่านข้อความ SQL เท่านั้น ไม่ได้ดู execution plan หรือข้อมูลจริง
+- **AI Assistant (แชตด้านข้าง):** เปิดจาก **Tools › SqlAssist › AI Assistant…** เป็นหน้าต่าง dock ด้านขวาของ editor ถามเรื่อง SQL กับ **OpenRouter** หรือ **Ollama** (เครื่องตัวเองหรือ server ในองค์กร) วิธีตั้งค่าอยู่ใน [docs/ssms-ai-assistant.md](docs/ssms-ai-assistant.md)
+  - ส่งเฉพาะข้อความที่พิมพ์และ SQL ที่กด **แนบ SQL ที่เลือก** เอง (ดูและลบได้ก่อนส่ง) ไม่อ่านทั้งไฟล์ ไม่ส่ง schema ผลลัพธ์ query หรือข้อมูล connection
+  - เมนู **…** มี Explain SQL / Review SQL / Suggest Optimization ซึ่งเตรียมข้อความให้ตรวจก่อนกดส่งเอง
+  - code block ในคำตอบมีปุ่ม Copy และ **Insert into Editor** (แทรกที่ caret, Undo ได้ในครั้งเดียว) SqlAssist ไม่รัน SQL ให้
+  - ตั้งค่า provider, model และ key ที่ **Settings / API & Keys** ในแชต หรือ **Options › AI Assistant** key ของ OpenRouter เก็บใน Windows Credential Manager (หรือใช้ `OPENROUTER_API_KEY`) ไม่อยู่ใน `settings.xml` และไม่เขียนลง log บทสนทนาไม่ถูกบันทึกลงดิสก์
+  - ยังไม่ได้ลองส่งคำถามจริงกับ OpenRouter / Ollama และการแทรก SQL ใน SSMS จริง
+- **IntelliSense สำหรับ `#temp` และ `@table`** ที่ประกาศใน Query Editor (`CREATE TABLE #x (...)`, `DECLARE @x TABLE (...)`) เติมชื่อคอลัมน์และขยาย `*` ด้วย Tab ได้ ยังไม่รวม `SELECT INTO`, dynamic SQL และ `##temp`
 
 ### เปลี่ยน
 
+- **หน้าต่าง Options ใหม่:** ตั้งค่าอยู่ซ้าย ตัวอย่าง SQL อยู่ขวา ปุ่มบันทึก/ยกเลิกอยู่ล่างเสมอ สีตามธีม Light/Dark ของ SSMS ตัวเลือกและวิธีบันทึกเหมือนเดิม
+- **หน้าต่าง Search:** dropdown และปุ่มใช้หน้าตาเดียวกับ Options ตำแหน่งและการทำงานเหมือนเดิม
 - ภายใน: ทุกการเชื่อมต่อฐานข้อมูลของ SqlAssist (schema, Search, Find Usages, F12, ALTER + Tab) เปิดผ่านจุดเดียวกัน เพื่อเตรียมรองรับ Entra ID การทำงานกับ Windows auth และ SQL auth เหมือนเดิม
 
 ## [1.5.7] - 2026-11-13

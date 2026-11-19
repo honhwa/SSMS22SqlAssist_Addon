@@ -137,6 +137,22 @@ namespace SqlAssist.Core.Schema
             }
         }
 
+        private SchemaModel(SchemaModel source, IReadOnlyList<DbObject> tables)
+        {
+            Objects = source.Objects;
+            ForeignKeys = source.ForeignKeys;
+            Routines = source.Routines;
+            _byName = source._byName;
+            _from = source._from;
+            _to = source._to;
+            _functionTables = source._functionTables;
+            LocalTables = tables;
+        }
+
+        public IReadOnlyList<DbObject> LocalTables { get; } = Array.Empty<DbObject>();
+        public SchemaModel WithLocalTables(IReadOnlyList<DbObject> tables) => tables.Count == 0 ? this : new SchemaModel(this, tables);
+        public static bool IsLocalName(string name) => name?.StartsWith("#", StringComparison.Ordinal) == true || name?.StartsWith("@", StringComparison.Ordinal) == true;
+
         public static SchemaModel Empty { get; } = new SchemaModel(new DbObject[0], new ForeignKey[0]);
 
         public IReadOnlyList<DbObject> Objects { get; }
@@ -158,6 +174,7 @@ namespace SqlAssist.Core.Schema
         /// <summary>Finds a table or view. Without a schema, dbo wins, then any unique match.</summary>
         public DbObject Find(string schema, string name)
         {
+            if (IsLocalName(name)) return schema == null ? LocalTables.FirstOrDefault(t => string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)) : null;
             if (name == null || !_byName.TryGetValue(name, out var list)) return null;
             if (schema != null) return list.FirstOrDefault(o => string.Equals(o.Schema, schema, StringComparison.OrdinalIgnoreCase));
             return list.FirstOrDefault(o => string.Equals(o.Schema, DefaultSchema, StringComparison.OrdinalIgnoreCase))
@@ -168,6 +185,7 @@ namespace SqlAssist.Core.Schema
         /// otherwise a table or view of the database.</summary>
         public DbObject Find(TableRef r)
         {
+            if (IsLocalName(r.Name) && r.Database != null) return null;
             if (r.Derived != null) return r.Derived.Resolve(this);
             if (r.IsFunction) return FindFunctionTable(r.Schema, r.Name);
             return r.HasColumns ? Find(r.Schema, r.Name) : null;
@@ -176,7 +194,7 @@ namespace SqlAssist.Core.Schema
         /// <summary>Whether the query names a table or view this schema does not have (it may have just been created, so a
         /// reload is worth it). Functions do not count: built-in ones (STRING_SPLIT, OPENJSON) and old-style hints
         /// ("FROM t (NOLOCK)") are never in the schema and would reload it again and again.</summary>
-        public bool HasUnknownTables(IEnumerable<TableRef> tables) => tables.Any(t => t.HasColumns && !t.IsFunction && Find(t) == null);
+        public bool HasUnknownTables(IEnumerable<TableRef> tables) => tables.Any(t => t.HasColumns && !t.IsFunction && !IsLocalName(t.Name) && Find(t) == null);
 
         /// <summary>A table-valued function as a table of its result columns (the same instance every time), so
         /// "FROM dbo.fn(1) f" works like a table; null for other routines or when the columns are unknown.</summary>

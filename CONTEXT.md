@@ -57,13 +57,3 @@ _Avoid_: Referenced object
 **CRUD Procedure Set**:
 The Select, Insert, Update and Delete stored procedures generated for one table from its columns and primary key. Only generated and delivered as text, never executed; a table without a primary key gets no Update or Delete.
 _Avoid_: CRUD script, stored procedure template
-
-## Explain SQL
-
-**Explain Request**:
-What Explain SQL sends to the AI service: the selected SQL (literals masked unless turned off, lines numbered) and the Schema of the tables it names, if already loaded. Never data, results, server, database or login. The same text is shown to the user before the first send.
-_Avoid_: Prompt (that is only part of it), query (that is the SQL)
-
-**Finding**:
-One point in the answer to an Explain Request: a line (or the whole script), a severity (Warning or Info), a title and a detail. Judged from the text alone, so it is advice to check, not a measured fact.
-_Avoid_: Risk (that is Check SQL Risks), error, issue

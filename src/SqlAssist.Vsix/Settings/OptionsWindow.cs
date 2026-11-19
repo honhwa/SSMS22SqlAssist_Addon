@@ -2,14 +2,18 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media;
+using Microsoft.VisualStudio.PlatformUI;
 using Microsoft.VisualStudio.Shell;
 using SqlAssist.Core.Formatting;
 using SqlAssist.Core.Results;
 using SqlAssist.Core.Risk;
 using SqlAssist.Core.Settings;
+using SqlAssist.Core.Sql;
 using SqlAssist.Risk;
 
 namespace SqlAssist.Settings
@@ -24,16 +28,26 @@ namespace SqlAssist.Settings
             "group by a.id,a.name order by a.id desc";
 
         private readonly SqlAssistSettings _settings;
-        private readonly ComboBox _keywordCase = new ComboBox { Width = 260, Height = 26 };
-        private readonly ComboBox _indent = new ComboBox { Width = 80, Height = 26 };
-        private readonly RadioButton _leading = new RadioButton { Content = "นำหน้าบรรทัด (  , b)", GroupName = "comma", Margin = new Thickness(0, 0, 18, 0) };
-        private readonly RadioButton _trailing = new RadioButton { Content = "ท้ายบรรทัด (a,  )", GroupName = "comma" };
-        private readonly TextBox _preview = new TextBox
+        private readonly ComboBox _keywordCase = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+        private readonly ComboBox _indent = new ComboBox { Width = 140, HorizontalAlignment = HorizontalAlignment.Left };
+        private readonly RadioButton _leading = new RadioButton { Content = "นำหน้าบรรทัด (, a)", GroupName = "comma", Margin = new Thickness(0, 0, 0, 8) };
+        private readonly RadioButton _trailing = new RadioButton { Content = "ท้ายบรรทัด (a,)", GroupName = "comma" };
+        private readonly RichTextBox _lineNumbers = new RichTextBox
         {
-            IsReadOnly = true, FontFamily = new FontFamily("Consolas"), FontSize = 13,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-            TextWrapping = TextWrapping.NoWrap,
+            IsReadOnly = true, IsHitTestVisible = false, Focusable = false, Width = 40,
+            FontFamily = new FontFamily("Consolas"), FontSize = 13, BorderThickness = new Thickness(0),
+            Padding = new Thickness(4, 12, 8, 12), Opacity = 0.55,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Hidden, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
         };
+        private readonly RichTextBox _preview = new RichTextBox
+        {
+            Name = "SqlFormatPreview", IsReadOnly = true, FontFamily = new FontFamily("Consolas"), FontSize = 13,
+            BorderThickness = new Thickness(0), Padding = new Thickness(8, 12, 12, 12),
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+        };
+        // The preview is a fixed sample, so only its known SQL words need highlighting.
+        private static readonly HashSet<string> PreviewKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        { "SELECT", "COUNT", "AS", "FROM", "INNER", "JOIN", "ON", "AND", "WHERE", "IN", "IS", "NULL", "OR", "GROUP", "BY", "ORDER", "DESC" };
         private readonly CheckBox _update = new CheckBox { Content = "UPDATE ที่ไม่มี WHERE", Margin = new Thickness(0, 0, 0, 6) };
         private readonly CheckBox _delete = new CheckBox { Content = "DELETE ที่ไม่มี WHERE", Margin = new Thickness(0, 0, 0, 6) };
         private readonly CheckBox _truncate = new CheckBox { Content = "TRUNCATE TABLE", Margin = new Thickness(0, 0, 0, 6) };
@@ -46,23 +60,14 @@ namespace SqlAssist.Settings
         private readonly RadioButton _identitySkip = new RadioButton { Content = "ตัดคอลัมน์ IDENTITY ออก — ให้ตารางปลายทางออกเลขใหม่เอง", GroupName = "identity" };
         private readonly CheckBox _warn =new CheckBox { Content = "เตือนก่อนกด Execute (ทดลอง)", FontWeight = FontWeights.SemiBold };
         private readonly TextBlock _guardStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(18, 6, 0, 0) };
-        private readonly CheckBox _aiEnabled = new CheckBox { Content = "เปิดใช้ Explain SQL (ส่ง SQL ไปยังบริการ AI ภายนอก)", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 10) };
-        private readonly TextBox _aiEndpoint = new TextBox { Width = 380, Height = 26, VerticalContentAlignment = VerticalAlignment.Center };
-        private readonly TextBox _aiModel = new TextBox { Width = 220, Height = 26, VerticalContentAlignment = VerticalAlignment.Center };
-        private readonly PasswordBox _aiKey = new PasswordBox { Width = 200, Height = 26, VerticalContentAlignment = VerticalAlignment.Center };
-        private readonly TextBlock _aiKeyStatus = new TextBlock { Foreground = Brushes.Gray, FontSize = 11, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 8, 0) };
-        private readonly CheckBox _aiMask = new CheckBox { Content = "แทนค่า string และตัวเลขใน SQL ด้วย '?' และ 0 ก่อนส่ง", Margin = new Thickness(0, 4, 0, 6) };
-        private readonly CheckBox _aiDescriptions = new CheckBox { Content = "ส่งคำอธิบายของตาราง/คอลัมน์ (MS__Description) ไปด้วย", Margin = new Thickness(0, 0, 0, 6) };
-        private bool _aiClearKey;
-        private bool _aiResetConsent;
         private bool _loading = true;
 
         public OptionsWindow()
         {
             _settings = SettingsProvider.Load();
             Title = "SqlAssist: Options";
-            Width = 700;
-            Height = 640;
+            Width = 1040;
+            Height = 700;
             MinWidth = 560;
             MinHeight = 520;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -70,6 +75,7 @@ namespace SqlAssist.Settings
             ShowInTaskbar = false;
             FontFamily = new FontFamily("Segoe UI");
             FontSize = 13;
+            SettingsAppearance.Apply(this);
 
             _keywordCase.Items.Add("ตัวพิมพ์ใหญ่ทั้งหมด (SELECT)");
             _keywordCase.Items.Add("ตัวพิมพ์เล็กทั้งหมด (select)");
@@ -92,17 +98,12 @@ namespace SqlAssist.Settings
             _identityKeep.IsChecked = _settings.Results.InsertIdentity == InsertIdentityMode.KeepValues;
             _identitySkip.IsChecked = _settings.Results.InsertIdentity == InsertIdentityMode.Skip;
             _guardStatus.Text = "สถานะตอนนี้: " + ExecuteGuard.Status;
-            _aiEnabled.IsChecked = _settings.Ai.Enabled;
-            _aiEndpoint.Text = _settings.Ai.Endpoint;
-            _aiModel.Text = _settings.Ai.Model;
-            _aiMask.IsChecked = _settings.Ai.MaskLiterals;
-            _aiDescriptions.IsChecked = _settings.Ai.SendDescriptions;
-            _aiKeyStatus.Text = Ai.AiKeyStore.HasKey ? "มี key แล้ว (พิมพ์ใหม่เพื่อเปลี่ยน)" : "ยังไม่มี key";
 
             // Building the layout needs no UI-thread check: it only creates WPF controls, which is also what lets this window be
             // opened outside SSMS to look at it. Everything that touches SSMS (Save) checks for itself.
 #pragma warning disable VSTHRD010
             Content = BuildLayout();
+            SettingsAppearance.NormalizeDescriptions(this);
 #pragma warning restore VSTHRD010
             _keywordCase.SelectionChanged += (s, e) => Changed();
             _indent.SelectionChanged += (s, e) => Changed();
@@ -114,68 +115,137 @@ namespace SqlAssist.Settings
 
         private UIElement BuildLayout()
         {
-            var root = new DockPanel { Margin = new Thickness(14) };
+            var root = new DockPanel { Margin = new Thickness(20, 12, 20, 16) };
 
-            var buttons = new DockPanel { LastChildFill = false, Margin = new Thickness(0, 12, 0, 0) };
+            var footer = new StackPanel { Margin = new Thickness(0, 14, 0, 0) };
+            footer.Children.Add(new Separator { Margin = new Thickness(0, 0, 0, 10) });
+            var buttons = new DockPanel { LastChildFill = false, Margin = new Thickness(0, 8, 0, 0) };
             // Opens the log in the default editor for .log files, not inside SSMS: this window is modal, so a document opened in
             // SSMS would land behind it.
             var openLog = new Button
             {
-                Content = "เปิดไฟล์ Log", Height = 28, Padding = new Thickness(14, 0, 14, 0), ToolTip = Log.FilePath,
+                Content = "เปิดไฟล์ Log", Height = 36, Padding = new Thickness(14, 0, 14, 0), ToolTip = Log.FilePath,
             };
             openLog.Click += (s, e) => OpenLog();
             DockPanel.SetDock(openLog, Dock.Left);
             buttons.Children.Add(openLog);
-            var cancel = new Button { Content = "ยกเลิก", Width = 90, Height = 28, IsCancel = true };
+            var cancel = new Button { Content = "ยกเลิก", Width = 100, Height = 36, IsCancel = true };
             cancel.Click += (s, e) => DialogResult = false;
             DockPanel.SetDock(cancel, Dock.Right);
             buttons.Children.Add(cancel);
-            var save = new Button { Content = "บันทึก", Width = 90, Height = 28, IsDefault = true, Margin = new Thickness(0, 0, 8, 0) };
+            var save = new Button { Content = "บันทึก", Width = 100, Height = 36, IsDefault = true, Margin = new Thickness(0, 0, 8, 0) };
+            save.SetResourceReference(StyleProperty, "SettingsPrimaryButton");
             save.Click += (s, e) => { ThreadHelper.ThrowIfNotOnUIThread(); Save(); };
             DockPanel.SetDock(save, Dock.Right);
             buttons.Children.Add(save);
-            DockPanel.SetDock(buttons, Dock.Bottom);
-            root.Children.Add(buttons);
 
             var location = new TextBlock
             {
                 Text = "เก็บไว้ที่ " + SettingsProvider.FilePath, Foreground = Brushes.Gray, FontSize = 11,
-                TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 8, 0, 0),
+                TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = SettingsProvider.FilePath,
             };
-            DockPanel.SetDock(location, Dock.Bottom);
-            root.Children.Add(location);
+            footer.Children.Add(location);
+            footer.Children.Add(buttons);
+            DockPanel.SetDock(footer, Dock.Bottom);
+            root.Children.Add(footer);
 
             var tabs = new TabControl();
-            tabs.Items.Add(new TabItem { Header = "จัดรูปแบบ SQL", Content = FormatTab() });
-            tabs.Items.Add(new TabItem { Header = "ตรวจจุดเสี่ยง", Content = RiskTab() });
-            tabs.Items.Add(new TabItem { Header = "Editor", Content = EditorTab() });
-            tabs.Items.Add(new TabItem { Header = "Results", Content = ResultsTab() });
-            tabs.Items.Add(new TabItem { Header = "AI", Content = AiTab() });
+            tabs.Items.Add(new TabItem { Header = "จัดรูปแบบ SQL", Content = OptionsPage(FormatTab()) });
+            tabs.Items.Add(new TabItem { Header = "ตรวจจุดเสี่ยง", Content = OptionsPage(RiskTab()) });
+            tabs.Items.Add(new TabItem { Header = "Editor", Content = OptionsPage(EditorTab()) });
+            tabs.Items.Add(new TabItem { Header = "Results", Content = OptionsPage(ResultsTab()) });
+            var assistantPanel = new StackPanel { Margin = new Thickness(12) };
+            assistantPanel.Children.Add(SqlAssist.Assistant.AssistantUi.Note("จัดการ OpenRouter และ Ollama พร้อมโมเดลและ API Key ที่เข้ารหัสใน Windows Credential Manager"));
+            var openAssistantSettings = SqlAssist.Assistant.AssistantUi.Button("เปิด AI API & Keys…", () =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                try
+                {
+                    DialogHost.ShowDialog(new SqlAssist.Assistant.AssistantSettingsWindow());
+                    _settings.Assistant.ReadXml(SettingsProvider.Load().Assistant.ToXml());
+                }
+                catch (Exception) { SqlAssist.Results.ScriptDelivery.Show("เปิดหน้าจัดการ API/Key ไม่สำเร็จ", "SqlAssist: AI"); }
+            });
+            openAssistantSettings.HorizontalAlignment = HorizontalAlignment.Left;
+            assistantPanel.Children.Add(openAssistantSettings);
+            tabs.Items.Add(new TabItem { Header = "AI Assistant", Content = OptionsPage(new ScrollViewer { Content = assistantPanel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }) });
             root.Children.Add(tabs);
             return root;
         }
 
         private UIElement FormatTab()
         {
-            var root = new DockPanel { Margin = new Thickness(12) };
-            var form = new StackPanel();
-            form.Children.Add(new TextBlock { Text = "Tools › SqlAssist › Format SQL, คลิกขวาใน query editor › Format SQL (SqlAssist) หรือ Ctrl+K, Ctrl+Shift+F", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 10) });
+            var layout = new DockPanel();
+            var usage = new WrapPanel { Margin = new Thickness(14, 10, 14, 10) };
+            usage.Children.Add(new TextBlock { Text = "เรียกใช้: Tools › SqlAssist › Format SQL", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0) });
+            usage.Children.Add(new Border
+            {
+                BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(4), Padding = new Thickness(10, 4, 10, 4),
+                Child = new TextBlock { Text = "Ctrl+K, Ctrl+Shift+F" },
+            });
+            ((Border)usage.Children[1]).SetResourceReference(Border.BorderBrushProperty, EnvironmentColors.ToolWindowBorderBrushKey);
+            var help = new Border { CornerRadius = new CornerRadius(6), Margin = new Thickness(0, 14, 0, 0), Child = usage };
+            help.SetResourceReference(Border.BackgroundProperty, EnvironmentColors.CommandBarMenuBackgroundGradientBrushKey);
+            help.ToolTip = "หรือคลิกขวาใน query editor › Format SQL (SqlAssist)";
+            DockPanel.SetDock(help, Dock.Bottom);
+            layout.Children.Add(help);
+
+            var columns = new Grid();
+            columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2, GridUnitType.Star) });
+            columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
+            columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(3, GridUnitType.Star) });
+            var form = new StackPanel { Margin = new Thickness(18, 16, 18, 16) };
             form.Children.Add(Row("ตัวพิมพ์ของ keyword", _keywordCase));
-            form.Children.Add(Row("ย่อหน้า (จำนวนช่องว่างต่อระดับ)", _indent));
-            var comma = new StackPanel { Orientation = Orientation.Horizontal };
+            form.Children.Add(Row("ย่อหน้า (ช่องว่างต่อระดับ)", _indent));
+            form.Children.Add(new Separator { Margin = new Thickness(0, 2, 0, 14) });
+            var comma = new StackPanel();
             comma.Children.Add(_leading);
             comma.Children.Add(_trailing);
-            form.Children.Add(Row("ตำแหน่งเครื่องหมาย , ในรายการ", comma));
+            form.Children.Add(Row("ตำแหน่งเครื่องหมายจุลภาค", comma));
+            form.Children.Add(new Separator { Margin = new Thickness(0, 2, 0, 14) });
             form.Children.Add(new TextBlock
             {
-                Text = "Keyword ที่เปลี่ยนตัวพิมพ์ได้คือคำสงวนของ T-SQL กับชื่อฟังก์ชัน/ชนิดข้อมูลที่ตำแหน่งบอกชัดว่าไม่ใช่ชื่อ — ชื่อตาราง คอลัมน์ alias, ข้อความใน '...' และชื่อใน [...] ไม่ถูกเปลี่ยนเด็ดขาด",
+                Text = "เปลี่ยนเฉพาะ keyword ชื่อฟังก์ชันและชนิดข้อมูล\nชื่อตาราง คอลัมน์ alias และข้อความยังคงเดิม",
                 TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(0, 6, 0, 10),
             });
-            form.Children.Add(new TextBlock { Text = "ตัวอย่าง", Margin = new Thickness(0, 0, 0, 3) });
-            DockPanel.SetDock(form, Dock.Top);
-            root.Children.Add(form);
-            root.Children.Add(_preview);
-            return root;
+            columns.Children.Add(Section("รูปแบบและการเยื้อง", new ScrollViewer { Content = form, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }));
+            var editor = new Grid();
+            editor.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            editor.ColumnDefinitions.Add(new ColumnDefinition());
+            _lineNumbers.SetResourceReference(Control.BackgroundProperty, EnvironmentColors.ToolWindowBackgroundBrushKey);
+            _lineNumbers.SetResourceReference(Control.ForegroundProperty, EnvironmentColors.ToolWindowTextBrushKey);
+            editor.Children.Add(_lineNumbers);
+            Grid.SetColumn(_preview, 1);
+            _preview.SetResourceReference(Control.BackgroundProperty, EnvironmentColors.ToolWindowBackgroundBrushKey);
+            _preview.SetResourceReference(Control.ForegroundProperty, EnvironmentColors.ToolWindowTextBrushKey);
+            _preview.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler((s, e) =>
+            {
+                if (e.OriginalSource is ScrollViewer scroll) _lineNumbers.ScrollToVerticalOffset(scroll.VerticalOffset);
+            }));
+            editor.Children.Add(_preview);
+            var previewSection = Section("ตัวอย่าง SQL", editor);
+            Grid.SetColumn(previewSection, 2);
+            columns.Children.Add(previewSection);
+            layout.Children.Add(columns);
+            return layout;
+        }
+
+        /// <summary>Options already identifies the current page in its tabs; avoid repeating a breadcrumb.</summary>
+        private static UIElement OptionsPage(UIElement content) => new Border { Margin = new Thickness(0, 18, 0, 0), Child = content };
+
+        /// <summary>Theme-aware section with a fixed heading and independently scrolling content.</summary>
+        private static Border Section(string title, UIElement content)
+        {
+            var panel = new DockPanel();
+            var heading = new Border { Padding = new Thickness(18, 12, 18, 12), BorderThickness = new Thickness(0, 0, 0, 1),
+                Child = new TextBlock { Text = title, FontSize = 15, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap } };
+            heading.SetResourceReference(Border.BorderBrushProperty, EnvironmentColors.ToolWindowBorderBrushKey);
+            DockPanel.SetDock(heading, Dock.Top);
+            panel.Children.Add(heading);
+            panel.Children.Add(content);
+            var section = new Border { BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), Child = panel, ClipToBounds = true };
+            section.SetResourceReference(Border.BorderBrushProperty, EnvironmentColors.ToolWindowBorderBrushKey);
+            return section;
         }
 
         private UIElement RiskTab()
@@ -271,61 +341,12 @@ namespace SqlAssist.Settings
             return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         }
 
-        private UIElement AiTab()
-        {
-            var panel = new StackPanel { Margin = new Thickness(12) };
-            panel.Children.Add(_aiEnabled);
-            panel.Children.Add(Row("Endpoint", _aiEndpoint));
-            panel.Children.Add(Row("Model", _aiModel));
-            var key = new StackPanel { Orientation = Orientation.Horizontal };
-            key.Children.Add(_aiKey);
-            key.Children.Add(_aiKeyStatus);
-            var clearKey = new Button { Content = "ลบ key", Height = 26, Padding = new Thickness(10, 0, 10, 0) };
-            clearKey.Click += (s, e) =>
-            {
-                _aiClearKey = true;
-                _aiKey.Clear();
-                _aiKeyStatus.Text = "จะลบ key เมื่อกดบันทึก";
-            };
-            key.Children.Add(clearKey);
-            panel.Children.Add(Row("API key", key));
-            panel.Children.Add(_aiMask);
-            panel.Children.Add(_aiDescriptions);
-            var resetConsent = new Button
-            {
-                Content = "ถามยืนยันอีกครั้งในการส่งครั้งถัดไป", Height = 26, Padding = new Thickness(12, 0, 12, 0),
-                HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 4, 0, 0),
-                IsEnabled = _settings.Ai.ConsentGiven,
-            };
-            resetConsent.Click += (s, e) =>
-            {
-                _aiResetConsent = true;
-                resetConsent.IsEnabled = false;
-            };
-            panel.Children.Add(resetConsent);
-            panel.Children.Add(new TextBlock
-            {
-                Text = "เลือก SQL ในหน้า query แล้วกด Tools › SqlAssist › Explain SQL (AI)… หรือคลิกขวา › Explain SQL (SqlAssist AI)… จะได้คำอธิบายเป็นภาษาไทย " +
-                       "และรายการจุดที่น่าจะผิดหรือช้า (คลิกเพื่อไปที่บรรทัดนั้น) SqlAssist ไม่รัน SQL ให้\n\n" +
-                       "เมื่อเปิดใช้ SqlAssist จะส่งข้อความ SQL ที่คุณเลือก และชื่อตาราง/คอลัมน์/ชนิดข้อมูลของตารางที่ SQL นั้นอ้างถึง (เฉพาะที่โหลดไว้แล้ว) ไปยัง endpoint ด้านบน " +
-                       "ไม่ส่งข้อมูลในตาราง ผลลัพธ์ query ชื่อ server ชื่อ database หรือ login\n" +
-                       "comment ใน SQL ถูกส่งไปตามเดิม ถ้ามีข้อมูลที่ไม่ควรออกนอกองค์กร ให้ลบออกก่อน\n\n" +
-                       "ครั้งแรกที่ส่งจะแสดงข้อความทั้งหมดที่จะส่งให้ดูก่อน API key เก็บที่ " + Ai.AiKeyStore.FilePath + " เข้ารหัสด้วย Windows (DPAPI) " +
-                       "อ่านได้เฉพาะ user นี้บนเครื่องนี้ และไม่เขียนลง log ค่าใช้จ่ายของการเรียก API คิดกับบัญชีของ key นั้น",
-                TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(0, 12, 0, 0),
-            });
-            return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
-        }
-
         private static UIElement Row(string label, UIElement control)
         {
-            var row = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
-            var text = new TextBlock { Text = label, Width = 230, VerticalAlignment = VerticalAlignment.Center };
-            DockPanel.SetDock(text, Dock.Left);
+            var row = new StackPanel { Margin = new Thickness(0, 0, 0, 20), HorizontalAlignment = HorizontalAlignment.Stretch };
+            var text = new TextBlock { Text = label, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 6) };
             row.Children.Add(text);
-            var holder = new StackPanel { Orientation = Orientation.Horizontal };
-            holder.Children.Add(control);
-            row.Children.Add(holder);
+            row.Children.Add(control);
             return row;
         }
 
@@ -385,7 +406,41 @@ namespace SqlAssist.Settings
         {
             if (_loading) return;
             var result = SqlFormatter.Format(Sample, Chosen());
-            _preview.Text = result.IsSuccess ? result.Text : result.Error;
+            var text = result.IsSuccess ? result.Text : result.Error;
+            var paragraph = new Paragraph { Margin = new Thickness(0), LineHeight = 21, LineStackingStrategy = LineStackingStrategy.BlockLineHeight };
+            int position = 0;
+            foreach (var token in SqlTokenizer.Tokenize(text))
+            {
+                if (token.Start > position) paragraph.Inlines.Add(new Run(text.Substring(position, token.Start - position)));
+                var run = new Run(token.Text);
+                if (token.Kind == TokenKind.Word && PreviewKeywords.Contains(token.Text))
+                {
+                    run.SetResourceReference(TextElement.ForegroundProperty, SystemColors.HighlightBrushKey);
+                    run.FontWeight = FontWeights.SemiBold;
+                }
+                else if (token.Kind == TokenKind.Comment) run.SetResourceReference(TextElement.ForegroundProperty, SystemColors.GrayTextBrushKey);
+                paragraph.Inlines.Add(run);
+                position = token.End;
+            }
+            if (position < text.Length) paragraph.Inlines.Add(new Run(text.Substring(position)));
+            // Fit the actual longest sample line; reserve horizontal scrolling for smaller windows.
+            var measure = new FormattedText(text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+                new Typeface(_preview.FontFamily, FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal), _preview.FontSize,
+                Brushes.Black, VisualTreeHelper.GetDpi(_preview).PixelsPerDip);
+            _preview.Document = new FlowDocument(paragraph)
+            {
+                PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity,
+                PageWidth = Math.Max(600, Math.Ceiling(measure.WidthIncludingTrailingWhitespace) + 60),
+            };
+            int count = text.Split('\n').Length;
+            var numbers = new System.Text.StringBuilder();
+            for (int line = 1; line <= count; line++) { if (line > 1) numbers.Append('\n'); numbers.Append(line); }
+            _lineNumbers.Document = new FlowDocument(new Paragraph(new Run(numbers.ToString()))
+            {
+                Margin = new Thickness(0), LineHeight = 21, LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
+                TextAlignment = TextAlignment.Right,
+            }) { PagePadding = new Thickness(0) };
+            _preview.ScrollToHome();
         }
 
         private void Save()
@@ -407,20 +462,7 @@ namespace SqlAssist.Settings
                 _settings.Editor.ShowParameterHints = _parameterHints.IsChecked == true;
                 _settings.Editor.LearnFromUsage = _learnFromUsage.IsChecked == true;
                 _settings.Results.InsertIdentity = _identitySkip.IsChecked == true ? InsertIdentityMode.Skip : InsertIdentityMode.KeepValues;
-                _settings.Ai.Enabled = _aiEnabled.IsChecked == true;
-                _settings.Ai.Endpoint = AiOptions.CleanEndpoint(_aiEndpoint.Text);
-                _settings.Ai.Model = AiOptions.CleanModel(_aiModel.Text);
-                _settings.Ai.MaskLiterals = _aiMask.IsChecked == true;
-                _settings.Ai.SendDescriptions = _aiDescriptions.IsChecked == true;
-                if (_aiResetConsent) _settings.Ai.ConsentGiven = false;
-                if (!string.IsNullOrWhiteSpace(_aiKey.Password)) Ai.AiKeyStore.Save(_aiKey.Password);
-                else if (_aiClearKey) Ai.AiKeyStore.Save(null);
                 SettingsProvider.Save(_settings);
-
-                if (!string.IsNullOrWhiteSpace(_aiEndpoint.Text) && _settings.Ai.Endpoint != _aiEndpoint.Text.Trim())
-                    MessageBox.Show(this, "Endpoint ต้องขึ้นต้นด้วย https:// จึงใช้ค่าเริ่มต้นแทน: " + _settings.Ai.Endpoint, Title, MessageBoxButton.OK, MessageBoxImage.Warning);
-                if (_settings.Ai.Enabled && !Ai.AiKeyStore.HasKey)
-                    MessageBox.Show(this, "เปิดใช้ Explain SQL แล้ว แต่ยังไม่มี API key จึงยังใช้ไม่ได้", Title, MessageBoxButton.OK, MessageBoxImage.Information);
 
                 ExecuteGuard.Apply(_settings.Risk);
                 if (_settings.Risk.WarnBeforeExecute && !ExecuteGuard.IsHooked)

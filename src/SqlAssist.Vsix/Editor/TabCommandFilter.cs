@@ -364,12 +364,11 @@ namespace SqlAssist.Editor
             if (star == null) return false;
 
             var target = EditorConnection.Get(window);
-            if (target == null)
-            {
-                Log.Info("SELECT * expansion skipped: no connected query window");
-                return false;
-            }
-            var schema = ThreadHelper.JoinableTaskFactory.Run(() => SchemaCache.Instance.GetAsync(target, StarSchemaWait, CancellationToken.None));
+            var locals = EditorLocalTables.At(caret);
+            var schema = (star.Tables.All(r => SqlAssist.Core.Schema.SchemaModel.IsLocalName(r.Name))
+                ? SqlAssist.Core.Schema.SchemaModel.Empty
+                : ThreadHelper.JoinableTaskFactory.Run(() => SchemaCache.Instance.GetAsync(target, StarSchemaWait, CancellationToken.None)))
+                .WithLocalTables(locals);
             var span = new SnapshotSpan(caret.Snapshot, window.Offset + star.ReplaceStart, star.ReplaceEnd - star.ReplaceStart);
 
             // One column per line with leading commas, aligned under the first column.

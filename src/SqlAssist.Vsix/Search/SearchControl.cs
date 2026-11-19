@@ -135,6 +135,11 @@ namespace SqlAssist.Search
 
         public SearchControl()
         {
+            // Share only the button style with Options; preserve Search's original layout and other controls.
+            var appearance = new ResourceDictionary
+            { Source = new Uri("/SqlAssist;component/Settings/SettingsTheme.xaml", UriKind.Relative) };
+            Resources[typeof(Button)] = appearance[typeof(Button)];
+            Resources["SearchDatabaseFilterStyle"] = appearance[typeof(TextBox)];
             SetResourceReference(BackgroundProperty, EnvironmentColors.ToolWindowBackgroundBrushKey);
             SetResourceReference(TextElement.ForegroundProperty, EnvironmentColors.ToolWindowTextBrushKey);
             TextElement.SetFontFamily(this, new FontFamily("Segoe UI"));
@@ -144,7 +149,9 @@ namespace SqlAssist.Search
             _timer.Tick += (s, e) => { _timer.Stop(); StartSearch(); };
 
             // One toolbar, dbForge style: [options ▾] [search box] [object types ▾] [database ▾] [server ▾] [Refresh].
-            _searchBox = new TextBox { MinWidth = 160, Margin = new Thickness(0, 0, 6, 0), VerticalContentAlignment = VerticalAlignment.Center };
+            _searchBox = new TextBox { MinWidth = 160, Margin = new Thickness(0, 0, 6, 0),
+                Padding = new Thickness(10, 0, 10, 0), VerticalContentAlignment = VerticalAlignment.Center };
+            _searchBox.SetResourceReference(StyleProperty, "SearchDatabaseFilterStyle");
             _searchBox.TextChanged += (s, e) => Schedule();
             _searchBox.PreviewKeyDown += OnSearchKey;
 
@@ -156,7 +163,7 @@ namespace SqlAssist.Search
             _databasesButton.Click += (s, e) => ThreadHelper.JoinableTaskFactory.RunAsync(ShowDatabaseMenuAsync).FileAndForget("SqlAssist/Search/Databases");
             _serverButton = new DropDownButton(170, "Server: the active query window's, or one used earlier this session") { Margin = new Thickness(0, 0, 6, 0) };
             _serverButton.Click += (s, e) => ShowServerMenu();
-            var refresh = new Button { Content = "Refresh", Padding = new Thickness(8, 1, 8, 1), ToolTip = "Reload the search index from the server" };
+            var refresh = new Button { Content = "Refresh", Padding = new Thickness(12, 0, 12, 0), ToolTip = "Reload the search index from the server" };
             refresh.Click += (s, e) => { SearchIndexCache.Instance.Clear(); _databases = null; StartSearch(); };
             UpdateTypesButton();
 
@@ -170,6 +177,14 @@ namespace SqlAssist.Search
                 searchRow.Children.Add(e);
             }
             searchRow.Children.Add(_searchBox);
+            // Fixed metrics prevent the host's native text field and themed buttons from sizing differently.
+            foreach (Control control in searchRow.Children)
+            {
+                control.MinHeight = 24;
+                control.Height = 24;
+                control.FontSize = 13;
+                control.VerticalAlignment = VerticalAlignment.Center;
+            }
 
             _status = new TextBlock { Margin = new Thickness(6, 0, 6, 4), Opacity = 0.8, TextTrimming = TextTrimming.CharacterEllipsis };
 
@@ -239,8 +254,16 @@ namespace SqlAssist.Search
             }));
         }
 
-        private static ContextMenu MenuFor(FrameworkElement owner) =>
-            new ContextMenu { PlacementTarget = owner, Placement = PlacementMode.Bottom, MinWidth = owner.ActualWidth };
+        /// <summary>Rounded dropdown menus share the reference appearance without restyling SSMS menus.</summary>
+        private static ContextMenu MenuFor(FrameworkElement owner)
+        {
+            var menu = new ContextMenu { PlacementTarget = owner, Placement = PlacementMode.Bottom,
+                MinWidth = owner.ActualWidth + 16, HorizontalOffset = -8, VerticalOffset = -6 };
+            menu.Resources.MergedDictionaries.Add(new ResourceDictionary
+            { Source = new Uri("/SqlAssist;component/Search/SearchDropdownTheme.xaml", UriKind.Relative) });
+            menu.SetResourceReference(StyleProperty, typeof(ContextMenu));
+            return menu;
+        }
 
         /// <summary>A check item whose text is shown as-is. A plain string Header treats "_" as an access-key marker,
         /// so AIP_Budget would show as AIPBudget. The raw text is kept in Tag.</summary>
@@ -809,7 +832,22 @@ namespace SqlAssist.Search
                 if (_server?.ServerKey == server.ServerKey) _databases = databases;
             }
 
+            if (_server?.ServerKey != server.ServerKey) return;
+            BuildDatabaseMenu(databases).IsOpen = true;
+        }
+
+        /// <summary>Filters database suggestions without changing the selected database set.</summary>
+        private ContextMenu BuildDatabaseMenu(IEnumerable<string> databases)
+        {
             var menu = MenuFor(_databasesButton);
+            menu.MinWidth = Math.Max(280, menu.MinWidth);
+            menu.MaxHeight = Math.Max(200, SystemParameters.WorkArea.Height * 0.7);
+            var filter = new TextBox { MinWidth = 230, Height = 32, FontSize = 13, Padding = new Thickness(10, 0, 10, 0), Margin = new Thickness(0, 3, 0, 6),
+                ToolTip = "พิมพ์ชื่อ Database เพื่อกรองรายการ" };
+            filter.SetResourceReference(StyleProperty, "SearchDatabaseFilterStyle");
+            System.Windows.Automation.AutomationProperties.SetName(filter, "ค้นหา Database");
+            menu.Items.Add(new MenuItem { Header = filter, StaysOpenOnClick = true, Focusable = false,
+                Style = (Style)menu.FindResource("SearchDropdownEditor") });
             var all = new MenuItem { Header = "All databases", IsCheckable = true, IsChecked = _allDatabases, StaysOpenOnClick = true };
             menu.Items.Add(all);
             menu.Items.Add(new Separator());
@@ -841,7 +879,36 @@ namespace SqlAssist.Search
                 UpdateDatabasesButton();
                 StartSearch();
             };
-            menu.IsOpen = true;
+            var empty = new MenuItem { Header = "ไม่พบฐานข้อมูล", IsEnabled = false, Visibility = dbItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed };
+            menu.Items.Add(empty);
+            filter.TextChanged += (s, e) =>
+            {
+                bool any = false;
+                foreach (var item in dbItems)
+                {
+                    bool matches = ((string)item.Tag).IndexOf(filter.Text.Trim(), StringComparison.OrdinalIgnoreCase) >= 0;
+                    item.Visibility = matches ? Visibility.Visible : Visibility.Collapsed;
+                    any |= matches;
+                }
+                empty.Visibility = any ? Visibility.Collapsed : Visibility.Visible;
+            };
+            filter.PreviewKeyDown += (s, e) =>
+            {
+                if (e.Key != Key.Down && e.Key != Key.Enter) return;
+                var first = dbItems.FirstOrDefault(item => item.Visibility == Visibility.Visible);
+                if (first != null)
+                {
+                    if (e.Key == Key.Down) first.Focus();
+                    else
+                    {
+                        first.IsChecked = !first.IsChecked;
+                        first.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                    }
+                }
+                e.Handled = true;
+            };
+            menu.Opened += (s, e) => { filter.Focus(); Keyboard.Focus(filter); };
+            return menu;
         }
 
         private void SetStatus(string text) => _status.Text = text;
@@ -926,13 +993,18 @@ namespace SqlAssist.Search
         {
             Width = width;
             ToolTip = toolTip;
-            Padding = new Thickness(4, 1, 2, 1);
+            SetResourceReference(StyleProperty, typeof(Button));
+            Padding = new Thickness(8, 0, 6, 0);
+            _label.MaxWidth = Math.Max(16, width - 36);
             HorizontalContentAlignment = HorizontalAlignment.Stretch;
-            SetResourceReference(BackgroundProperty, EnvironmentColors.ComboBoxBackgroundBrushKey);
-            SetResourceReference(ForegroundProperty, EnvironmentColors.ComboBoxTextBrushKey);
-            SetResourceReference(BorderBrushProperty, EnvironmentColors.ComboBoxBorderBrushKey);
+            SetResourceReference(BackgroundProperty, EnvironmentColors.ToolWindowBackgroundBrushKey);
+            SetResourceReference(ForegroundProperty, EnvironmentColors.ToolWindowTextBrushKey);
+            SetResourceReference(BorderBrushProperty, EnvironmentColors.ToolWindowBorderBrushKey);
 
-            var arrow = new TextBlock { Text = "▾", Margin = new Thickness(4, 0, 2, 0), VerticalAlignment = VerticalAlignment.Center };
+            var arrow = new System.Windows.Shapes.Path { Data = Geometry.Parse("M 0,0 L 4,4 L 8,0"),
+                StrokeThickness = 1.5, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round,
+                Width = 8, Height = 5, Margin = new Thickness(6, 0, 2, 0), VerticalAlignment = VerticalAlignment.Center };
+            arrow.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, EnvironmentColors.ToolWindowTextBrushKey);
             var panel = new DockPanel { LastChildFill = true };
             DockPanel.SetDock(arrow, Dock.Right);
             panel.Children.Add(arrow);
