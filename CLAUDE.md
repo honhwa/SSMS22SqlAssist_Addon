@@ -37,6 +37,9 @@ dotnet build src\SqlAssist.Vsix -c Release      # -> src\SqlAssist.Vsix\bin\Rele
   `publish-release.ps1` refuses to publish without the version's section and uses it (plus any unreleased versions
   since the previous release) as the text on the GitHub Releases page; `-UpdateNotes [-ForVersion x.y.z]` rewrites
   an existing release's text.
+- **Every release also gets an entry in `REVISION_HISTORY.md`** (Thai, a short per-version summary of the CHANGELOG
+  section): a row at the top of the table plus a `## x.y.z - YYYY-MM-DD` section above the previous one.
+  `publish-release.ps1` refuses to publish a version that has no `## x.y.z - ` heading there.
 - Building needs no SSMS installed. Debugging: SSMS 22 has no experimental instance — install the extension first,
   then F5 (start program is `Ssms.exe /log`) or attach.
 - Runtime log: `%LOCALAPPDATA%\SqlAssist\SqlAssist.log` (Tools › SqlAssist › Options… › the Open Log button, which opens it in the default `.log` editor). User files:

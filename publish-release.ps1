@@ -29,6 +29,13 @@ $sections = [regex]::Matches($changelog, "(?ms)^## \[(\d+\.\d+\.\d+)\]([^\r\n]*)
 if (-not ($sections | Where-Object { $_.Groups[1].Value -eq $version -and $_.Groups[3].Value.Trim() })) {
     throw "CHANGELOG.md has no section for [$version] - add one first."
 }
+# Every new release also gets a short entry in REVISION_HISTORY.md ("## x.y.z - date").
+if (-not $UpdateNotes) {
+    $history = Get-Content (Join-Path $root "REVISION_HISTORY.md") -Raw -Encoding UTF8
+    if ($history -notmatch "(?m)^## $([regex]::Escape($version)) - ") {
+        throw "REVISION_HISTORY.md has no entry for $version - add one first."
+    }
+}
 # Parenthesised so the JSON array is unrolled: PowerShell 7 pipes Invoke-RestMethod's array as one object.
 $previous = (Invoke-RestMethod "$api/releases?per_page=100" -Headers $headers) |
     Where-Object { -not $_.draft -and $_.tag_name -match '^v?\d+\.\d+\.\d+$' } |
